@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 
 const OnboardingWizard = dynamic(
-  () => import('../../components/onboarding-wizard'),
+  () => import('@/components/onboarding-wizard'),
   { ssr: false }
 );
 

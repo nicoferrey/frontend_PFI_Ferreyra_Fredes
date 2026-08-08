@@ -7,6 +7,7 @@ import {
   Trash2, Sprout, Layers3, Droplet, CheckCircle, Info 
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
+import { createFieldApi } from '@/lib/api';
 
 interface Lot {
   id: string;
@@ -185,17 +186,51 @@ export default function OnboardingWizard() {
   };
 
   // Complete onboarding flow, save results and redirect
-  const handleFinish = () => {
+  const handleFinish = async () => {
     setIsFinishing(true);
     
-    // Save to localStorage
+    // Save to localStorage as immediate offline cache
     localStorage.setItem('agromas_lots', JSON.stringify(lots));
     localStorage.setItem('agromas_center', JSON.stringify(center));
 
-    // Simulate setup configuration & redirect
+    // Persist each lot to the backend database via POST /api/v1/fields
+    try {
+      for (const [idx, lot] of lots.entries()) {
+        // Convert [lat, lng] to standard GeoJSON [lng, lat]
+        const geojsonCoords = lot.polygon.map(([lat, lng]) => [lng, lat]);
+        
+        // Ensure closed ring in GeoJSON polygon
+        if (geojsonCoords.length > 0) {
+          const first = geojsonCoords[0];
+          const last = geojsonCoords[geojsonCoords.length - 1];
+          if (first[0] !== last[0] || first[1] !== last[1]) {
+            geojsonCoords.push([first[0], first[1]]);
+          }
+        }
+
+        await createFieldApi({
+          name: lot.name || `Lote ${idx + 1}`,
+          geometry_geojson: {
+            type: 'Polygon',
+            coordinates: [geojsonCoords]
+          },
+          area_ha: parseFloat(lot.area.toFixed(2)),
+          soil_type: lot.soil,
+          crop_type: lot.crop,
+          irrigation_system: lot.irrigation,
+          field_capacity_fc: lot.fc,
+          wilting_point_wp: lot.wp,
+          total_available_water_taw: lot.taw
+        });
+      }
+    } catch (err) {
+      console.warn('Backend field sync error during onboarding:', err);
+    }
+
+    // Redirect to Dashboard
     setTimeout(() => {
       router.push('/');
-    }, 2000);
+    }, 1800);
   };
 
   const currentSelectedLot = lots.find((l) => l.id === selectedLotId);

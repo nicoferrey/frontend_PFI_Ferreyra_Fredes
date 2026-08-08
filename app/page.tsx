@@ -12,6 +12,7 @@ import {
   Filter,
   Layers3,
   Leaf,
+  LogOut,
   MapPinned,
   PanelLeftClose,
   Search,
@@ -19,14 +20,16 @@ import {
   Sprout,
   SunMedium,
   Truck,
+  UserCircle,
   Waves,
   Wind,
 } from 'lucide-react';
-import { Fao56LotDetail } from '../components/fao56-lot-detail';
+import { Fao56LotDetail } from '@/components/fao56-lot-detail';
+import { useAuth } from '@/lib/auth-context';
 
 // Load DashboardMap only on client side to prevent Leaflet SSR errors
 const DashboardMap = dynamic(
-  () => import('../components/dashboard-map'),
+  () => import('@/components/dashboard-map'),
   { ssr: false }
 );
 
@@ -59,12 +62,53 @@ const sustainability = [
 const layers = ['NDVI', 'Humedad', 'Riego', 'Lotes', 'Clima'];
 
 export default function DashboardPage() {
+  const auth = useAuth();
   const [activeLots, setActiveLots] = useState(defaultLotes);
   const [hasCustomLots, setHasCustomLots] = useState(false);
   const [customCenter, setCustomCenter] = useState<[number, number]>([-33.8906, -60.5732]);
   const [rawCustomLots, setRawCustomLots] = useState<any[]>([]);
 
+  const currentUser = auth.user;
+
   useEffect(() => {
+    // 1. If backend has returned saved fields from /api/v1/users/me
+    if (auth.fields && auth.fields.length > 0) {
+      setHasCustomLots(true);
+      const convertedLots = auth.fields.map((f) => {
+        const coords = f.geometry_geojson?.coordinates?.[0] || [];
+        const polygon = coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+        return {
+          id: String(f.id),
+          name: f.name,
+          polygon,
+          area: f.area_ha || 0,
+          crop: f.crop_type,
+          soil: f.soil_type || 'Franco',
+          irrigation: f.irrigation_system,
+          fc: f.field_capacity_fc,
+          wp: f.wilting_point_wp,
+          taw: f.total_available_water_taw
+        };
+      });
+      setRawCustomLots(convertedLots);
+
+      const mapped = auth.fields.map((f, idx) => ({
+        name: f.name,
+        crop: `${f.crop_type} (${f.irrigation_system})`,
+        ndvi: idx % 2 === 0 ? 'Alto' : 'Medio',
+        water: (0.45 + (idx * 0.11) % 0.4).toFixed(2),
+        stress: idx % 3 === 0 ? 'Bajo' : idx % 3 === 1 ? 'Moderado' : 'Alto',
+        status: idx % 3 === 0 ? 'Estable' : idx % 3 === 1 ? 'Monitoreo' : 'Revisar'
+      }));
+      setActiveLots(mapped);
+
+      if (auth.fields[0]?.center_latitude && auth.fields[0]?.center_longitude) {
+        setCustomCenter([auth.fields[0].center_latitude, auth.fields[0].center_longitude]);
+      }
+      return;
+    }
+
+    // 2. Offline fallback from localStorage
     const savedLots = localStorage.getItem('agromas_lots');
     const savedCenter = localStorage.getItem('agromas_center');
 
@@ -95,7 +139,7 @@ export default function DashboardPage() {
         setCustomCenter(JSON.parse(savedCenter));
       } catch (err) {}
     }
-  }, []);
+  }, [auth.fields]);
 
   const handleClearLots = () => {
     localStorage.removeItem('agromas_lots');
@@ -103,6 +147,10 @@ export default function DashboardPage() {
     setActiveLots(defaultLotes);
     setHasCustomLots(false);
     setRawCustomLots([]);
+  };
+
+  const handleLogout = () => {
+    auth.logout();
   };
 
   return (
@@ -135,7 +183,7 @@ export default function DashboardPage() {
             </nav>
 
             {/* Onboarding Trigger Button */}
-            <div className="mt-5 pt-4 border-t border-slate-200/80">
+            <div className="mt-5 pt-4 border-t border-slate-200/80 space-y-2">
               <Link 
                 href="/onboarding" 
                 className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white rounded-2xl py-3 px-4 text-xs font-bold shadow-md hover:shadow-lg transition duration-200"
@@ -147,7 +195,7 @@ export default function DashboardPage() {
               {hasCustomLots && (
                 <button
                   onClick={handleClearLots}
-                  className="mt-2.5 flex items-center justify-center gap-2 w-full bg-slate-200/50 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl py-2 px-4 text-[11px] font-semibold border border-transparent hover:border-rose-200 transition duration-200"
+                  className="flex items-center justify-center gap-2 w-full bg-slate-200/50 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl py-2 px-4 text-[11px] font-semibold border border-transparent hover:border-rose-200 transition duration-200"
                 >
                   Restaurar Demos
                 </button>
@@ -155,20 +203,58 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-[24px] bg-slate-950 p-5 text-white shadow-lg">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Estado del sistema</p>
-            <div className="mt-4 space-y-4 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-300">Fuentes satelitales</span>
-                <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs text-emerald-300">OK</span>
+          {/* User Profile Card & System Status */}
+          <div className="space-y-3">
+            {currentUser ? (
+              <div className="rounded-[24px] bg-slate-900 border border-slate-800 p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold text-xs">
+                      {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'AG'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate max-w-[130px]">
+                        {currentUser.name || 'Productor'}
+                      </p>
+                      <p className="text-[10px] text-emerald-400 capitalize">
+                        {currentUser.role === 'admin' ? 'Administrador' : currentUser.role === 'agronomist' ? 'Asesor Agronómico' : 'Operario'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    title="Cerrar sesión"
+                    className="p-2 hover:bg-rose-500/10 rounded-xl text-slate-400 hover:text-rose-400 transition"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-300">Modelo FAO-56</span>
-                <span className="rounded-full bg-water-500/15 px-2.5 py-1 text-xs text-water-300">Actualizado</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-300">MAS orquestacion</span>
-                <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs text-amber-300">7 eventos</span>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center justify-center gap-2 w-full rounded-[24px] bg-slate-900 hover:bg-slate-800 border border-slate-700/60 p-3.5 text-white text-xs font-bold shadow-lg transition"
+              >
+                <UserCircle className="h-4 w-4 text-emerald-400" />
+                Iniciar Sesión / Registro
+              </Link>
+            )}
+
+            <div className="rounded-[24px] bg-slate-950 p-4 text-white shadow-lg">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
+              <div className="mt-3 space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300">Fuentes satelitales</span>
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">OK</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300">Modelo FAO-56</span>
+                  <span className="rounded-full bg-water-500/15 px-2 py-0.5 text-[10px] text-water-300">Actualizado</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300">MAS orquestación</span>
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300">7 eventos</span>
+                </div>
               </div>
             </div>
           </div>
@@ -197,6 +283,25 @@ export default function DashboardPage() {
                   <CalendarRange className="h-4 w-4" />
                   Últimos 7 días
                 </button>
+                
+                {currentUser ? (
+                  <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold text-xs">
+                      {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-800 hidden sm:inline max-w-[120px] truncate">
+                      {currentUser.name ? currentUser.name.split(' ')[0] : 'Usuario'}
+                    </span>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="flex items-center gap-1.5 rounded-2xl bg-slate-950 hover:bg-slate-800 px-4 py-3 text-xs font-bold text-white shadow-sm transition"
+                  >
+                    <UserCircle className="h-4 w-4 text-emerald-400" />
+                    Iniciar Sesión
+                  </Link>
+                )}
               </div>
             </div>
           </header>
