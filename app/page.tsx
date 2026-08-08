@@ -25,6 +25,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { Fao56LotDetail } from '@/components/fao56-lot-detail';
+import { Topbar } from '@/components/topbar';
 import { useAuth } from '@/lib/auth-context';
 
 // Load DashboardMap only on client side to prevent Leaflet SSR errors
@@ -262,7 +263,16 @@ export default function DashboardPage() {
 
         {/* Main Content */}
         <section className="flex min-w-0 flex-1 flex-col gap-6">
-          <header className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
+          {/* Top Bar Component */}
+          <Topbar 
+            breadcrumbs={[
+              { label: 'Inicio', href: '/' },
+              { label: 'Monitoreo de Lotes', active: true }
+            ]}
+          />
+
+          {/* Subheader / Page Title & Quick Actions */}
+          <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center gap-3">
                 <Link href="/onboarding" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm xl:hidden">
@@ -275,36 +285,17 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500">
                   <Search className="h-4 w-4" />
                   <span>Buscar lote, cultivo o alerta</span>
                 </div>
-                <button className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm">
+                <button className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
                   <CalendarRange className="h-4 w-4" />
                   Últimos 7 días
                 </button>
-                
-                {currentUser ? (
-                  <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold text-xs">
-                      {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
-                    </div>
-                    <span className="text-xs font-semibold text-slate-800 hidden sm:inline max-w-[120px] truncate">
-                      {currentUser.name ? currentUser.name.split(' ')[0] : 'Usuario'}
-                    </span>
-                  </div>
-                ) : (
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-1.5 rounded-2xl bg-slate-950 hover:bg-slate-800 px-4 py-3 text-xs font-bold text-white shadow-sm transition"
-                  >
-                    <UserCircle className="h-4 w-4 text-emerald-400" />
-                    Iniciar Sesión
-                  </Link>
-                )}
               </div>
             </div>
-          </header>
+          </div>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {kpis.map((item) => {
