@@ -367,8 +367,8 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[linear-gradient(180deg,#f7f6f1_0%,#eef2eb_100%)] text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 p-4 lg:p-6">
         
-        {/* SIDEBAR NAVIGATION (5 Exact Options) */}
-        <aside className="hidden w-[280px] shrink-0 flex-col rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur xl:flex justify-between">
+        {/* SIDEBAR NAVIGATION (Fixed Viewport Height & Sticky) */}
+        <aside className="hidden w-[280px] shrink-0 sticky top-4 lg:top-6 h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex-col rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur xl:flex justify-between overflow-y-auto">
           <div>
             
             {/* Logo & Brand */}
@@ -427,44 +427,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* User Profile Card & System Status in Sidebar */}
-          <div className="space-y-3">
-            {currentUser ? (
-              <div className="rounded-[24px] bg-slate-900 border border-slate-800 p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f43f5e] text-white font-bold text-xs shadow-sm">
-                      {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'AG'}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate max-w-[120px]">
-                        {currentUser.name || 'Productor'}
-                      </p>
-                      <p className="text-[10px] text-emerald-400 capitalize">
-                        {currentUser.role === 'admin' ? 'Administrador' : currentUser.role === 'agronomist' ? 'Asesor Agronómico' : 'Operario'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => auth.logout()}
-                    title="Cerrar sesión"
-                    className="p-2 hover:bg-rose-500/10 rounded-xl text-slate-400 hover:text-rose-400 transition"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="flex items-center justify-center gap-2 w-full rounded-[24px] bg-slate-900 hover:bg-slate-800 border border-slate-700/60 p-3.5 text-white text-xs font-bold shadow-lg transition"
-              >
-                <UserCircle className="h-4 w-4 text-emerald-400" />
-                Iniciar Sesión / Registro
-              </Link>
-            )}
-
-            {/* Micro System Health Monitor */}
+          {/* System Status in Sidebar (User is in Topbar) */}
+          <div className="space-y-3 pt-4 border-t border-slate-200/80">
             <div className="rounded-[24px] bg-slate-950 p-4 text-white shadow-lg">
               <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
               <div className="mt-3 space-y-2 text-xs">
