@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   AlertTriangle,
+  Bot,
   CalendarRange,
   ChevronRight,
   CircleGauge,
   Droplets,
+  FileSpreadsheet,
+  FileText,
   Filter,
+  History,
+  Home,
   Layers3,
   Leaf,
   LogOut,
+  Map,
   MapPinned,
   PanelLeftClose,
   Search,
+  Settings,
   ShieldAlert,
+  Sliders,
+  Sparkles,
   Sprout,
   SunMedium,
   Truck,
@@ -25,6 +34,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { Fao56LotDetail } from '@/components/fao56-lot-detail';
+import { LotDetailView, LotHydricData } from '@/components/lot-detail-view';
 import { Topbar } from '@/components/topbar';
 import { useAuth } from '@/lib/auth-context';
 
@@ -34,133 +44,334 @@ const DashboardMap = dynamic(
   { ssr: false }
 );
 
+export type MenuTab = 'dashboard' | 'mapa_lotes' | 'historial' | 'asistente_ia' | 'configuracion';
+
+const navigationItems = [
+  { id: 'dashboard' as MenuTab, label: 'Inicio / Dashboard', icon: Home },
+  { id: 'mapa_lotes' as MenuTab, label: 'Mapa de Lotes', icon: Map },
+  { id: 'historial' as MenuTab, label: 'Historial y Reportes', icon: History },
+  { id: 'asistente_ia' as MenuTab, label: 'Asistente IA', icon: Bot, badge: 'MAS' },
+  { id: 'configuracion' as MenuTab, label: 'Configuración', icon: Settings },
+];
+
 const kpis = [
-  { title: 'Lotes monitoreados', value: '48', delta: '+6 hoy', icon: MapPinned, tone: 'text-crop-700 bg-crop-100' },
-  { title: 'Alertas activas', value: '7', delta: '2 criticas', icon: AlertTriangle, tone: 'text-amber-700 bg-amber-100' },
-  { title: 'Agua optimizada', value: '18.4%', delta: 'vs. semana anterior', icon: Droplets, tone: 'text-water-700 bg-water-100' },
-  { title: 'Eficiencia MAS', value: '92%', delta: 'decisiones en tiempo', icon: CircleGauge, tone: 'text-sky-700 bg-sky-100' },
+  { title: 'Lotes monitoreados', value: '4', delta: '+1 este ciclo', icon: MapPinned, tone: 'text-crop-700 bg-crop-100 dark:bg-crop-950 dark:text-crop-300' },
+  { title: 'Alertas activas', value: '2', delta: '1 crítica en Lote Sur', icon: AlertTriangle, tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300' },
+  { title: 'Agua optimizada', value: '18.4%', delta: 'vs. método tradicional', icon: Droplets, tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300' },
+  { title: 'Eficiencia MAS', value: '92%', delta: 'decisiones en ventana óptima', icon: CircleGauge, tone: 'text-sky-700 bg-sky-100 dark:bg-sky-950 dark:text-sky-300' },
 ];
 
-const defaultLotes = [
-  { name: 'Lote Norte', crop: 'Soja 2da', ndvi: 'Alto', water: '0.78', stress: 'Bajo', status: 'Estable' },
-  { name: 'Lote Centro', crop: 'Maiz tardio', ndvi: 'Medio', water: '0.61', stress: 'Moderado', status: 'Monitoreo' },
-  { name: 'Lote Sur', crop: 'Trigo', ndvi: 'Bajo', water: '0.42', stress: 'Alto', status: 'Riesgo' },
-  { name: 'Lote Este', crop: 'Girasol', ndvi: 'Medio', water: '0.67', stress: 'Moderado', status: 'Revisar' },
+// Rich baseline dataset for default lots with full FAO-56 metrics
+const initialMockLots: LotHydricData[] = [
+  {
+    id: 'lote-1',
+    name: 'Lote Norte',
+    crop: 'Soja 2da',
+    areaHa: 65,
+    soilType: 'Franco Limoso',
+    irrigationSystem: 'Pivote Central',
+    hydricStatus: 'Normal',
+    deficitDr_mm: 14.2,
+    waterAvailableAU_mm: 85.8,
+    waterAvailableAU_pct: 86,
+    easilyAvailableAFD_mm: 45.0,
+    totalAvailableTAW_mm: 100.0,
+    etcToday_mm: 4.8,
+    et0Today_mm: 4.2,
+    ndviCurrent: 0.82,
+    kcSatellite: 1.15,
+    irrigationPriority: 'Baja',
+    priorityReason: 'Confort hídrico adecuado. Sin estrés proyectado en 72 h.',
+    pumpingWindow: '04:00 - 07:00 hs',
+    lastIrrigationDate: '04/08/2026',
+    lastIrrigationAmount_mm: 20,
+    lastRainDate: '28/07/2026',
+    lastRainAmount_mm: 18,
+    timeline: [
+      { date: '02/08', dayLabel: 'Dom', dr_mm: 8.0, au_mm: 92.0, afd_mm: 45, taw_mm: 100, rain_mm: 12 },
+      { date: '03/08', dayLabel: 'Lun', dr_mm: 12.5, au_mm: 87.5, afd_mm: 45, taw_mm: 100 },
+      { date: '04/08', dayLabel: 'Mar', dr_mm: 6.0, au_mm: 94.0, afd_mm: 45, taw_mm: 100, irrigation_mm: 20 },
+      { date: '05/08', dayLabel: 'Mie', dr_mm: 9.8, au_mm: 90.2, afd_mm: 45, taw_mm: 100 },
+      { date: '06/08', dayLabel: 'Jue', dr_mm: 13.5, au_mm: 86.5, afd_mm: 45, taw_mm: 100 },
+      { date: '07/08', dayLabel: 'Vie', dr_mm: 14.0, au_mm: 86.0, afd_mm: 45, taw_mm: 100 },
+      { date: '08/08', dayLabel: 'Sab', dr_mm: 14.2, au_mm: 85.8, afd_mm: 45, taw_mm: 100 },
+    ],
+  },
+  {
+    id: 'lote-2',
+    name: 'Lote Centro',
+    crop: 'Maíz Tardío',
+    areaHa: 92,
+    soilType: 'Franco Arcilloso',
+    irrigationSystem: 'Goteo Subterráneo',
+    hydricStatus: 'Atencion',
+    deficitDr_mm: 36.5,
+    waterAvailableAU_mm: 63.5,
+    waterAvailableAU_pct: 63,
+    easilyAvailableAFD_mm: 42.0,
+    totalAvailableTAW_mm: 100.0,
+    etcToday_mm: 5.4,
+    et0Today_mm: 4.5,
+    ndviCurrent: 0.74,
+    kcSatellite: 1.20,
+    irrigationPriority: 'Media',
+    priorityReason: 'Déficit Dr aproximándose al umbral AFD. Conviene aplicar en 24h.',
+    pumpingWindow: '23:00 - 05:00 hs',
+    lastIrrigationDate: '01/08/2026',
+    lastIrrigationAmount_mm: 15,
+    lastRainDate: '26/07/2026',
+    lastRainAmount_mm: 10,
+    timeline: [
+      { date: '02/08', dayLabel: 'Dom', dr_mm: 20.0, au_mm: 80.0, afd_mm: 42, taw_mm: 100 },
+      { date: '03/08', dayLabel: 'Lun', dr_mm: 24.5, au_mm: 75.5, afd_mm: 42, taw_mm: 100 },
+      { date: '04/08', dayLabel: 'Mar', dr_mm: 28.0, au_mm: 72.0, afd_mm: 42, taw_mm: 100 },
+      { date: '05/08', dayLabel: 'Mie', dr_mm: 31.0, au_mm: 69.0, afd_mm: 42, taw_mm: 100 },
+      { date: '06/08', dayLabel: 'Jue', dr_mm: 34.0, au_mm: 66.0, afd_mm: 42, taw_mm: 100 },
+      { date: '07/08', dayLabel: 'Vie', dr_mm: 35.8, au_mm: 64.2, afd_mm: 42, taw_mm: 100 },
+      { date: '08/08', dayLabel: 'Sab', dr_mm: 36.5, au_mm: 63.5, afd_mm: 42, taw_mm: 100 },
+    ],
+  },
+  {
+    id: 'lote-3',
+    name: 'Lote Sur',
+    crop: 'Trigo',
+    areaHa: 48,
+    soilType: 'Franco Arenoso',
+    irrigationSystem: 'Aspersión Fija',
+    hydricStatus: 'Critico',
+    deficitDr_mm: 52.0,
+    waterAvailableAU_mm: 38.0,
+    waterAvailableAU_pct: 38,
+    easilyAvailableAFD_mm: 40.0,
+    totalAvailableTAW_mm: 90.0,
+    etcToday_mm: 3.9,
+    et0Today_mm: 4.1,
+    ndviCurrent: 0.58,
+    kcSatellite: 0.95,
+    irrigationPriority: 'Alta',
+    priorityReason: 'Déficit superó el umbral RAW (40 mm). Estrés hídrico inminente.',
+    pumpingWindow: 'Inmediata / Noche 01:00 hs',
+    lastIrrigationDate: '26/07/2026',
+    lastIrrigationAmount_mm: 22,
+    lastRainDate: '20/07/2026',
+    lastRainAmount_mm: 5,
+    timeline: [
+      { date: '02/08', dayLabel: 'Dom', dr_mm: 32.0, au_mm: 58.0, afd_mm: 40, taw_mm: 90 },
+      { date: '03/08', dayLabel: 'Lun', dr_mm: 36.0, au_mm: 54.0, afd_mm: 40, taw_mm: 90 },
+      { date: '04/08', dayLabel: 'Mar', dr_mm: 40.5, au_mm: 49.5, afd_mm: 40, taw_mm: 90 },
+      { date: '05/08', dayLabel: 'Mie', dr_mm: 44.0, au_mm: 46.0, afd_mm: 40, taw_mm: 90 },
+      { date: '06/08', dayLabel: 'Jue', dr_mm: 47.5, au_mm: 42.5, afd_mm: 40, taw_mm: 90 },
+      { date: '07/08', dayLabel: 'Vie', dr_mm: 50.0, au_mm: 40.0, afd_mm: 40, taw_mm: 90 },
+      { date: '08/08', dayLabel: 'Sab', dr_mm: 52.0, au_mm: 38.0, afd_mm: 40, taw_mm: 90 },
+    ],
+  },
+  {
+    id: 'lote-4',
+    name: 'Lote Este',
+    crop: 'Girasol',
+    areaHa: 75,
+    soilType: 'Franco Limoso',
+    irrigationSystem: 'Pivote Central',
+    hydricStatus: 'Normal',
+    deficitDr_mm: 21.0,
+    waterAvailableAU_mm: 79.0,
+    waterAvailableAU_pct: 79,
+    easilyAvailableAFD_mm: 44.0,
+    totalAvailableTAW_mm: 100.0,
+    etcToday_mm: 4.2,
+    et0Today_mm: 4.3,
+    ndviCurrent: 0.79,
+    kcSatellite: 1.05,
+    irrigationPriority: 'Baja',
+    priorityReason: 'Reserva hídrica suficiente. Balance positivo con ETc moderada.',
+    pumpingWindow: '05:00 - 08:00 hs',
+    lastIrrigationDate: '03/08/2026',
+    lastIrrigationAmount_mm: 16,
+    lastRainDate: '28/07/2026',
+    lastRainAmount_mm: 14,
+    timeline: [
+      { date: '02/08', dayLabel: 'Dom', dr_mm: 22.0, au_mm: 78.0, afd_mm: 44, taw_mm: 100 },
+      { date: '03/08', dayLabel: 'Lun', dr_mm: 10.0, au_mm: 90.0, afd_mm: 44, taw_mm: 100, irrigation_mm: 16 },
+      { date: '04/08', dayLabel: 'Mar', dr_mm: 13.0, au_mm: 87.0, afd_mm: 44, taw_mm: 100 },
+      { date: '05/08', dayLabel: 'Mie', dr_mm: 15.5, au_mm: 84.5, afd_mm: 44, taw_mm: 100 },
+      { date: '06/08', dayLabel: 'Jue', dr_mm: 18.0, au_mm: 82.0, afd_mm: 44, taw_mm: 100 },
+      { date: '07/08', dayLabel: 'Vie', dr_mm: 19.8, au_mm: 80.2, afd_mm: 44, taw_mm: 100 },
+      { date: '08/08', dayLabel: 'Sab', dr_mm: 21.0, au_mm: 79.0, afd_mm: 44, taw_mm: 100 },
+    ],
+  },
 ];
 
-const alerts = [
-  { label: 'Deficit hidrico Lote Sur', detail: 'Se espera cruce de umbral de estres en 24 h si no se ajusta riego.', severity: 'Alta' },
-  { label: 'Cobertura nubosa en monitoreo', detail: 'Reducida confianza de NDVI para tres lotes al final de la pasada.', severity: 'Media' },
-  { label: 'Ventana optima de riego', detail: 'Recomendacion de aplicacion entre 05:00 y 07:00 por menor ET0.', severity: 'Baja' },
-];
-
-const sustainability = [
-  { label: 'Agua ahorrada', value: '124.8 ML', icon: Waves, accent: 'from-water-500 to-water-700' },
-  { label: 'Energia evitada', value: '31.2 MWh', icon: Wind, accent: 'from-crop-500 to-crop-700' },
-  { label: 'Combustible reducido', value: '8.6 kL', icon: Truck, accent: 'from-soil-500 to-soil-700' },
-];
-
-const layers = ['NDVI', 'Humedad', 'Riego', 'Lotes', 'Clima'];
+// Default demo polygons (Pergamino, Buenos Aires agricultural belt)
+const defaultDemoPolygons: { [id: string]: [number, number][] } = {
+  'lote-1': [
+    [-33.8820, -60.5820],
+    [-33.8820, -60.5690],
+    [-33.8890, -60.5690],
+    [-33.8890, -60.5820],
+  ],
+  'lote-2': [
+    [-33.8910, -60.5820],
+    [-33.8910, -60.5690],
+    [-33.8980, -60.5690],
+    [-33.8980, -60.5820],
+  ],
+  'lote-3': [
+    [-33.8820, -60.5670],
+    [-33.8820, -60.5540],
+    [-33.8890, -60.5540],
+    [-33.8890, -60.5670],
+  ],
+  'lote-4': [
+    [-33.8910, -60.5670],
+    [-33.8910, -60.5540],
+    [-33.8980, -60.5540],
+    [-33.8980, -60.5670],
+  ],
+};
 
 export default function DashboardPage() {
   const auth = useAuth();
-  const [activeLots, setActiveLots] = useState(defaultLotes);
+  const [currentTab, setCurrentTab] = useState<MenuTab>('mapa_lotes');
+  const [lotsData, setLotsData] = useState<LotHydricData[]>(initialMockLots);
+  const [selectedLotId, setSelectedLotId] = useState<string>('lote-3'); // Default to Lote Sur (Critico) to showcase features
   const [hasCustomLots, setHasCustomLots] = useState(false);
   const [customCenter, setCustomCenter] = useState<[number, number]>([-33.8906, -60.5732]);
-  const [rawCustomLots, setRawCustomLots] = useState<any[]>([]);
+  const [rawCustomPolygons, setRawCustomPolygons] = useState<{ [id: string]: [number, number][] }>(defaultDemoPolygons);
 
   const currentUser = auth.user;
 
+  // Initialize lots from API or localStorage
   useEffect(() => {
-    // 1. If backend has returned saved fields from /api/v1/users/me
     if (auth.fields && auth.fields.length > 0) {
       setHasCustomLots(true);
-      const convertedLots = auth.fields.map((f) => {
+      const polyMap: { [id: string]: [number, number][] } = {};
+      
+      const converted: LotHydricData[] = auth.fields.map((f, idx) => {
         const coords = f.geometry_geojson?.coordinates?.[0] || [];
         const polygon = coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+        const lotId = String(f.id);
+        polyMap[lotId] = polygon;
+
+        const hydricStatus: 'Normal' | 'Atencion' | 'Critico' = idx === 0 ? 'Normal' : idx === 1 ? 'Atencion' : 'Critico';
+        const deficitDr = idx === 0 ? 15.0 : idx === 1 ? 34.0 : 48.5;
+        const taw = f.total_available_water_taw || 100;
+        const au = Math.max(10, taw - deficitDr);
+
         return {
-          id: String(f.id),
+          id: lotId,
           name: f.name,
-          polygon,
-          area: f.area_ha || 0,
-          crop: f.crop_type,
-          soil: f.soil_type || 'Franco',
-          irrigation: f.irrigation_system,
-          fc: f.field_capacity_fc,
-          wp: f.wilting_point_wp,
-          taw: f.total_available_water_taw
+          crop: f.crop_type || 'Soja',
+          areaHa: f.area_ha || 50,
+          soilType: f.soil_type || 'Franco',
+          irrigationSystem: f.irrigation_system || 'Pivote Central',
+          hydricStatus,
+          deficitDr_mm: deficitDr,
+          waterAvailableAU_mm: au,
+          waterAvailableAU_pct: Math.round((au / taw) * 100),
+          easilyAvailableAFD_mm: (f.field_capacity_fc || 0.35) * 100 * 0.5 || 42,
+          totalAvailableTAW_mm: taw,
+          etcToday_mm: 4.5 + idx * 0.4,
+          et0Today_mm: 4.2,
+          ndviCurrent: idx === 0 ? 0.81 : idx === 1 ? 0.72 : 0.55,
+          kcSatellite: idx === 0 ? 1.15 : idx === 1 ? 1.10 : 0.92,
+          irrigationPriority: idx === 2 ? 'Alta' : idx === 1 ? 'Media' : 'Baja',
+          priorityReason: idx === 2 ? 'Déficit Dr superó umbral crítico.' : idx === 1 ? 'Acercándose a umbral de estrés.' : 'Confort hídrico.',
+          pumpingWindow: '04:00 - 07:00 hs',
+          lastIrrigationDate: '02/08/2026',
+          lastIrrigationAmount_mm: 18,
+          lastRainDate: '28/07/2026',
+          lastRainAmount_mm: 15,
+          timeline: initialMockLots[0].timeline,
         };
       });
-      setRawCustomLots(convertedLots);
 
-      const mapped = auth.fields.map((f, idx) => ({
-        name: f.name,
-        crop: `${f.crop_type} (${f.irrigation_system})`,
-        ndvi: idx % 2 === 0 ? 'Alto' : 'Medio',
-        water: (0.45 + (idx * 0.11) % 0.4).toFixed(2),
-        stress: idx % 3 === 0 ? 'Bajo' : idx % 3 === 1 ? 'Moderado' : 'Alto',
-        status: idx % 3 === 0 ? 'Estable' : idx % 3 === 1 ? 'Monitoreo' : 'Revisar'
-      }));
-      setActiveLots(mapped);
-
+      setLotsData(converted);
+      setRawCustomPolygons(polyMap);
+      if (converted.length > 0) {
+        setSelectedLotId(converted[0].id);
+      }
       if (auth.fields[0]?.center_latitude && auth.fields[0]?.center_longitude) {
         setCustomCenter([auth.fields[0].center_latitude, auth.fields[0].center_longitude]);
       }
-      return;
-    }
-
-    // 2. Offline fallback from localStorage
-    const savedLots = localStorage.getItem('agromas_lots');
-    const savedCenter = localStorage.getItem('agromas_center');
-
-    if (savedLots) {
-      try {
-        const parsedLots = JSON.parse(savedLots);
-        if (Array.isArray(parsedLots) && parsedLots.length > 0) {
-          setRawCustomLots(parsedLots);
-          setHasCustomLots(true);
-
-          const mapped = parsedLots.map((l, idx) => ({
-            name: l.name,
-            crop: `${l.crop} (${l.irrigation})`,
-            ndvi: idx % 2 === 0 ? 'Alto' : 'Medio',
-            water: (0.45 + (idx * 0.11) % 0.4).toFixed(2),
-            stress: idx % 3 === 0 ? 'Bajo' : idx % 3 === 1 ? 'Moderado' : 'Alto',
-            status: idx % 3 === 0 ? 'Estable' : idx % 3 === 1 ? 'Monitoreo' : 'Revisar'
-          }));
-          setActiveLots(mapped);
-        }
-      } catch (err) {
-        console.error("Error reading lots from localStorage:", err);
-      }
-    }
-
-    if (savedCenter) {
-      try {
-        setCustomCenter(JSON.parse(savedCenter));
-      } catch (err) {}
     }
   }, [auth.fields]);
 
-  const handleClearLots = () => {
-    localStorage.removeItem('agromas_lots');
-    localStorage.removeItem('agromas_center');
-    setActiveLots(defaultLotes);
-    setHasCustomLots(false);
-    setRawCustomLots([]);
+  // Selected Lot object
+  const selectedLot = useMemo(() => {
+    return lotsData.find((l) => l.id === selectedLotId) || lotsData[0];
+  }, [lotsData, selectedLotId]);
+
+  // Formatted lot list for DashboardMap component
+  const mapLots = useMemo(() => {
+    return lotsData.map((l) => ({
+      id: l.id,
+      name: l.name,
+      polygon: rawCustomPolygons[l.id] || defaultDemoPolygons[l.id] || [],
+      area: l.areaHa,
+      crop: l.crop,
+      hydricStatus: l.hydricStatus,
+      deficitDr_mm: l.deficitDr_mm,
+      waterAvailableAU_pct: l.waterAvailableAU_pct,
+    }));
+  }, [lotsData, rawCustomPolygons]);
+
+  // Handler for CU-05 (Registrar Riego)
+  const handleRegisterIrrigation = (
+    lotId: string,
+    data: { date: string; amount_mm: number; method: string; notes?: string }
+  ) => {
+    setLotsData((prev) =>
+      prev.map((lot) => {
+        if (lot.id === lotId) {
+          const newDr = Math.max(0, lot.deficitDr_mm - data.amount_mm);
+          const newAu = Math.min(lot.totalAvailableTAW_mm, lot.waterAvailableAU_mm + data.amount_mm);
+          const newStatus: 'Normal' | 'Atencion' | 'Critico' =
+            newDr <= lot.easilyAvailableAFD_mm ? 'Normal' : newDr <= lot.easilyAvailableAFD_mm * 1.15 ? 'Atencion' : 'Critico';
+
+          const newTimelineItem = {
+            date: data.date.split(' ')[0],
+            dayLabel: 'Hoy',
+            dr_mm: newDr,
+            au_mm: newAu,
+            afd_mm: lot.easilyAvailableAFD_mm,
+            taw_mm: lot.totalAvailableTAW_mm,
+            irrigation_mm: data.amount_mm,
+          };
+
+          return {
+            ...lot,
+            deficitDr_mm: newDr,
+            waterAvailableAU_mm: newAu,
+            waterAvailableAU_pct: Math.round((newAu / lot.totalAvailableTAW_mm) * 100),
+            hydricStatus: newStatus,
+            irrigationPriority: newStatus === 'Normal' ? 'Baja' : 'Media',
+            lastIrrigationDate: data.date.split(' ')[0],
+            lastIrrigationAmount_mm: data.amount_mm,
+            timeline: [...lot.timeline, newTimelineItem],
+          };
+        }
+        return lot;
+      })
+    );
   };
 
-  const handleLogout = () => {
-    auth.logout();
+  const breadcrumbLabels: { [key in MenuTab]: string } = {
+    dashboard: 'Inicio / Dashboard',
+    mapa_lotes: 'Mapa de Lotes',
+    historial: 'Historial y Reportes',
+    asistente_ia: 'Asistente IA',
+    configuracion: 'Configuración',
   };
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f7f6f1_0%,#eef2eb_100%)] text-slate-900">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 p-4 lg:p-6">
         
-        {/* Sidebar */}
+        {/* SIDEBAR NAVIGATION (5 Exact Options) */}
         <aside className="hidden w-[280px] shrink-0 flex-col rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur xl:flex justify-between">
           <div>
+            
+            {/* Logo & Brand */}
             <div className="flex items-center gap-3 border-b border-slate-200/80 pb-5">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-500 to-water-500 text-white shadow-lg shadow-crop-500/20">
                 <Sprout className="h-6 w-6" />
@@ -171,20 +382,41 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <nav className="mt-6 space-y-2">
-              {['Overview', 'Mapa de lotes', 'Balance hídrico', 'Sostenibilidad', 'Alertas MAS'].map((item, index) => (
-                <button
-                  key={item}
-                  className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${index === 0 ? 'bg-crop-50 text-crop-800 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
-                >
-                  <span>{item}</span>
-                  {index === 0 ? <ChevronRight className="h-4 w-4" /> : null}
-                </button>
-              ))}
+            {/* 5 Main Navigation Items */}
+            <nav className="mt-6 space-y-1.5">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentTab(item.id)}
+                    className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-crop-50 text-crop-800 font-bold shadow-sm ring-1 ring-crop-200 dark:bg-crop-950 dark:text-crop-300'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-crop-600' : 'text-slate-400 group-hover:text-slate-700'}`} />
+                      <span>{item.label}</span>
+                    </div>
+
+                    {item.badge ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        {item.badge}
+                      </span>
+                    ) : isActive ? (
+                      <ChevronRight className="h-4 w-4 text-crop-600" />
+                    ) : null}
+                  </button>
+                );
+              })}
             </nav>
 
-            {/* Onboarding Trigger Button */}
-            <div className="mt-5 pt-4 border-t border-slate-200/80 space-y-2">
+            {/* Wizard & Lot Config Link */}
+            <div className="mt-6 pt-4 border-t border-slate-200/80 space-y-2">
               <Link 
                 href="/onboarding" 
                 className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white rounded-2xl py-3 px-4 text-xs font-bold shadow-md hover:shadow-lg transition duration-200"
@@ -192,29 +424,20 @@ export default function DashboardPage() {
                 <MapPinned className="h-4 w-4" />
                 Configurar Campo (Wizard)
               </Link>
-
-              {hasCustomLots && (
-                <button
-                  onClick={handleClearLots}
-                  className="flex items-center justify-center gap-2 w-full bg-slate-200/50 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl py-2 px-4 text-[11px] font-semibold border border-transparent hover:border-rose-200 transition duration-200"
-                >
-                  Restaurar Demos
-                </button>
-              )}
             </div>
           </div>
 
-          {/* User Profile Card & System Status */}
+          {/* User Profile Card & System Status in Sidebar */}
           <div className="space-y-3">
             {currentUser ? (
               <div className="rounded-[24px] bg-slate-900 border border-slate-800 p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold text-xs">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f43f5e] text-white font-bold text-xs shadow-sm">
                       {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'AG'}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate max-w-[130px]">
+                      <p className="text-xs font-bold text-white truncate max-w-[120px]">
                         {currentUser.name || 'Productor'}
                       </p>
                       <p className="text-[10px] text-emerald-400 capitalize">
@@ -223,7 +446,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <button
-                    onClick={handleLogout}
+                    onClick={() => auth.logout()}
                     title="Cerrar sesión"
                     className="p-2 hover:bg-rose-500/10 rounded-xl text-slate-400 hover:text-rose-400 transition"
                   >
@@ -241,229 +464,336 @@ export default function DashboardPage() {
               </Link>
             )}
 
+            {/* Micro System Health Monitor */}
             <div className="rounded-[24px] bg-slate-950 p-4 text-white shadow-lg">
               <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
-              <div className="mt-3 space-y-3 text-xs">
+              <div className="mt-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300">Fuentes satelitales</span>
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">OK</span>
+                  <span className="text-slate-300">Sentinel-2 MSI</span>
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">Activo</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300">Modelo FAO-56</span>
-                  <span className="rounded-full bg-water-500/15 px-2 py-0.5 text-[10px] text-water-300">Actualizado</span>
+                  <span className="text-slate-300">Balance FAO-56</span>
+                  <span className="rounded-full bg-water-500/15 px-2 py-0.5 text-[10px] text-water-300">Calibrado</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300">MAS orquestación</span>
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300">7 eventos</span>
+                  <span className="text-slate-300">Agente de Riego</span>
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300">Monitoreando</span>
                 </div>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* Main Content */}
+        {/* MAIN CONTENT AREA */}
         <section className="flex min-w-0 flex-1 flex-col gap-6">
-          {/* Top Bar Component */}
+          
+          {/* Top Bar with dynamic Breadcrumbs matching selected tab */}
           <Topbar 
             breadcrumbs={[
               { label: 'Inicio', href: '/' },
-              { label: 'Monitoreo de Lotes', active: true }
+              { label: breadcrumbLabels[currentTab], active: true }
             ]}
           />
 
-          {/* Subheader / Page Title & Quick Actions */}
-          <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex items-center gap-3">
-                <Link href="/onboarding" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm xl:hidden">
-                  <PanelLeftClose className="h-5 w-5" />
-                </Link>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Tablero general</p>
-                  <h2 className="text-2xl font-semibold text-slate-950 md:text-3xl">Monitoreo agroclimático y balance de lotes</h2>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500">
-                  <Search className="h-4 w-4" />
-                  <span>Buscar lote, cultivo o alerta</span>
-                </div>
-                <button className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
-                  <CalendarRange className="h-4 w-4" />
-                  Últimos 7 días
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {kpis.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <article key={item.title} className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{item.title}</p>
-                      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                        {item.title === 'Lotes monitoreados' && hasCustomLots ? activeLots.length : item.value}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">{item.delta}</p>
-                    </div>
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.tone}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
+          {/* TAB 1: INICIO / DASHBOARD */}
+          {currentTab === 'dashboard' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Tablero general</p>
+                    <h2 className="text-2xl font-semibold text-slate-950 md:text-3xl">Monitoreo agroclimático y balance de lotes</h2>
                   </div>
-                </article>
-              );
-            })}
-          </section>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setCurrentTab('mapa_lotes')}
+                      className="flex items-center gap-2 rounded-2xl bg-slate-950 text-white hover:bg-slate-800 px-4 py-2.5 text-xs font-bold shadow-md transition"
+                    >
+                      <Map className="h-4 w-4 text-emerald-400" />
+                      Ir al Mapa de Lotes
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-          <section className="space-y-6">
-            <article className="overflow-hidden rounded-[30px] border border-white/70 bg-slate-950 text-white shadow-soft">
-              <div className="border-b border-white/10 px-6 py-5">
+              {/* KPI Cards */}
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {kpis.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <article key={item.title} className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-500">{item.title}</p>
+                          <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{item.value}</p>
+                          <p className="mt-1 text-sm text-slate-500">{item.delta}</p>
+                        </div>
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.tone}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
+
+              {/* Overview FAO-56 section */}
+              <section className="rounded-[30px] border border-slate-200/70 bg-slate-100/60 p-4 shadow-soft backdrop-blur md:p-6">
+                <div className="mb-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Vista consolidada</p>
+                    <h3 className="mt-1 text-2xl font-semibold text-slate-950">Balance hídrico global de la explotación</h3>
+                  </div>
+                </div>
+                <Fao56LotDetail />
+              </section>
+            </div>
+          )}
+
+          {/* TAB 2: MAPA DE LOTES (Interactive Map + Specific Technical Lot Details + Event Markers + CU-05) */}
+          {currentTab === 'mapa_lotes' && (
+            <div className="space-y-6 animate-fade-in">
+              
+              {/* Page Subheader */}
+              <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.26em] text-slate-400">Mapa de lotes</p>
-                    <h3 className="mt-1 text-2xl font-semibold">
-                      {hasCustomLots ? 'Establecimiento Configurado del Productor' : 'Regiones productivas por tipo de cultivo'}
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Mapeo Satelital & Balance</p>
+                    <h2 className="text-2xl font-bold text-slate-950">Mapa de Lotes y Fichas de Balance Hídrico</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Haz clic en cualquier lote en el mapa o en las tarjetas inferiores para inspeccionar sus parámetros en tiempo real.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
+                      <span className="font-semibold text-slate-700">Lote activo:</span>
+                      <span className="rounded-md bg-crop-50 px-2 py-0.5 font-bold text-crop-800 border border-crop-200">
+                        {selectedLot.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Satellite Map Container */}
+              <div className="overflow-hidden rounded-[30px] border border-slate-900 bg-slate-950 p-6 text-white shadow-soft">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <span className="text-xs uppercase tracking-[0.24em] text-slate-400">Capa Satelital Esri / Sentinel-2</span>
+                    <h3 className="text-xl font-bold text-white mt-0.5">
+                      Delimitación de Parcelas por Estado Hídrico
                     </h3>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {layers.map((layer, index) => (
-                      <button key={layer} className={`rounded-full px-4 py-2 text-sm font-medium transition ${index === 0 ? 'bg-white text-slate-950' : 'bg-white/8 text-slate-300 hover:bg-white/12'}`}>
-                        {layer}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Resolución: 10m</span>
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Órbita: Sentinel-2A</span>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-6">
-                <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,16,12,0.92),rgba(5,9,8,0.98))] p-5 animate-fade-in">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(38,115,77,0.22),transparent_24%),radial-gradient(circle_at_74%_16%,rgba(59,130,246,0.18),transparent_20%),radial-gradient(circle_at_45%_78%,rgba(245,158,11,0.15),transparent_24%)]" />
-                  <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:56px_56px]" />
-
-                  <div className="relative flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-black/30 px-4 py-3 backdrop-blur mb-5">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-                        {hasCustomLots ? 'Monitoreo Satelital Real' : 'Vista satelital conceptual'}
-                      </p>
-                      <p className="text-sm text-slate-200">
-                        {hasCustomLots 
-                          ? 'Suelos y coberturas vegetales estimadas para los lotes dibujados por el usuario.'
-                          : 'Parcelas delimitadas por color según tipo de cultivo y comportamiento del vigor'}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-                      <span className="rounded-full bg-white/10 px-3 py-1">Sentinel-2</span>
-                      <span className="rounded-full bg-white/10 px-3 py-1">{hasCustomLots ? 'Zoom Dinámico' : 'Zoom 14'}</span>
-                      <span className="rounded-full bg-white/10 px-3 py-1">NDVI 0.82</span>
-                    </div>
-                  </div>
-
-                  {/* Render real map if user configured lots, otherwise render mock */}
-                  {hasCustomLots ? (
-                    <DashboardMap center={customCenter} lots={rawCustomLots} />
-                  ) : (
-                    <div className="relative min-h-[560px] overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,#5a6244_0%,#3f4a32_24%,#263526_52%,#15201d_100%)] p-4">
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.05),transparent_20%),radial-gradient(circle_at_82%_12%,rgba(255,255,255,0.04),transparent_14%),radial-gradient(circle_at_60%_76%,rgba(0,0,0,0.20),transparent_26%)]" />
-                      <div className="absolute inset-0 bg-[linear-gradient(118deg,transparent_0%,transparent_18%,rgba(255,255,255,0.06)_18.2%,transparent_19%),linear-gradient(32deg,transparent_0%,transparent_36%,rgba(255,255,255,0.05)_36.2%,transparent_37%)] opacity-60" />
-
-                      <div className="absolute left-5 top-5 rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur">Google Earth style mockup</div>
-                      <div className="absolute right-5 top-5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100 backdrop-blur">Mapa de regiones por cultivo</div>
-
-                      <div className="absolute left-[7%] top-[14%] h-[22%] w-[24%] rounded-[30px] border border-emerald-300/35 bg-emerald-500/20 shadow-[inset_0_0_42px_rgba(34,197,94,0.18)] rotate-[-9deg]" />
-                      <div className="absolute left-[26%] top-[8%] h-[26%] w-[18%] rounded-[34px] border border-yellow-200/35 bg-yellow-500/20 shadow-[inset_0_0_40px_rgba(245,158,11,0.16)] rotate-[10deg]" />
-                      <div className="absolute left-[46%] top-[18%] h-[25%] w-[23%] rounded-[38px] border border-cyan-300/30 bg-cyan-500/20 shadow-[inset_0_0_38px_rgba(34,211,238,0.14)] rotate-[-7deg]" />
-                      <div className="absolute right-[9%] top-[14%] h-[28%] w-[24%] rounded-[40px] border border-lime-200/35 bg-lime-500/18 shadow-[inset_0_0_42px_rgba(132,204,22,0.16)] rotate-[7deg]" />
-                      <div className="absolute left-[16%] bottom-[16%] h-[23%] w-[28%] rounded-[36px] border border-amber-200/35 bg-amber-500/18 shadow-[inset_0_0_36px_rgba(245,158,11,0.14)] rotate-[2deg]" />
-                      <div className="absolute right-[19%] bottom-[14%] h-[21%] w-[24%] rounded-[34px] border border-red-200/30 bg-red-500/18 shadow-[inset_0_0_36px_rgba(239,68,68,0.12)] rotate-[-11deg]" />
-
-                      <div className="absolute left-[12%] top-[46%] h-[2px] w-[72%] bg-amber-100/60" />
-                      <div className="absolute left-[34%] top-[10%] h-[80%] w-[2px] bg-white/25" />
-                      <div className="absolute left-[8%] top-[30%] h-[2px] w-[78%] bg-white/18" />
-                      <div className="absolute left-[14%] top-[12%] h-[2px] w-[68%] bg-white/12 rotate-[-12deg] origin-left" />
-
-                      <div className="absolute left-[18%] top-[22%] rounded-full border border-white/15 bg-slate-950/60 px-3 py-1 text-[11px] text-white/80 backdrop-blur">Soja</div>
-                      <div className="absolute left-[52%] top-[30%] rounded-full border border-amber-300/25 bg-amber-400/20 px-3 py-1 text-[11px] text-amber-50 backdrop-blur">Maíz</div>
-                      <div className="absolute right-[13%] bottom-[24%] rounded-full border border-red-300/25 bg-red-500/20 px-3 py-1 text-[11px] text-red-50 backdrop-blur">Trigo</div>
-                      <div className="absolute left-[18%] bottom-[22%] rounded-full border border-cyan-300/25 bg-cyan-500/20 px-3 py-1 text-[11px] text-cyan-50 backdrop-blur">Girasol</div>
-
-                      <div className="absolute left-[23%] bottom-[27%] flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_0_0_6px_rgba(255,255,255,0.14)]"><div className="h-2 w-2 rounded-full bg-crop-500" /></div>
-                      <div className="absolute left-[49%] top-[34%] flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_0_0_6px_rgba(255,255,255,0.14)]"><div className="h-2 w-2 rounded-full bg-amber-400" /></div>
-                      <div className="absolute right-[24%] bottom-[29%] flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_0_0_6px_rgba(255,255,255,0.14)]"><div className="h-2 w-2 rounded-full bg-red-400" /></div>
-                      <div className="absolute left-[39%] bottom-[19%] flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-[0_0_0_6px_rgba(255,255,255,0.14)]"><div className="h-2 w-2 rounded-full bg-cyan-400" /></div>
-
-                      <div className="absolute left-4 top-1/2 flex -translate-y-1/2 flex-col gap-2 rounded-2xl border border-white/10 bg-black/30 p-2 backdrop-blur">
-                        <button className="h-9 w-9 rounded-xl bg-white/10 text-white">+</button>
-                        <button className="h-9 w-9 rounded-xl bg-white/10 text-white">-</button>
-                        <button className="h-9 w-9 rounded-xl bg-white/10 text-white">⌂</button>
-                      </div>
-
-                      <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-black/35 px-4 py-3 text-xs text-slate-200 backdrop-blur">
-                        <div className="flex items-center gap-2"><Filter className="h-4 w-4" />Capas activas: satélite, NDVI, humedad, alertas</div>
-                        <div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-300" />2 lotes con riesgo de estrés</div>
-                      </div>
-                    </div>
-                  )}
+                <div className="relative">
+                  <DashboardMap
+                    center={customCenter}
+                    lots={mapLots}
+                    selectedLotId={selectedLotId}
+                    onSelectLot={(id) => setSelectedLotId(id)}
+                  />
                 </div>
-              </div>
 
-              {/* Lot cards */}
-              <div className="p-6 border-t border-white/10">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {activeLots.map((lote, index) => {
-                    const borderTone = index === 0 ? 'border-emerald-500/30' : index === 1 ? 'border-amber-500/30' : index === 2 ? 'border-red-500/30' : 'border-cyan-500/30';
-                    const dotTone = index === 0 ? 'bg-emerald-400' : index === 1 ? 'bg-amber-400' : index === 2 ? 'bg-red-400' : 'bg-cyan-400';
-                    return (
-                      <article key={lote.name} className={`rounded-[26px] border ${borderTone} bg-white/80 p-5 shadow-soft backdrop-blur`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Lote {index + 1}</p>
-                            <h4 className="mt-1 text-xl font-semibold text-slate-950">{lote.name}</h4>
-                            <p className="mt-1 text-sm text-slate-500">{lote.crop}</p>
+                {/* Lot Quick Selector Cards Carousel */}
+                <div className="mt-5 pt-4 border-t border-white/10">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold mb-3">
+                    Seleccionar Lote para Inspección:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {lotsData.map((lot) => {
+                      const isSelected = lot.id === selectedLotId;
+                      const statusColor = lot.hydricStatus === 'Normal' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : lot.hydricStatus === 'Atencion' ? 'border-amber-500/40 bg-amber-500/10 text-amber-400' : 'border-rose-500/40 bg-rose-500/10 text-rose-400';
+                      const dotColor = lot.hydricStatus === 'Normal' ? 'bg-emerald-400' : lot.hydricStatus === 'Atencion' ? 'bg-amber-400' : 'bg-rose-400';
+
+                      return (
+                        <button
+                          key={lot.id}
+                          onClick={() => setSelectedLotId(lot.id)}
+                          className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all ${
+                            isSelected
+                              ? 'border-sky-400 bg-sky-950/40 shadow-lg ring-2 ring-sky-400/40'
+                              : 'border-white/10 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-sm font-bold text-white">{lot.name}</span>
+                            <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
                           </div>
-                          <span className={`mt-1 h-3 w-3 rounded-full ${dotTone}`} />
-                        </div>
+                          <p className="text-xs text-slate-300 mt-1">{lot.crop} &bull; {lot.areaHa} ha</p>
+                          <div className="mt-2 flex items-center justify-between text-[11px] pt-1.5 border-t border-white/10">
+                            <span className="text-slate-400">Déficit Dr:</span>
+                            <strong className="text-amber-300 font-mono">{lot.deficitDr_mm.toFixed(1)} mm</strong>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                        <div className="mt-4 space-y-3 text-sm text-slate-600">
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"><span>NDVI</span><span className="font-semibold text-slate-950">{lote.ndvi}</span></div>
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"><span>Balance hídrico</span><span className="font-semibold text-slate-950">{lote.water}</span></div>
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"><span>Estrés</span><span className="font-semibold text-slate-950">{lote.stress}</span></div>
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3"><span>Estado</span><span className="font-semibold text-slate-950">{lote.status}</span></div>
-                        </div>
-                      </article>
-                    );
-                  })}
+              </div>
+
+              {/* DETAILED TECHNICAL LOT VIEW COMPONENT */}
+              {selectedLot && (
+                <LotDetailView
+                  lot={selectedLot}
+                  onRegisterIrrigation={handleRegisterIrrigation}
+                />
+              )}
+
+            </div>
+          )}
+
+          {/* TAB 3: HISTORIAL Y REPORTES */}
+          {currentTab === 'historial' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-water-100 text-water-700">
+                    <History className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-950">Historial y Reportes de Riego</h2>
+                    <p className="text-xs text-slate-500">Registro histórico de balances hídricos, precipitaciones y eventos de riego por lote.</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+                  <h3 className="text-sm font-bold text-slate-800 mb-3">Registros de Riegos y Lluvias Recientes</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-600">
+                      <thead className="bg-slate-50 text-slate-900 uppercase font-semibold border-b">
+                        <tr>
+                          <th className="p-3">Fecha</th>
+                          <th className="p-3">Lote</th>
+                          <th className="p-3">Tipo Evento</th>
+                          <th className="p-3">Lámina (mm)</th>
+                          <th className="p-3">Método / Fuente</th>
+                          <th className="p-3">Estado Post-Evento</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        <tr>
+                          <td className="p-3 font-mono">04/08/2026</td>
+                          <td className="p-3 font-semibold text-slate-900">Lote Norte</td>
+                          <td className="p-3 text-cyan-600 font-bold">💧 Riego (CU-05)</td>
+                          <td className="p-3 font-mono font-bold">20.0 mm</td>
+                          <td className="p-3">Pivote Central</td>
+                          <td className="p-3"><span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-800 font-bold">Normal (86% AU)</span></td>
+                        </tr>
+                        <tr>
+                          <td className="p-3 font-mono">01/08/2026</td>
+                          <td className="p-3 font-semibold text-slate-900">Lote Centro</td>
+                          <td className="p-3 text-cyan-600 font-bold">💧 Riego (CU-05)</td>
+                          <td className="p-3 font-mono font-bold">15.0 mm</td>
+                          <td className="p-3">Goteo Subterráneo</td>
+                          <td className="p-3"><span className="rounded bg-amber-100 px-2 py-0.5 text-amber-800 font-bold">Atención (63% AU)</span></td>
+                        </tr>
+                        <tr>
+                          <td className="p-3 font-mono">28/07/2026</td>
+                          <td className="p-3 font-semibold text-slate-900">Todos los lotes</td>
+                          <td className="p-3 text-blue-600 font-bold">🌧️ Precipitación</td>
+                          <td className="p-3 font-mono font-bold">18.0 mm</td>
+                          <td className="p-3">Estación Meteorológica</td>
+                          <td className="p-3"><span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-800 font-bold">Recarga TAW</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </article>
-          </section>
-
-          {/* FAO-56 section */}
-          <section className="rounded-[30px] border border-slate-200/70 bg-slate-100/60 p-4 shadow-soft backdrop-blur md:p-6">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Segunda iteración</p>
-                <h3 className="mt-1 text-2xl font-semibold text-slate-950">Detalle FAO-56 e impacto acumulado</h3>
-              </div>
-              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">Dark mode + Recharts</span>
             </div>
+          )}
 
-            <Fao56LotDetail />
-          </section>
+          {/* TAB 4: ASISTENTE IA (MAS) */}
+          {currentTab === 'asistente_ia' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-crop-700">
+                    <Bot className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-950">Asistente Inteligente MAS (Multi-Agent System)</h2>
+                    <p className="text-xs text-slate-500">Agente autónomo de riego y optimización energética para agricultura de precisión.</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-bold text-crop-700 uppercase">Agente FAO-56</span>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Balance Hídrico Dinámico</p>
+                    <p className="mt-2 text-xs text-slate-500">Calcula Dr, AU y AFD integrando Kc satelital con ET0 de estaciones locales.</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-bold text-water-700 uppercase">Agente Sentinel-2</span>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">NDVI & Vigor Vegetativo</p>
+                    <p className="mt-2 text-xs text-slate-500">Procesa imágenes multiespectrales cada 5 días para ajuste del coeficiente de cultivo.</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="text-xs font-bold text-amber-700 uppercase">Agente de Bombeo</span>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Tarifa Eléctrica & Eficiencia</p>
+                    <p className="mt-2 text-xs text-slate-500">Programa ventanas de riego nocturnas (01:00 a 07:00 hs) para reducir costo energético.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: CONFIGURACIÓN */}
+          {currentTab === 'configuracion' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200 text-slate-800">
+                    <Settings className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-950">Configuración de la Explotación</h2>
+                    <p className="text-xs text-slate-500">Gestión de parámetros edafológicos, equipos de riego y umbrales de alerta.</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Link
+                    href="/onboarding"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 px-5 py-3 text-xs font-bold text-white shadow-md hover:shadow-lg transition"
+                  >
+                    <MapPinned className="h-4 w-4" />
+                    Abrir Wizard de Configuración de Campo
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
         </section>
       </div>
 
       <style jsx global>{`
         .animate-fade-in {
-          animation: fadeIn 0.4s ease-out forwards;
+          animation: fadeIn 0.35s ease-out forwards;
         }
         @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-map-tooltip {
+          background: rgba(15, 23, 42, 0.92) !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          border-radius: 14px !important;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+          backdrop-filter: blur(8px) !important;
+          padding: 8px 12px !important;
+        }
+        .custom-map-tooltip:before {
+          border-top-color: rgba(15, 23, 42, 0.92) !important;
         }
       `}</style>
     </main>
