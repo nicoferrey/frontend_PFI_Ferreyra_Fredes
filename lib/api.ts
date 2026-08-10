@@ -140,6 +140,7 @@ export interface FieldItem {
   total_available_water_taw?: number;
   created_at?: string;
   updated_at?: string;
+  agent_snapshot?: FieldAgentSnapshot | null;
 }
 
 export interface CreateFieldPayload {
@@ -237,6 +238,28 @@ export async function deleteFieldApi(fieldId: string | number): Promise<boolean>
 /* ==========================================================================
    AGENT API METHODS
    ========================================================================== */
+
+export interface FieldAgentSnapshot {
+  id: number;
+  field_id: number;
+  analyze_payload?: Record<string, any> | null;
+  analyze_response?: Record<string, any> | null;
+  weather_compare_payload?: Record<string, any> | null;
+  weather_compare_response?: Record<string, any> | null;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+  is_stale?: boolean;
+}
+
+export interface FieldAgentSnapshotRefreshPayload {
+  force?: boolean;
+  max_age_hours?: number;
+  date_from?: string;
+  date_to?: string;
+  initial_available_water_mm?: number;
+  irrigation_applied_mm?: number;
+}
 
 export interface AnalyzeIrrigationPayload {
   field_name?: string;
@@ -453,6 +476,28 @@ export async function weatherCompareApi(payload: WeatherComparePayload) {
   const res = await fetch('/api/agents/weather-compare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+export async function getFieldAgentSnapshotApi(fieldId: string | number): Promise<FieldAgentSnapshot | null> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId}/agent-snapshot`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshFieldAgentSnapshotApi(
+  fieldId: string | number,
+  payload: FieldAgentSnapshotRefreshPayload = {}
+): Promise<{ ok: boolean; status: number; data: FieldAgentSnapshot | any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/agent-snapshot/refresh`, {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 

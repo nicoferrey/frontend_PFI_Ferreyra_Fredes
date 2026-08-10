@@ -31,7 +31,14 @@ export default function DashboardMap({
 }: DashboardMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
   const polygonLayersRef = useRef<{ [id: string]: any }>({});
+  const lastGeometrySignatureRef = useRef('');
+  const onSelectLotRef = useRef(onSelectLot);
+
+  useEffect(() => {
+    onSelectLotRef.current = onSelectLot;
+  }, [onSelectLot]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -41,6 +48,7 @@ export default function DashboardMap({
     const initMap = async () => {
       const L = await import('leaflet');
       if (!active) return;
+      leafletRef.current = L;
 
       // Fix default icons path issue in Leaflet
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -62,10 +70,6 @@ export default function DashboardMap({
         { subdomains: 'abcd', maxZoom: 20 }
       );
 
-      if (mapRef.current) {
-        mapRef.current.remove();
-      }
-
       const mapInstance = L.map(container, {
         center: center,
         zoom: 15,
@@ -76,66 +80,6 @@ export default function DashboardMap({
 
       mapRef.current = mapInstance;
       L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
-
-      // Plot lots on map
-      const polygons: any[] = [];
-      polygonLayersRef.current = {};
-
-      lots.forEach((lot) => {
-        if (!lot.polygon || lot.polygon.length === 0) return;
-
-        const isSelected = lot.id === selectedLotId;
-        
-        // Status Colors
-        const status = lot.hydricStatus || 'Normal';
-        const colorMap = {
-          Normal: { border: '#10b981', fill: '#34d399', badge: 'bg-emerald-500 text-white' },
-          Atencion: { border: '#f59e0b', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950' },
-          Critico: { border: '#ef4444', fill: '#f87171', badge: 'bg-rose-500 text-white' },
-        }[status];
-
-        const polygon = L.polygon(lot.polygon, {
-          color: isSelected ? '#38bdf8' : colorMap.border,
-          fillColor: isSelected ? '#38bdf8' : colorMap.fill,
-          fillOpacity: isSelected ? 0.55 : 0.35,
-          weight: isSelected ? 4 : 2.5,
-          dashArray: isSelected ? undefined : undefined,
-        }).addTo(mapInstance);
-
-        polygon.on('click', () => {
-          if (onSelectLot) {
-            onSelectLot(lot.id);
-          }
-        });
-
-        const statusLabel = status === 'Normal' ? '🟢 Normal' : status === 'Atencion' ? '🟡 Atención' : '🔴 Crítico';
-
-        polygon.bindTooltip(
-          `<div class="p-1.5 text-xs text-white min-w-[130px]">
-            <div class="flex items-center justify-between gap-2 border-b border-white/20 pb-1 mb-1">
-              <strong class="text-white text-xs">${lot.name}</strong>
-              <span class="text-[10px] font-bold px-1.5 py-0.2 rounded ${colorMap.badge}">${status}</span>
-            </div>
-            <p class="text-slate-200 text-[11px]">${lot.crop} &bull; ${lot.area.toFixed(1)} ha</p>
-            ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Dr: ${lot.deficitDr_mm} mm &bull; AU: ${lot.waterAvailableAU_pct}%</p>` : ''}
-            <p class="text-[9px] text-sky-300 mt-1 italic">Click para ver ficha y balance</p>
-           </div>`,
-          {
-            permanent: false,
-            direction: 'top',
-            className: 'custom-map-tooltip',
-          }
-        );
-
-        polygonLayersRef.current[lot.id] = polygon;
-        polygons.push(polygon);
-      });
-
-      // Fit bounds if lots exist
-      if (polygons.length > 0) {
-        const group = L.featureGroup(polygons);
-        mapInstance.fitBounds(group.getBounds(), { padding: [50, 50] });
-      }
     };
 
     initMap();
@@ -147,7 +91,104 @@ export default function DashboardMap({
         mapRef.current = null;
       }
     };
-  }, [center, lots, selectedLotId]);
+  }, []);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    const mapInstance = mapRef.current;
+    if (!L || !mapInstance) return;
+
+    Object.values(polygonLayersRef.current).forEach((layer) => {
+      mapInstance.removeLayer(layer);
+    });
+
+    const polygons: any[] = [];
+    polygonLayersRef.current = {};
+    const geometrySignature = lots
+      .map((lot) => `${lot.id}:${lot.polygon.map(([lat, lng]) => `${lat},${lng}`).join(';')}`)
+      .join('|');
+    const geometryChanged = geometrySignature !== lastGeometrySignatureRef.current;
+
+    lots.forEach((lot) => {
+      if (!lot.polygon || lot.polygon.length === 0) return;
+
+      const status = lot.hydricStatus || 'Normal';
+      const colorMap = {
+        Normal: { border: '#10b981', fill: '#34d399', badge: 'bg-emerald-500 text-white' },
+        Atencion: { border: '#f59e0b', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950' },
+        Critico: { border: '#ef4444', fill: '#f87171', badge: 'bg-rose-500 text-white' },
+      }[status];
+
+      const polygon = L.polygon(lot.polygon, {
+        color: colorMap.border,
+        fillColor: colorMap.fill,
+        fillOpacity: 0.32,
+        weight: 2.5,
+      }).addTo(mapInstance);
+
+      polygon.on('click', () => {
+        if (onSelectLotRef.current) {
+          onSelectLotRef.current(lot.id);
+        }
+      });
+
+      polygon.bindTooltip(
+        `<div class="p-1.5 text-xs text-white min-w-[130px]">
+          <div class="flex items-center justify-between gap-2 border-b border-white/20 pb-1 mb-1">
+            <strong class="text-white text-xs">${lot.name}</strong>
+            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded ${colorMap.badge}">${status}</span>
+          </div>
+          <p class="text-slate-200 text-[11px]">${lot.crop} &bull; ${lot.area.toFixed(1)} ha</p>
+          ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Dr: ${lot.deficitDr_mm} mm &bull; AU: ${lot.waterAvailableAU_pct}%</p>` : ''}
+          <p class="text-[9px] text-sky-300 mt-1 italic">Click para ver ficha y balance</p>
+         </div>`,
+        {
+          permanent: false,
+          direction: 'top',
+          className: 'custom-map-tooltip',
+        }
+      );
+
+      polygonLayersRef.current[lot.id] = polygon;
+      polygons.push(polygon);
+    });
+
+    if (geometryChanged && polygons.length > 0) {
+      const group = L.featureGroup(polygons);
+      mapInstance.fitBounds(group.getBounds(), { padding: [50, 50] });
+      lastGeometrySignatureRef.current = geometrySignature;
+    } else if (polygons.length === 0) {
+      mapInstance.setView(center, 15);
+      lastGeometrySignatureRef.current = '';
+    }
+  }, [center, lots]);
+
+  useEffect(() => {
+    lots.forEach((lot) => {
+      const polygon = polygonLayersRef.current[lot.id];
+      if (!polygon) return;
+
+      const isSelected = lot.id === selectedLotId;
+      const status = lot.hydricStatus || 'Normal';
+      const colorMap = {
+        Normal: { border: '#10b981', fill: '#34d399' },
+        Atencion: { border: '#f59e0b', fill: '#fbbf24' },
+        Critico: { border: '#ef4444', fill: '#f87171' },
+      }[status];
+
+      polygon.setStyle({
+        color: isSelected ? '#e0f2fe' : colorMap.border,
+        fillColor: colorMap.fill,
+        fillOpacity: isSelected ? 0.5 : 0.24,
+        weight: isSelected ? 5 : 2.5,
+        opacity: isSelected ? 1 : 0.78,
+      });
+
+      if (isSelected) {
+        polygon.bringToFront();
+      }
+    });
+  }, [lots, selectedLotId]);
 
   return (
     <div className={`relative w-full h-full min-h-[480px] lg:min-h-[540px] rounded-[28px] overflow-hidden border border-white/10 shadow-inner ${className}`}>

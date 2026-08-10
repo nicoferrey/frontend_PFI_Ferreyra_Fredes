@@ -37,6 +37,12 @@ import { Fao56LotDetail } from '@/components/fao56-lot-detail';
 import { LotDetailView, LotHydricData } from '@/components/lot-detail-view';
 import { Topbar } from '@/components/topbar';
 import { useAuth } from '@/lib/auth-context';
+import {
+  FieldAgentSnapshot,
+  FieldItem,
+  getFieldAgentSnapshotApi,
+  refreshFieldAgentSnapshotApi,
+} from '@/lib/api';
 
 // Load DashboardMap only on client side to prevent Leaflet SSR errors
 const DashboardMap = dynamic(
@@ -229,6 +235,129 @@ const defaultDemoPolygons: { [id: string]: [number, number][] } = {
   ],
 };
 
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function formatDate(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const [year, month, day] = value.slice(0, 10).split('-');
+  if (!year || !month || !day) return fallback;
+  return `${day}/${month}/${year}`;
+}
+
+function priorityFromUrgency(urgency?: string): 'Alta' | 'Media' | 'Baja' {
+  if (urgency === 'HIGH') return 'Alta';
+  if (urgency === 'MEDIUM') return 'Media';
+  return 'Baja';
+}
+
+function statusFromUrgency(urgency?: string): 'Normal' | 'Atencion' | 'Critico' {
+  if (urgency === 'HIGH') return 'Critico';
+  if (urgency === 'MEDIUM') return 'Atencion';
+  return 'Normal';
+}
+
+function buildAgentTimeline(
+  dateTo: string | undefined,
+  deficitMm: number,
+  tawMm: number,
+  afdMm: number,
+  totalEtcMm: number,
+  totalRainMm: number,
+  irrigationAppliedMm: number,
+  ndvi?: number,
+  kc?: number
+): LotHydricData['timeline'] {
+  const end = dateTo ? new Date(`${dateTo}T00:00:00`) : new Date();
+  const days = 7;
+  const dailyEtc = totalEtcMm > 0 ? totalEtcMm / days : 3.5;
+  const dailyRain = totalRainMm > 0 ? totalRainMm / days : 0;
+  const startDeficit = Math.max(0, deficitMm - (dailyEtc - dailyRain) * (days - 1) + irrigationAppliedMm);
+
+  return Array.from({ length: days }, (_, index) => {
+    const current = new Date(end);
+    current.setDate(end.getDate() - (days - 1 - index));
+    const dr = Math.max(0, round1(startDeficit + (dailyEtc - dailyRain) * index - (index === 0 ? irrigationAppliedMm : 0)));
+    const au = Math.max(0, round1(tawMm - dr));
+
+    return {
+      date: `${String(current.getDate()).padStart(2, '0')}/${String(current.getMonth() + 1).padStart(2, '0')}`,
+      dayLabel: current.toLocaleDateString('es-AR', { weekday: 'short' }),
+      dr_mm: dr,
+      au_mm: au,
+      afd_mm: afdMm,
+      taw_mm: tawMm,
+      rain_mm: totalRainMm > 0 ? round1(dailyRain) : undefined,
+      irrigation_mm: index === 0 && irrigationAppliedMm > 0 ? irrigationAppliedMm : undefined,
+      ndvi,
+      kc,
+    };
+  });
+}
+
+function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgentSnapshot | null): LotHydricData {
+  const analyze = snapshot?.analyze_response || {};
+  const recommendation = analyze.recommendation || {};
+  const waterBalance = recommendation.water_balance || {};
+  const metrics = waterBalance.metrics || {};
+  const weatherMetrics = waterBalance.weather_context?.metrics || {};
+  const ndviMetrics = analyze.ndvi_context?.metrics || {};
+  const kcContext = analyze.crop_coefficient_context || {};
+  const weatherCompare = snapshot?.weather_compare_response?.operational_recommendation || {};
+
+  const taw = asNumber(field.total_available_water_taw, 100);
+  const afd = round1(taw * 0.5);
+  const deficit = round1(asNumber(metrics.deficit_mm, 0));
+  const available = Math.max(0, round1(taw - deficit));
+  const urgency = analyze.urgency || recommendation.urgency || weatherCompare.urgency;
+  const hydricStatus = snapshot ? statusFromUrgency(urgency) : 'Atencion';
+  const priority = snapshot ? priorityFromUrgency(urgency) : 'Media';
+  const daysAnalyzed = Math.max(1, asNumber(metrics.days_analyzed, 7));
+  const totalEtc = asNumber(metrics.total_etc_mm, 0);
+  const totalEt0 = asNumber(weatherMetrics.total_et0_mm, 0);
+  const totalRain = asNumber(weatherMetrics.total_precipitation_mm, 0);
+  const irrigationApplied = asNumber(metrics.irrigation_applied_mm, 0);
+  const kc = asNumber(kcContext.crop_coefficient, asNumber(metrics.crop_coefficient, 1));
+  const ndvi = asNumber(ndviMetrics.ndvi_mean, 0);
+  const dateTo = snapshot?.analyze_payload?.date_to || snapshot?.weather_compare_payload?.date_to;
+
+  return {
+    id: String(field.id),
+    name: field.name,
+    crop: field.crop_type || 'Cultivo',
+    areaHa: field.area_ha || 0,
+    soilType: field.soil_type || 'Sin especificar',
+    irrigationSystem: field.irrigation_system || 'Sin especificar',
+    hydricStatus,
+    deficitDr_mm: deficit,
+    waterAvailableAU_mm: available,
+    waterAvailableAU_pct: taw > 0 ? Math.max(0, Math.min(100, Math.round((available / taw) * 100))) : 0,
+    easilyAvailableAFD_mm: afd,
+    totalAvailableTAW_mm: taw,
+    etcToday_mm: round1(totalEtc / daysAnalyzed),
+    et0Today_mm: round1(totalEt0 / daysAnalyzed),
+    ndviCurrent: ndvi,
+    kcSatellite: kc,
+    irrigationPriority: priority,
+    priorityReason:
+      analyze.final_recommendation ||
+      recommendation.summary ||
+      weatherCompare.evidence?.decision_rule ||
+      (snapshot ? 'Análisis MAS disponible para el lote.' : 'Sin snapshot de agentes. Actualizá agentes para cargar datos reales.'),
+    pumpingWindow: priority === 'Alta' ? 'Inmediata / próxima ventana nocturna' : '04:00 - 07:00 hs',
+    lastIrrigationDate: irrigationApplied > 0 ? formatDate(dateTo) : '-',
+    lastIrrigationAmount_mm: irrigationApplied,
+    lastRainDate: totalRain > 0 ? formatDate(dateTo) : '-',
+    lastRainAmount_mm: round1(totalRain),
+    timeline: buildAgentTimeline(dateTo, deficit, taw, afd, totalEtc, totalRain, irrigationApplied, ndvi || undefined, kc),
+  };
+}
+
 export default function DashboardPage() {
   const auth = useAuth();
   const [currentTab, setCurrentTab] = useState<MenuTab>('mapa_lotes');
@@ -237,8 +366,39 @@ export default function DashboardPage() {
   const [hasCustomLots, setHasCustomLots] = useState(false);
   const [customCenter, setCustomCenter] = useState<[number, number]>([-33.8906, -60.5732]);
   const [rawCustomPolygons, setRawCustomPolygons] = useState<{ [id: string]: [number, number][] }>(defaultDemoPolygons);
+  const [fieldSnapshots, setFieldSnapshots] = useState<Record<string, FieldAgentSnapshot | null>>({});
+  const [isRefreshingAgents, setIsRefreshingAgents] = useState(false);
+  const [agentRefreshError, setAgentRefreshError] = useState<string | null>(null);
 
   const currentUser = auth.user;
+
+  useEffect(() => {
+    if (auth.isLoading || !auth.fields || auth.fields.length === 0) {
+      setFieldSnapshots({});
+      return;
+    }
+
+    let isCancelled = false;
+
+    async function loadSnapshots() {
+      const entries = await Promise.all(
+        auth.fields.map(async (field) => {
+          const snapshot = field.agent_snapshot ?? (await getFieldAgentSnapshotApi(field.id));
+          return [String(field.id), snapshot] as const;
+        })
+      );
+
+      if (!isCancelled) {
+        setFieldSnapshots(Object.fromEntries(entries));
+      }
+    }
+
+    loadSnapshots();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [auth.fields, auth.isLoading]);
 
   // Initialize lots from API or localStorage
   useEffect(() => {
@@ -254,37 +414,7 @@ export default function DashboardPage() {
         const lotId = String(f.id);
         polyMap[lotId] = polygon;
 
-        const hydricStatus: 'Normal' | 'Atencion' | 'Critico' = idx === 0 ? 'Normal' : idx === 1 ? 'Atencion' : 'Critico';
-        const deficitDr = idx === 0 ? 15.0 : idx === 1 ? 34.0 : 48.5;
-        const taw = f.total_available_water_taw || 100;
-        const au = Math.max(10, taw - deficitDr);
-
-        return {
-          id: lotId,
-          name: f.name,
-          crop: f.crop_type || 'Soja',
-          areaHa: f.area_ha || 50,
-          soilType: f.soil_type || 'Franco',
-          irrigationSystem: f.irrigation_system || 'Pivote Central',
-          hydricStatus,
-          deficitDr_mm: deficitDr,
-          waterAvailableAU_mm: au,
-          waterAvailableAU_pct: Math.round((au / taw) * 100),
-          easilyAvailableAFD_mm: (f.field_capacity_fc || 0.35) * 100 * 0.5 || 42,
-          totalAvailableTAW_mm: taw,
-          etcToday_mm: 4.5 + idx * 0.4,
-          et0Today_mm: 4.2,
-          ndviCurrent: idx === 0 ? 0.81 : idx === 1 ? 0.72 : 0.55,
-          kcSatellite: idx === 0 ? 1.15 : idx === 1 ? 1.10 : 0.92,
-          irrigationPriority: idx === 2 ? 'Alta' : idx === 1 ? 'Media' : 'Baja',
-          priorityReason: idx === 2 ? 'Déficit Dr superó umbral crítico.' : idx === 1 ? 'Acercándose a umbral de estrés.' : 'Confort hídrico.',
-          pumpingWindow: '04:00 - 07:00 hs',
-          lastIrrigationDate: '02/08/2026',
-          lastIrrigationAmount_mm: 18,
-          lastRainDate: '28/07/2026',
-          lastRainAmount_mm: 15,
-          timeline: initialMockLots[0].timeline,
-        };
+        return fieldToLot(f, idx, fieldSnapshots[lotId] ?? f.agent_snapshot ?? null);
       });
 
       setLotsData(converted);
@@ -307,12 +437,18 @@ export default function DashboardPage() {
     setSelectedLotId((currentId) =>
       initialMockLots.some((lot) => lot.id === currentId) ? currentId : initialMockLots[0]?.id || ''
     );
-  }, [auth.fields, auth.isLoading]);
+  }, [auth.fields, auth.isLoading, fieldSnapshots]);
 
   // Selected Lot object
   const selectedLot = useMemo(() => {
     return lotsData.find((l) => l.id === selectedLotId) || lotsData[0];
   }, [lotsData, selectedLotId]);
+
+  const selectedField = useMemo(() => {
+    return auth.fields.find((field) => String(field.id) === selectedLotId) || null;
+  }, [auth.fields, selectedLotId]);
+
+  const selectedSnapshot = selectedField ? fieldSnapshots[String(selectedField.id)] : null;
 
   // Formatted lot list for DashboardMap component
   const mapLots = useMemo(() => {
@@ -366,6 +502,29 @@ export default function DashboardPage() {
         return lot;
       })
     );
+  };
+
+  const handleRefreshSelectedAgents = async () => {
+    if (!selectedField) return;
+
+    setIsRefreshingAgents(true);
+    setAgentRefreshError(null);
+
+    const result = await refreshFieldAgentSnapshotApi(selectedField.id, {
+      force: false,
+      max_age_hours: 6,
+    });
+
+    if (result.ok) {
+      setFieldSnapshots((prev) => ({
+        ...prev,
+        [String(selectedField.id)]: result.data,
+      }));
+    } else {
+      setAgentRefreshError(result.data?.detail || 'No se pudo actualizar el análisis MAS del lote.');
+    }
+
+    setIsRefreshingAgents(false);
   };
 
   const breadcrumbLabels: { [key in MenuTab]: string } = {
@@ -550,8 +709,28 @@ export default function DashboardPage() {
                         {selectedLot.name}
                       </span>
                     </div>
+                    {selectedField && (
+                      <button
+                        onClick={handleRefreshSelectedAgents}
+                        disabled={isRefreshingAgents}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+                        {isRefreshingAgents ? 'Actualizando...' : selectedSnapshot ? 'Actualizar agentes' : 'Cargar agentes'}
+                      </button>
+                    )}
+                    {selectedSnapshot && (
+                      <span className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                        Snapshot: {formatDate(selectedSnapshot.generated_at)}
+                      </span>
+                    )}
                   </div>
                 </div>
+                {agentRefreshError && (
+                  <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                    {agentRefreshError}
+                  </p>
+                )}
               </div>
 
               {/* Interactive Satellite Map Container */}
