@@ -233,7 +233,7 @@ export default function DashboardPage() {
   const auth = useAuth();
   const [currentTab, setCurrentTab] = useState<MenuTab>('mapa_lotes');
   const [lotsData, setLotsData] = useState<LotHydricData[]>(initialMockLots);
-  const [selectedLotId, setSelectedLotId] = useState<string>('lote-3'); // Default to Lote Sur (Critico) to showcase features
+  const [selectedLotId, setSelectedLotId] = useState<string>(initialMockLots[0]?.id || '');
   const [hasCustomLots, setHasCustomLots] = useState(false);
   const [customCenter, setCustomCenter] = useState<[number, number]>([-33.8906, -60.5732]);
   const [rawCustomPolygons, setRawCustomPolygons] = useState<{ [id: string]: [number, number][] }>(defaultDemoPolygons);
@@ -242,6 +242,8 @@ export default function DashboardPage() {
 
   // Initialize lots from API or localStorage
   useEffect(() => {
+    if (auth.isLoading) return;
+
     if (auth.fields && auth.fields.length > 0) {
       setHasCustomLots(true);
       const polyMap: { [id: string]: [number, number][] } = {};
@@ -288,13 +290,24 @@ export default function DashboardPage() {
       setLotsData(converted);
       setRawCustomPolygons(polyMap);
       if (converted.length > 0) {
-        setSelectedLotId(converted[0].id);
+        setSelectedLotId((currentId) =>
+          converted.some((lot) => lot.id === currentId) ? currentId : converted[0].id
+        );
       }
       if (auth.fields[0]?.center_latitude && auth.fields[0]?.center_longitude) {
         setCustomCenter([auth.fields[0].center_latitude, auth.fields[0].center_longitude]);
       }
+      return;
     }
-  }, [auth.fields]);
+
+    setHasCustomLots(false);
+    setLotsData(initialMockLots);
+    setRawCustomPolygons(defaultDemoPolygons);
+    setCustomCenter([-33.8906, -60.5732]);
+    setSelectedLotId((currentId) =>
+      initialMockLots.some((lot) => lot.id === currentId) ? currentId : initialMockLots[0]?.id || ''
+    );
+  }, [auth.fields, auth.isLoading]);
 
   // Selected Lot object
   const selectedLot = useMemo(() => {
