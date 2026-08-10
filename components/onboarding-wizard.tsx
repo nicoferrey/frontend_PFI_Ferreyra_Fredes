@@ -128,27 +128,33 @@ export default function OnboardingWizard() {
     }
   };
 
-  // Update agronomic data of the selected lot
-  const handleUpdateLotAgronomics = () => {
+  // Update agronomic data of the selected lot synchronously without stale closures
+  const updateLotField = (field: 'name' | 'crop' | 'soil' | 'irrigation', value: string) => {
     if (!selectedLotId) return;
 
-    const matchedSoil = SOIL_TYPES.find((s) => s.id === lotSoil) || SOIL_TYPES[0];
+    if (field === 'name') setLotName(value);
+    if (field === 'crop') setLotCrop(value);
+    if (field === 'soil') setLotSoil(value);
+    if (field === 'irrigation') setLotIrrigation(value);
 
     setLots((prev) =>
-      prev.map((l) =>
-        l.id === selectedLotId
-          ? {
-              ...l,
-              name: lotName,
-              crop: lotCrop,
-              soil: lotSoil,
-              irrigation: lotIrrigation,
-              fc: matchedSoil.fc,
-              wp: matchedSoil.wp,
-              taw: matchedSoil.taw,
-            }
-          : l
-      )
+      prev.map((l) => {
+        if (l.id !== selectedLotId) return l;
+
+        const effectiveSoilId = field === 'soil' ? value : (l.soil || lotSoil);
+        const matchedSoil = SOIL_TYPES.find((s) => s.id === effectiveSoilId) || SOIL_TYPES[0];
+
+        return {
+          ...l,
+          name: field === 'name' ? value : l.name,
+          crop: field === 'crop' ? value : l.crop,
+          soil: effectiveSoilId,
+          irrigation: field === 'irrigation' ? value : l.irrigation,
+          fc: matchedSoil.fc,
+          wp: matchedSoil.wp,
+          taw: matchedSoil.taw,
+        };
+      })
     );
   };
 
@@ -572,7 +578,9 @@ export default function OnboardingWizard() {
                   ))}
                 </div>
 
-                {currentSelectedLot ? (
+                {currentSelectedLot ? (() => {
+                  const activeSoil = SOIL_TYPES.find((s) => s.id === (currentSelectedLot.soil || lotSoil)) || SOIL_TYPES[0];
+                  return (
                   <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 space-y-4">
                     
                     {/* Input Lote Name */}
@@ -581,11 +589,7 @@ export default function OnboardingWizard() {
                       <input
                         type="text"
                         value={lotName}
-                        onChange={(e) => {
-                          setLotName(e.target.value);
-                          handleUpdateLotAgronomics();
-                        }}
-                        onBlur={handleUpdateLotAgronomics}
+                        onChange={(e) => updateLotField('name', e.target.value)}
                         className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition"
                       />
                     </div>
@@ -596,14 +600,11 @@ export default function OnboardingWizard() {
                       <div className="grid grid-cols-2 gap-2">
                         {CROPS.map((crop) => {
                           const Icon = crop.icon;
-                          const isSelected = lotCrop === crop.id;
+                          const isSelected = (currentSelectedLot.crop || lotCrop) === crop.id;
                           return (
                             <button
                               key={crop.id}
-                              onClick={() => {
-                                setLotCrop(crop.id);
-                                setTimeout(handleUpdateLotAgronomics, 0);
-                              }}
+                              onClick={() => updateLotField('crop', crop.id)}
                               className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition ${
                                 isSelected 
                                   ? 'bg-cyan-500/10 border-cyan-400 text-white' 
@@ -631,23 +632,22 @@ export default function OnboardingWizard() {
                       
                       <div className="space-y-1.5">
                         {SOIL_TYPES.map((soil) => {
-                          const isSelected = lotSoil === soil.id;
+                          const isSelected = (currentSelectedLot.soil || lotSoil) === soil.id;
                           return (
                             <button
                               key={soil.id}
-                              onClick={() => {
-                                setLotSoil(soil.id);
-                                setTimeout(handleUpdateLotAgronomics, 0);
-                              }}
+                              onClick={() => updateLotField('soil', soil.id)}
                               className={`w-full text-left p-2.5 rounded-xl border text-xs transition ${
                                 isSelected 
-                                  ? 'bg-cyan-500/10 border-cyan-400 text-white' 
+                                  ? 'bg-cyan-500/10 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400/30' 
                                   : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
                               }`}
                             >
                               <div className="flex justify-between items-center font-bold text-slate-200">
                                 <span>{soil.name}</span>
-                                {isSelected && <span className="text-[10px] text-cyan-400">TAW: {soil.taw} mm/m</span>}
+                                <span className={`text-[10px] font-mono ${isSelected ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
+                                  TAW: {soil.taw} mm/m
+                                </span>
                               </div>
                               <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{soil.desc}</p>
                             </button>
@@ -660,11 +660,8 @@ export default function OnboardingWizard() {
                     <div className="space-y-1.5">
                       <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Sistema de Riego Instalado</label>
                       <select
-                        value={lotIrrigation}
-                        onChange={(e) => {
-                          setLotIrrigation(e.target.value);
-                          setTimeout(handleUpdateLotAgronomics, 0);
-                        }}
+                        value={currentSelectedLot.irrigation || lotIrrigation}
+                        onChange={(e) => updateLotField('irrigation', e.target.value)}
                         className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
                       >
                         {IRRIGATION_SYSTEMS.map((sys) => (
@@ -677,27 +674,33 @@ export default function OnboardingWizard() {
 
                     {/* Dynamic Agronomic Estimates display (FAO-56 parameters) */}
                     <div className="bg-black/50 border border-white/5 rounded-xl p-3 space-y-2 text-[11px]">
-                      <p className="font-bold text-slate-300 uppercase tracking-widest text-[9px] border-b border-white/5 pb-1">
-                        Valores Agronómicos Estimados
-                      </p>
+                      <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                        <p className="font-bold text-slate-300 uppercase tracking-widest text-[9px]">
+                          Valores Agronómicos Estimados (FAO-56)
+                        </p>
+                        <span className="text-[9px] text-slate-500 font-mono">
+                          TAW = 1000 × (FC - WP)
+                        </span>
+                      </div>
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
-                          <span className="text-slate-500 block">Cap. Campo (FC)</span>
-                          <span className="text-sm font-semibold text-white font-mono">{currentSelectedLot.fc}%</span>
+                          <span className="text-slate-500 block text-[10px]">Cap. Campo (FC)</span>
+                          <span className="text-sm font-semibold text-white font-mono">{activeSoil.fc}%</span>
                         </div>
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
-                          <span className="text-slate-500 block">Pto. Marchitez (WP)</span>
-                          <span className="text-sm font-semibold text-amber-300 font-mono">{currentSelectedLot.wp}%</span>
+                          <span className="text-slate-500 block text-[10px]">Pto. Marchitez (WP)</span>
+                          <span className="text-sm font-semibold text-amber-300 font-mono">{activeSoil.wp}%</span>
                         </div>
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
-                          <span className="text-slate-500 block">Agua Util. (TAW)</span>
-                          <span className="text-sm font-semibold text-sky-300 font-mono">{currentSelectedLot.taw} mm</span>
+                          <span className="text-slate-500 block text-[10px]">Agua Útil (TAW)</span>
+                          <span className="text-sm font-semibold text-sky-300 font-mono">{activeSoil.taw} mm/m</span>
                         </div>
                       </div>
                     </div>
 
                   </div>
-                ) : (
+                  );
+                })() : (
                   <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center text-slate-500 bg-slate-900/20">
                     <p className="text-xs">No hay lotes para parametrizar.</p>
                     <p className="text-[10px] text-slate-600 mt-1">Retrocede al Paso 2 para delimitar tus parcelas.</p>
