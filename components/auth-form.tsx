@@ -155,8 +155,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       setErrorMessage('Por favor, ingresa un correo electrónico válido.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < 8) {
+      setErrorMessage('La contraseña debe tener al menos 8 caracteres (requisito de seguridad del servidor).');
       return;
     }
     if (password !== confirmPassword) {
@@ -202,8 +202,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
 
       } else {
         // Signup Mode (Step 2 Submission)
-        if (!phone.trim()) {
-          setErrorMessage('Por favor, ingresa tu número de WhatsApp con código de país.');
+        if (!phone.trim() || phone.trim().length < 8) {
+          setErrorMessage('Por favor, ingresa un número de WhatsApp válido con código de país (mínimo 8 dígitos).');
           setLoading(false);
           return;
         }
@@ -535,7 +535,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">
-              Contraseña (mínimo 6 caracteres)
+              Contraseña (mínimo 8 caracteres)
             </label>
             <div className="relative flex items-center">
               <Lock className="absolute left-3.5 h-4 w-4 text-slate-500" />
@@ -545,6 +545,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={8}
                 className="w-full bg-slate-900/60 border border-white/10 focus:border-emerald-400 rounded-xl py-2.5 pl-10 pr-10 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/20 transition"
               />
               <button

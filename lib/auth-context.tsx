@@ -85,10 +85,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  function formatError(detail: any, fallback: string): string {
+    if (!detail) return fallback;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (item?.msg) {
+            const field = item.loc ? item.loc[item.loc.length - 1] : '';
+            if (field === 'password') return 'La contraseña debe tener al menos 8 caracteres.';
+            if (field === 'phone_whatsapp') return 'El número de WhatsApp debe tener al menos 8 caracteres con código de país.';
+            if (field === 'email') return 'El correo electrónico ingresado no es válido.';
+            return `${field ? field + ': ' : ''}${item.msg}`;
+          }
+          return JSON.stringify(item);
+        })
+        .join(' | ');
+    }
+    if (typeof detail === 'object') {
+      return detail.message || detail.error || detail.msg || fallback;
+    }
+    return String(detail);
+  }
+
   const login = async (payload: LoginPayload) => {
     const res = await loginApi(payload);
     if (!res.ok) {
-      const errorMsg = res.data?.detail || (res.status === 401 ? 'Correo o contraseña incorrectos.' : 'Error al iniciar sesión.');
+      const errorMsg = formatError(
+        res.data?.detail,
+        res.status === 401 ? 'Correo o contraseña incorrectos.' : 'Error al iniciar sesión.'
+      );
       return { success: false, error: errorMsg };
     }
 
@@ -120,7 +147,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (payload: RegisterPayload) => {
     const res = await registerApi(payload);
     if (!res.ok) {
-      const errorMsg = res.data?.detail || (res.status === 409 ? 'Este correo ya se encuentra registrado.' : 'Error al registrar la cuenta.');
+      const errorMsg = formatError(
+        res.data?.detail,
+        res.status === 409 ? 'Este correo ya se encuentra registrado.' : 'Error al registrar la cuenta.'
+      );
       return { success: false, error: errorMsg };
     }
 
@@ -150,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const googleAuth = async (payload: GoogleAuthPayload) => {
     const res = await googleAuthApi(payload);
     if (!res.ok) {
-      const errorMsg = res.data?.detail || 'Error al autenticar con Google.';
+      const errorMsg = formatError(res.data?.detail, 'Error al autenticar con Google.');
       return { success: false, error: errorMsg };
     }
 
