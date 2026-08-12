@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
-        <Script src="https://accounts.google.com/gsi/client" strategy="lazyOnload" />
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
       </head>
       <body>
         <AuthProvider>{children}</AuthProvider>

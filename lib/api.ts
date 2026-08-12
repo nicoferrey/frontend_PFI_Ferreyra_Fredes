@@ -35,8 +35,8 @@ export function getAccessToken(): string | null {
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getAccessToken();
   const headers = new Headers(init.headers);
-
-  if (token && !headers.has('Authorization')) {
+  const isPublicAuthRoute = path.startsWith('/api/v1/auth/');
+  if (token && !headers.has('Authorization') && !isPublicAuthRoute) {
     headers.set('Authorization', `Bearer ${token}`);
   }
   if (init.body && !headers.has('Content-Type')) {
@@ -104,7 +104,8 @@ export interface LoginPayload {
 }
 
 export interface GoogleAuthPayload {
-  id_token: string;
+  id_token?: string;
+  credential?: string;
   phone_whatsapp?: string;
   role?: 'admin' | 'agronomist' | 'operator';
 }
@@ -172,9 +173,15 @@ export async function loginApi(payload: LoginPayload) {
 }
 
 export async function googleAuthApi(payload: GoogleAuthPayload) {
+  const token = payload.id_token || payload.credential || '';
   const res = await apiFetch('/api/v1/auth/google', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      id_token: token,
+      credential: token,
+      phone_whatsapp: payload.phone_whatsapp,
+      role: payload.role,
+    }),
   });
   return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }

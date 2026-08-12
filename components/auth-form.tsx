@@ -103,19 +103,60 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     }
   };
 
+  // Initialize Google Identity Services
+  useEffect(() => {
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!googleClientId || googleClientId.includes('<client-id>')) return;
+
+    const setupGoogleGis = () => {
+      if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response: any) => {
+            if (response?.credential) {
+              processGoogleCredential(response.credential);
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      setupGoogleGis();
+    } else {
+      const interval = setInterval(() => {
+        if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+          clearInterval(interval);
+          setupGoogleGis();
+        }
+      }, 250);
+      return () => clearInterval(interval);
+    }
+  }, [mode]);
+
   // Google Login / Signup Click Handler
   const handleGoogleAuthClick = async () => {
     const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-    // If Google GIS client is loaded and client ID is provided
-    if (typeof window !== 'undefined' && window.google && googleClientId && !googleClientId.includes('<client-id>')) {
+    if (!googleClientId || googleClientId.includes('<client-id>')) {
+      setErrorMessage('Google Client ID no está configurado en las variables de entorno (NEXT_PUBLIC_GOOGLE_CLIENT_ID).');
+      return;
+    }
+
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      setGoogleLoading(true);
+      setErrorMessage(null);
+
       try {
-        setGoogleLoading(true);
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           callback: (response: any) => {
-            if (response.credential) {
+            if (response?.credential) {
               processGoogleCredential(response.credential);
+            } else {
+              setGoogleLoading(false);
             }
           },
         });
@@ -123,23 +164,17 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         // Prompt Google Account Chooser
         window.google.accounts.id.prompt((notification: any) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback for popup blocking
             setGoogleLoading(false);
           }
         });
-        return;
-      } catch (e) {
-        console.warn('Google GIS prompt failed, using fallback:', e);
+      } catch (e: any) {
+        console.warn('Google GIS prompt failed:', e);
+        setGoogleLoading(false);
+        setErrorMessage('No se pudo abrir el selector de Google. Asegúrate de permitir ventanas emergentes.');
       }
+    } else {
+      setErrorMessage('El SDK de Google aún no está listo. Por favor espera unos segundos o recarga la página.');
     }
-
-    // Demo / Sandbox fallback if Google Client ID is not yet configured by the user
-    setGoogleLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-
-    // Simulate Step 1 response from backend
-    const mockToken = 'mock_google_id_token_' + Math.random().toString(36).substring(2);
-    await processGoogleCredential(mockToken);
   };
 
   // Step 1 Validation & Proceed to Step 2
