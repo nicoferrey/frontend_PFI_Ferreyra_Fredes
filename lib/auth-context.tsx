@@ -12,19 +12,23 @@ interface AuthContextType {
   fields: FieldItem[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (payload: LoginPayload) => Promise<{ success: boolean; error?: string }>;
-  register: (payload: RegisterPayload) => Promise<{ success: boolean; error?: string }>;
+  isOwner: boolean;
+  login: (payload: LoginPayload) => Promise<{ success: boolean; error?: string; hasFields?: boolean; fieldCount?: number }>;
+  register: (payload: RegisterPayload) => Promise<{ success: boolean; error?: string; hasFields?: boolean }>;
   googleAuth: (payload: GoogleAuthPayload) => Promise<{ 
     success: boolean; 
     requiresProfile?: boolean; 
     googleEmail?: string; 
     firstName?: string; 
     lastName?: string; 
-    error?: string 
+    error?: string;
+    hasFields?: boolean;
+    fieldCount?: number;
   }>;
   logout: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<FieldItem[]>;
   setUserFields: (fields: FieldItem[]) => void;
+  setUserRole: (role: 'admin' | 'agronomist' | 'operator') => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initSession();
   }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = async (): Promise<FieldItem[]> => {
     try {
       const meData = await getMeApi();
       if (meData && meData.user) {
@@ -77,12 +81,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: `${meData.user.first_name || ''} ${meData.user.last_name || ''}`.trim() || meData.user.email
         };
         setUser(formattedUser);
-        setFields(meData.fields || []);
+        const currentFields = meData.fields || [];
+        setFields(currentFields);
         localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
+        return currentFields;
       }
     } catch (e) {
       console.error('Failed to refresh profile:', e);
     }
+    return fields;
   };
 
   function formatError(detail: any, fallback: string): string {
@@ -138,10 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(formattedUser);
     localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
 
-    // Try fetching fields
-    await refreshProfile();
+    // Fetch fresh user fields
+    const updatedFields = await refreshProfile();
+    const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
+    const hasFields = (updatedFields && updatedFields.length > 0) || hasLotsInStorage;
 
-    return { success: true };
+    return { 
+      success: true, 
+      hasFields,
+      fieldCount: updatedFields ? updatedFields.length : 0 
+    };
   };
 
   const register = async (payload: RegisterPayload) => {
@@ -174,7 +187,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(formattedUser);
     localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
 
-    return { success: true };
+    const updatedFields = await refreshProfile();
+    const hasFields = updatedFields && updatedFields.length > 0;
+
+    return { success: true, hasFields };
   };
 
   const googleAuth = async (payload: GoogleAuthPayload) => {
@@ -200,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(res.data.access_token);
     }
 
+    let updatedFields: FieldItem[] = [];
     if (res.data.user) {
       const formattedUser: UserProfile = {
         ...res.data.user,
@@ -207,10 +224,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       setUser(formattedUser);
       localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
-      await refreshProfile();
+      updatedFields = await refreshProfile();
     }
 
-    return { success: true };
+    const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
+    const hasFields = (updatedFields && updatedFields.length > 0) || hasLotsInStorage;
+
+    return { 
+      success: true, 
+      hasFields,
+      fieldCount: updatedFields.length 
+    };
   };
 
   const logout = async () => {
@@ -226,6 +250,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setFields(newFields);
   };
 
+  const setUserRole = (newRole: 'admin' | 'agronomist' | 'operator') => {
+    if (!user) return;
+    const updated = { ...user, role: newRole };
+    setUser(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('agromas_user', JSON.stringify(updated));
+    }
+  };
+
+  const isOwner = !user || user.role === 'admin';
+
   return (
     <AuthContext.Provider
       value={{
@@ -233,12 +268,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fields,
         isLoading,
         isAuthenticated: !!user,
+        isOwner,
         login,
         register,
         googleAuth,
         logout,
         refreshProfile,
         setUserFields,
+        setUserRole,
       }}
     >
       {children}

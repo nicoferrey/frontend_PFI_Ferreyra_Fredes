@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   MapPin, Compass, Settings2, Sparkles, ChevronLeft, ChevronRight, 
-  Trash2, Sprout, Layers3, Droplet, CheckCircle, Info 
+  Trash2, Sprout, Layers3, Droplet, CheckCircle, Info, ArrowLeft,
+  Home
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
 import { createFieldApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 interface Lot {
   id: string;
@@ -56,6 +59,7 @@ const IRRIGATION_SYSTEMS = [
 
 export default function OnboardingWizard() {
   const router = useRouter();
+  const auth = useAuth();
   const [step, setStep] = useState(1);
   
   // States
@@ -266,15 +270,34 @@ export default function OnboardingWizard() {
           
           {/* Header */}
           <header className="border-b border-white/10 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20">
-                <Sprout className="h-5 w-5 text-white" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20">
+                  <Sprout className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Onboarding</p>
+                  <h1 className="text-lg font-bold text-white">Configuración del Campo</h1>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Onboarding</p>
-                <h1 className="text-lg font-bold text-white">Configuración del Campo</h1>
-              </div>
+
+              <Link
+                href="/"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Volver</span>
+              </Link>
             </div>
+
+            {auth.fields && auth.fields.length > 0 && (
+              <div className="mt-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-300">
+                <span>Ya cuentas con {auth.fields.length} lotes activos</span>
+                <Link href="/" className="font-bold underline hover:text-emerald-200">
+                  Ir al Tablero &rarr;
+                </Link>
+              </div>
+            )}
 
             {/* Stepper Steps UI */}
             <nav className="mt-5 grid grid-cols-4 gap-2">

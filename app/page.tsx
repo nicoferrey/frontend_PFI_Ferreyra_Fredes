@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Fao56LotDetail } from '@/components/fao56-lot-detail';
 import { LotDetailView, LotHydricData } from '@/components/lot-detail-view';
+import { FarmSettingsView } from '@/components/farm-settings-view';
 import { Topbar } from '@/components/topbar';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -902,31 +903,11 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* TAB 5: CONFIGURACIÓN */}
+          {/* TAB 5: CONFIGURACIÓN (Gestión de Usuarios, Roles por el Dueño y Parámetros del Campo) */}
           {currentTab === 'configuracion' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200 text-slate-800">
-                    <Settings className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-950">Configuración de la Explotación</h2>
-                    <p className="text-xs text-slate-500">Gestión de parámetros edafológicos, equipos de riego y umbrales de alerta.</p>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link
-                    href="/onboarding"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 px-5 py-3 text-xs font-bold text-white shadow-md hover:shadow-lg transition"
-                  >
-                    <MapPinned className="h-4 w-4" />
-                    Abrir Wizard de Configuración de Campo
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <FarmSettingsView
+              fields={auth.fields}
+            />
           )}
 
         </section>

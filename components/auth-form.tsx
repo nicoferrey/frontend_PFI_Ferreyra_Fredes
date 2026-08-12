@@ -87,14 +87,15 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setSuccessMessage('¡Cuenta de Google verificada! Por favor completa tu teléfono de WhatsApp y tu rol.');
       } else {
         // User is fully authenticated
-        setSuccessMessage('¡Inicio de sesión exitoso con Google! Redirigiendo...');
+        setSuccessMessage('¡Inicio de sesión exitoso con Google! Redirigiendo al panel...');
         setTimeout(() => {
-          if (auth.fields && auth.fields.length > 0) {
+          const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
+          if (res.hasFields || (auth.fields && auth.fields.length > 0) || hasLotsInStorage) {
             router.push('/');
           } else {
             router.push('/onboarding');
           }
-        }, 1000);
+        }, 800);
       }
     } catch (err: any) {
       setErrorMessage('Error de comunicación con el servidor de autenticación.');
@@ -225,15 +226,15 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           return;
         }
 
-        setSuccessMessage('¡Inicio de sesión exitoso! Redirigiendo...');
+        setSuccessMessage('¡Inicio de sesión exitoso! Redirigiendo al panel...');
         setTimeout(() => {
-          const savedLots = localStorage.getItem('agromas_lots');
-          if (auth.fields.length > 0 || (savedLots && JSON.parse(savedLots).length > 0)) {
+          const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
+          if (res.hasFields || auth.fields.length > 0 || hasLotsInStorage) {
             router.push('/');
           } else {
             router.push('/onboarding');
           }
-        }, 1000);
+        }, 800);
 
       } else {
         // Signup Mode (Step 2 Submission)
@@ -242,6 +243,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           setLoading(false);
           return;
         }
+
+        let signupHasFields = false;
 
         if (isGoogleSignup && googleIdToken) {
           // Google Step 2 Completion
@@ -256,6 +259,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
             setLoading(false);
             return;
           }
+          signupHasFields = !!res.hasFields;
         } else {
           // Email/Password Step 2 Completion
           const res = await auth.register({
@@ -272,12 +276,23 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
             setLoading(false);
             return;
           }
+          signupHasFields = !!res.hasFields;
         }
 
-        setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
-        setTimeout(() => {
-          router.push('/onboarding');
-        }, 1000);
+        const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
+        const userHasFields = signupHasFields || auth.fields.length > 0 || hasLotsInStorage;
+
+        if (userHasFields || role === 'operator' || role === 'agronomist') {
+          setSuccessMessage('¡Cuenta creada con éxito! Redirigiendo a tu panel de monitoreo...');
+          setTimeout(() => {
+            router.push('/');
+          }, 800);
+        } else {
+          setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
+          setTimeout(() => {
+            router.push('/onboarding');
+          }, 800);
+        }
       }
     } catch (err: any) {
       setErrorMessage('Error de conexión con el servidor. Verifica tu conexión.');

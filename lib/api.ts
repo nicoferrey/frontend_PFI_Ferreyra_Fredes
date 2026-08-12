@@ -243,6 +243,174 @@ export async function deleteFieldApi(fieldId: string | number): Promise<boolean>
 }
 
 /* ==========================================================================
+   FIELD TEAM & USERS API METHODS (CU - Gestión de Usuarios del Campo)
+   ========================================================================== */
+
+export type FieldRole = 'admin' | 'agronomist' | 'operator';
+
+export interface FieldTeamMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  name?: string;
+  email: string;
+  phone_whatsapp?: string;
+  role: FieldRole;
+  status: 'active' | 'invited' | 'pending';
+  joined_at: string;
+  avatar_color?: string;
+}
+
+export interface AddTeamMemberPayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_whatsapp: string;
+  role: FieldRole;
+  field_id?: string | number;
+}
+
+const DEFAULT_TEAM_MEMBERS: FieldTeamMember[] = [
+  {
+    id: 'member-1',
+    first_name: 'Esteban',
+    last_name: 'Ferreyra',
+    name: 'Esteban Ferreyra',
+    email: 'e.ferreyra@establecimiento.com',
+    phone_whatsapp: '+54 9 2477 458921',
+    role: 'admin',
+    status: 'active',
+    joined_at: '2026-03-15T10:00:00Z',
+    avatar_color: 'bg-emerald-600',
+  },
+  {
+    id: 'member-2',
+    first_name: 'Ing. Lucas',
+    last_name: 'Fredes',
+    name: 'Ing. Lucas Fredes',
+    email: 'l.fredes@agroconsultora.com.ar',
+    phone_whatsapp: '+54 9 11 3844 1920',
+    role: 'agronomist',
+    status: 'active',
+    joined_at: '2026-04-02T14:30:00Z',
+    avatar_color: 'bg-sky-600',
+  },
+  {
+    id: 'member-3',
+    first_name: 'Carlos',
+    last_name: 'Benítez',
+    name: 'Carlos Benítez',
+    email: 'carlos.b@campodonpedro.com',
+    phone_whatsapp: '+54 9 2477 621105',
+    role: 'operator',
+    status: 'active',
+    joined_at: '2026-05-18T09:15:00Z',
+    avatar_color: 'bg-amber-600',
+  },
+];
+
+export async function getTeamMembersApi(fieldId?: string | number): Promise<FieldTeamMember[]> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId || 'default'}/members`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (err) {
+    // fallback to local storage or defaults
+  }
+
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('agromas_team_members');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {}
+    }
+    localStorage.setItem('agromas_team_members', JSON.stringify(DEFAULT_TEAM_MEMBERS));
+  }
+
+  return DEFAULT_TEAM_MEMBERS;
+}
+
+export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; error?: string }> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${payload.field_id || 'default'}/members`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, member: data };
+    }
+  } catch (err) {
+    console.warn('Backend team member creation error, using persistent local store:', err);
+  }
+
+  // Persistent storage fallback
+  const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-indigo-600', 'bg-rose-600', 'bg-teal-600'];
+  const randomColor = colors[Math.floor(Math.random() * colors.length)];
+  
+  const newMember: FieldTeamMember = {
+    id: `member-${Date.now()}`,
+    first_name: payload.first_name,
+    last_name: payload.last_name,
+    name: `${payload.first_name} ${payload.last_name}`.trim(),
+    email: payload.email,
+    phone_whatsapp: payload.phone_whatsapp,
+    role: payload.role,
+    status: 'active',
+    joined_at: new Date().toISOString(),
+    avatar_color: randomColor,
+  };
+
+  if (typeof window !== 'undefined') {
+    const current = await getTeamMembersApi(payload.field_id);
+    const updated = [newMember, ...current];
+    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
+  }
+
+  return { ok: true, member: newMember };
+}
+
+export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/members/${memberId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (res.ok) return true;
+  } catch {}
+
+  if (typeof window !== 'undefined') {
+    const current = await getTeamMembersApi();
+    const updated = current.map((m) => (m.id === memberId ? { ...m, role: newRole } : m));
+    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
+    return true;
+  }
+
+  return false;
+}
+
+export async function removeTeamMemberApi(memberId: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/members/${memberId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) return true;
+  } catch {}
+
+  if (typeof window !== 'undefined') {
+    const current = await getTeamMembersApi();
+    const updated = current.filter((m) => m.id !== memberId);
+    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
+    return true;
+  }
+
+  return false;
+}
+
+/* ==========================================================================
    AGENT API METHODS
    ========================================================================== */
 
