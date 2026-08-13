@@ -36,17 +36,21 @@ Los endpoints de agentes (`/agents/*`) siguen usando `X-API-Key` por ahora. No e
 
 | Metodo | Ruta | Auth | Uso en UI |
 |--------|------|------|-----------|
-| `POST` | `/api/v1/auth/register` | No | Registro email/password (paso 1+2 juntos) |
+| `POST` | `/api/v1/auth/register` | No | Registro directo de Productor/Dueño (1 paso unificado) |
 | `POST` | `/api/v1/auth/login` | No | Login email/password |
-| `POST` | `/api/v1/auth/google` | No | Login/registro Google (2 pasos) |
+| `POST` | `/api/v1/auth/google` | No | Login/registro Google (1 clic + WhatsApp si falta) |
 | `POST` | `/api/v1/auth/refresh` | Cookie | Renovar access token |
 | `POST` | `/api/v1/auth/logout` | Cookie | Cerrar sesion |
-| `GET` | `/api/v1/users/me` | Bearer | Perfil + lotes del usuario |
+| `GET` | `/api/v1/users/me` | Bearer | Perfil + lotes del usuario (si hay lotes omite onboarding) |
 | `POST` | `/api/v1/fields` | Bearer | Crear lote (onboarding mapa) |
 | `GET` | `/api/v1/fields` | Bearer | Listar lotes |
 | `GET` | `/api/v1/fields/{id}` | Bearer | Detalle de lote |
 | `PATCH` | `/api/v1/fields/{id}` | Bearer | Editar lote |
 | `DELETE` | `/api/v1/fields/{id}` | Bearer | Eliminar lote |
+| `GET` | `/api/v1/farms/members` | Bearer | Listar miembros del establecimiento (`/api/v1/fields/{id}/members`) |
+| `POST` | `/api/v1/farms/members` | Bearer | Agregar/invitar usuario al campo con rol (Dueño, Asesor, Operario) |
+| `PATCH` | `/api/v1/farms/members/{member_id}` | Bearer | Cambiar rol de un miembro en el campo |
+| `DELETE` | `/api/v1/farms/members/{member_id}` | Bearer | Desvincular miembro del campo |
 
 ---
 

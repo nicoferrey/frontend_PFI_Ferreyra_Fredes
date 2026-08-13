@@ -131,12 +131,12 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   useEffect(() => {
     async function loadMembers() {
       setIsLoadingMembers(true);
-      const data = await getTeamMembersApi();
+      const data = await getTeamMembersApi(fields[0]?.id);
       setMembers(data);
       setIsLoadingMembers(false);
     }
     loadMembers();
-  }, []);
+  }, [fields]);
 
   // Filtered members list
   const filteredMembers = members.filter((m) => {
@@ -178,7 +178,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
       email: newEmail.trim(),
       phone_whatsapp: newPhone.trim(),
       role: newRole,
-      field_id: fields[0]?.id || 'default',
+      field_id: fields[0]?.id,
     });
 
     if (result.ok && result.member) {

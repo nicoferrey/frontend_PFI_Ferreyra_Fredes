@@ -205,7 +205,7 @@ Devuelve el perfil del usuario autenticado y la lista de todos los campos en los
 
 ---
 
-### 2. `GET /api/v1/fields/{field_id}/members` (Listar Miembros del Campo)
+### 2. `GET /api/v1/farms/members` o `GET /api/v1/fields/{field_id}/members` (Listar Miembros del Establecimiento)
 Obtiene todos los usuarios con acceso al campo actual.
 
 * **Headers**: `Authorization: Bearer <access_token>`
@@ -253,7 +253,7 @@ Obtiene todos los usuarios con acceso al campo actual.
 
 ---
 
-### 3. `POST /api/v1/fields/{field_id}/members` (Invitar / Agregar Usuario al Campo)
+### 3. `POST /api/v1/farms/members` o `POST /api/v1/fields/{field_id}/members` (Invitar / Agregar Usuario al Campo)
 Permite al **Dueño** (`admin`) agregar un nuevo usuario al establecimiento.
 
 * **Headers**: `Authorization: Bearer <access_token>`
@@ -264,7 +264,8 @@ Permite al **Dueño** (`admin`) agregar un nuevo usuario al establecimiento.
   "last_name": "García",
   "email": "m.garcia@campo.com",
   "phone_whatsapp": "+5492477334455",
-  "role": "operator"
+  "role": "operator",
+  "field_id": "f83a21b4-1029-4d6e-82f3-102948a7b1c3"
 }
 ```
 * **Lógica en Backend**:

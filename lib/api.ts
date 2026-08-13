@@ -311,7 +311,10 @@ const DEFAULT_TEAM_MEMBERS: FieldTeamMember[] = [
 
 export async function getTeamMembersApi(fieldId?: string | number): Promise<FieldTeamMember[]> {
   try {
-    const res = await apiFetch(`/api/v1/fields/${fieldId || 'default'}/members`);
+    const endpoint = fieldId && fieldId !== 'default' 
+      ? `/api/v1/fields/${fieldId}/members` 
+      : `/api/v1/farms/members`;
+    const res = await apiFetch(endpoint);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) return data;
@@ -335,7 +338,11 @@ export async function getTeamMembersApi(fieldId?: string | number): Promise<Fiel
 
 export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; error?: string }> {
   try {
-    const res = await apiFetch(`/api/v1/fields/${payload.field_id || 'default'}/members`, {
+    const endpoint = payload.field_id && payload.field_id !== 'default'
+      ? `/api/v1/fields/${payload.field_id}/members`
+      : `/api/v1/farms/members`;
+
+    const res = await apiFetch(endpoint, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -375,7 +382,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
 
 export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole): Promise<boolean> {
   try {
-    const res = await apiFetch(`/api/v1/members/${memberId}/role`, {
+    const res = await apiFetch(`/api/v1/farms/members/${memberId}`, {
       method: 'PATCH',
       body: JSON.stringify({ role: newRole }),
     });
@@ -394,7 +401,7 @@ export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRo
 
 export async function removeTeamMemberApi(memberId: string): Promise<boolean> {
   try {
-    const res = await apiFetch(`/api/v1/members/${memberId}`, {
+    const res = await apiFetch(`/api/v1/farms/members/${memberId}`, {
       method: 'DELETE',
     });
     if (res.ok) return true;
