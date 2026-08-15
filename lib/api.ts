@@ -685,3 +685,226 @@ export async function refreshFieldAgentSnapshotApi(
 
   return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }
+
+/* ==========================================================================
+   HISTORY AND REPORTS API METHODS
+   ========================================================================== */
+
+export interface IrrigationEvent {
+  id: number | string;
+  field_id: number;
+  applied_at: string;
+  amount_mm: number;
+  method?: string;
+  notes?: string;
+  registered_by?: string; // UUID
+  created_at?: string;
+}
+
+export interface RainfallEvent {
+  id: number | string;
+  field_id: number;
+  applied_at: string;
+  amount_mm: number;
+  notes?: string;
+  registered_by?: string; // UUID
+  created_at?: string;
+}
+
+export interface HydricHistoryDay {
+  date: string;
+  dr_mm: number;
+  au_mm: number;
+  afd_mm: number;
+  taw_mm: number;
+  etc_mm: number;
+  et0_mm: number;
+  rain_mm: number;
+  irrigation_mm: number;
+  ndvi?: number;
+  kc?: number;
+  rain_source: 'manual' | 'open_meteo' | 'none';
+}
+
+export interface ReportsSummary {
+  field_id: number;
+  field_name: string;
+  crop: string;
+  area_ha: number;
+  period: {
+    from: string;
+    to: string;
+  };
+  metrics: {
+    total_precipitation_mm: number;
+    total_irrigation_applied_mm: number;
+    total_water_volume_m3: number;
+    total_evapotranspiration_etc_mm: number;
+    days_under_stress_raw: number;
+    water_efficiency_index: number;
+  };
+}
+
+export async function getIrrigationEventsApi(
+  fieldId: string | number,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<IrrigationEvent[]> {
+  try {
+    let url = `/api/v1/fields/${fieldId}/irrigation-events`;
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    const query = params.toString();
+    if (query) url += `?${query}`;
+
+    const res = await apiFetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createIrrigationEventApi(
+  fieldId: string | number,
+  payload: Partial<IrrigationEvent>
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/irrigation-events`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+export async function updateIrrigationEventApi(
+  fieldId: string | number,
+  eventId: string | number,
+  payload: Partial<IrrigationEvent>
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/irrigation-events/${eventId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+export async function deleteIrrigationEventApi(
+  fieldId: string | number,
+  eventId: string | number
+): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId}/irrigation-events/${eventId}`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function getRainfallEventsApi(
+  fieldId: string | number,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<RainfallEvent[]> {
+  try {
+    let url = `/api/v1/fields/${fieldId}/rainfall-events`;
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    const query = params.toString();
+    if (query) url += `?${query}`;
+
+    const res = await apiFetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createRainfallEventApi(
+  fieldId: string | number,
+  payload: Partial<RainfallEvent>
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/rainfall-events`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+export async function updateRainfallEventApi(
+  fieldId: string | number,
+  eventId: string | number,
+  payload: Partial<RainfallEvent>
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/rainfall-events/${eventId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
+export async function deleteRainfallEventApi(
+  fieldId: string | number,
+  eventId: string | number
+): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId}/rainfall-events/${eventId}`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function getHydricHistoryApi(
+  fieldId: string | number,
+  dateFrom: string,
+  dateTo: string
+): Promise<HydricHistoryDay[]> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId}/hydric-history?date_from=${dateFrom}&date_to=${dateTo}`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function getReportsSummaryApi(
+  fieldId: string | number,
+  dateFrom: string,
+  dateTo: string
+): Promise<ReportsSummary | null> {
+  try {
+    const res = await apiFetch(`/api/v1/fields/${fieldId}/reports/summary?date_from=${dateFrom}&date_to=${dateTo}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function exportReportBlobApi(
+  fieldId: string | number,
+  format: 'csv' | 'xlsx',
+  dateFrom: string,
+  dateTo: string
+): Promise<Blob> {
+  const token = getAccessToken();
+  const headers = new Headers();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(
+    `${API_URL}/api/v1/fields/${fieldId}/reports/export?format=${format}&date_from=${dateFrom}&date_to=${dateTo}`,
+    { headers }
+  );
+  if (!response.ok) throw new Error('Failed to export report');
+  return response.blob();
+}
+

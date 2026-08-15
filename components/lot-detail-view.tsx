@@ -101,6 +101,7 @@ export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: Lot
   });
 
   const [formSuccess, setFormSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Status visual styles
   const statusConfig = {
@@ -187,21 +188,28 @@ export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: Lot
   };
 
   // Submit CU-05 form
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (onRegisterIrrigation) {
-      onRegisterIrrigation(lot.id, {
-        date: `${irrigationForm.date} ${irrigationForm.time}`,
-        amount_mm: parseFloat(irrigationForm.amount_mm) || 0,
-        method: irrigationForm.method,
-        notes: irrigationForm.notes,
-      });
+    setIsSubmitting(true);
+    try {
+      if (onRegisterIrrigation) {
+        await onRegisterIrrigation(lot.id, {
+          date: `${irrigationForm.date} ${irrigationForm.time}`,
+          amount_mm: parseFloat(irrigationForm.amount_mm) || 0,
+          method: irrigationForm.method,
+          notes: irrigationForm.notes,
+        });
+      }
+      setFormSuccess(true);
+      setTimeout(() => {
+        setFormSuccess(false);
+        setIsRegisterModalOpen(false);
+      }, 1200);
+    } catch (err) {
+      console.error('Failed to submit irrigation event:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-    setFormSuccess(true);
-    setTimeout(() => {
-      setFormSuccess(false);
-      setIsRegisterModalOpen(false);
-    }, 1200);
   };
 
   const StatusIcon = statusConfig.icon;
@@ -736,16 +744,18 @@ export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: Lot
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => setIsRegisterModalOpen(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition"
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-70"
                   >
-                    Guardar Registro (CU-05)
+                    {isSubmitting ? 'Guardando...' : 'Guardar Registro (CU-05)'}
                   </button>
                 </div>
 
