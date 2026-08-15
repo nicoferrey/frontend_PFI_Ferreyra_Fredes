@@ -75,7 +75,9 @@ import {
   IrrigationEvent,
   RainfallEvent,
   HydricHistoryDay,
-  ReportsSummary
+  ReportsSummary,
+  FieldTeamMember,
+  getTeamMembersApi
 } from '@/lib/api';
 
 // Load DashboardMap only on client side to prevent Leaflet SSR errors
@@ -415,6 +417,7 @@ export default function DashboardPage() {
   const [irrigationEvents, setIrrigationEvents] = useState<IrrigationEvent[]>([]);
   const [rainfallEvents, setRainfallEvents] = useState<RainfallEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<FieldTeamMember[]>([]);
 
   // Date range selectors (default to last 30 days)
   const [dateFrom, setDateFrom] = useState(() => {
@@ -581,16 +584,18 @@ export default function DashboardPage() {
       setIsLoadingReports(true);
 
       try {
-        const [irrigs, rains, summary] = await Promise.all([
+        const [irrigs, rains, summary, team] = await Promise.all([
           getIrrigationEventsApi(fieldId, dateFrom, dateTo),
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
-          getReportsSummaryApi(fieldId, dateFrom, dateTo)
+          getReportsSummaryApi(fieldId, dateFrom, dateTo),
+          getTeamMembersApi(fieldId)
         ]);
 
         if (!isCancelled) {
           setIrrigationEvents(irrigs);
           setRainfallEvents(rains);
           setReportsSummary(summary);
+          setTeamMembers(team);
         }
       } catch (err) {
         console.error('Error loading history/reports data:', err);
@@ -659,6 +664,15 @@ export default function DashboardPage() {
   const consolidatedEvents = useMemo(() => {
     const hasCustom = auth.fields && auth.fields.length > 0;
     if (hasCustom) {
+      const getMemberName = (uuid?: string) => {
+        if (!uuid) return 'Sistema';
+        const member = teamMembers.find((m) => String(m.id) === String(uuid));
+        if (member) {
+          return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim();
+        }
+        return uuid;
+      };
+
       const mappedIrrig = irrigationEvents.map((e) => ({
         id: e.id,
         type: 'riego' as const,
@@ -666,7 +680,7 @@ export default function DashboardPage() {
         amount_mm: e.amount_mm,
         method: e.method || 'N/A',
         notes: e.notes || '',
-        registered_by: e.registered_by || 'Sistema',
+        registered_by: getMemberName(e.registered_by),
       }));
 
       const mappedRain = rainfallEvents.map((e) => ({
@@ -676,7 +690,7 @@ export default function DashboardPage() {
         amount_mm: e.amount_mm,
         method: 'Pluviómetro Manual',
         notes: e.notes || '',
-        registered_by: e.registered_by || 'Sistema',
+        registered_by: getMemberName(e.registered_by),
       }));
 
       return [...mappedIrrig, ...mappedRain].sort(
@@ -714,14 +728,15 @@ export default function DashboardPage() {
         },
       ];
     }
-  }, [auth.fields, irrigationEvents, rainfallEvents]);
+  }, [auth.fields, irrigationEvents, rainfallEvents, teamMembers]);
 
   // Handler to register rainfall manual
   const handleSaveRainfall = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedField) return;
     setIsSubmittingRain(true);
-    const isoDate = `${rainForm.date}T${rainForm.time}:00.000Z`;
+    const localDate = new Date(`${rainForm.date}T${rainForm.time}`);
+    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
 
     const res = await createRainfallEventApi(selectedField.id, {
       applied_at: isoDate,
@@ -753,7 +768,8 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!selectedField) return;
     setIsSubmittingHistoryIrrig(true);
-    const isoDate = `${historyIrrigForm.date}T${historyIrrigForm.time}:00.000Z`;
+    const localDate = new Date(`${historyIrrigForm.date}T${historyIrrigForm.time}`);
+    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
 
     const res = await createIrrigationEventApi(selectedField.id, {
       applied_at: isoDate,
@@ -806,7 +822,8 @@ export default function DashboardPage() {
     if (!selectedField || !editingEvent) return;
     setIsSubmittingEdit(true);
 
-    const isoDate = `${editingEvent.date}T${editingEvent.time}:00.000Z`;
+    const localDate = new Date(`${editingEvent.date}T${editingEvent.time}`);
+    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
     const payload = {
       applied_at: isoDate,
       amount_mm: parseFloat(editingEvent.amount_mm) || 0,
@@ -861,7 +878,8 @@ export default function DashboardPage() {
 
     if (isCustom) {
       const [datePart, timePart] = data.date.split(' ');
-      const isoDate = `${datePart}T${timePart || '00:00'}:00.000Z`;
+      const localDate = new Date(`${datePart}T${timePart || '00:00'}`);
+      const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
 
       const res = await createIrrigationEventApi(lotId, {
         applied_at: isoDate,
