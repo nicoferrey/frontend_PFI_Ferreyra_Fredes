@@ -335,7 +335,16 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
               {lot.ndviCurrent.toFixed(2)}
             </p>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor vegetativo alto</span>
+            {(() => {
+              const val = lot.ndviCurrent;
+              if (val >= 0.7) {
+                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor vegetativo alto</span>;
+              } else if (val >= 0.5) {
+                return <span className="text-[10px] text-amber-600 dark:text-amber-450 font-semibold">Vigor vegetativo moderado</span>;
+              } else {
+                return <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Vigor vegetativo bajo</span>;
+              }
+            })()}
           </div>
 
           {/* 6. Kc Dinámico */}

@@ -165,7 +165,7 @@ export function Topbar({
     : 'Productor';
 
   return (
-    <header className={`relative z-40 w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>
+    <header className={`relative z-[1010] w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between gap-4">
         
         {/* Left Side: Breadcrumbs / Navigation Index */}
@@ -237,7 +237,7 @@ export function Topbar({
 
             {/* Notifications Popover */}
             {notificationsOpen && (
-              <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-2xl ring-1 ring-black/5 z-[100] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+              <div className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-2xl ring-1 ring-black/5 z-[1020] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-slate-900">Notificaciones</h3>
@@ -341,7 +341,7 @@ export function Topbar({
 
             {/* User Dropdown Menu */}
             {userDropdownOpen && (
-              <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-2xl ring-1 ring-black/5 z-[100] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
+              <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-2xl ring-1 ring-black/5 z-[1020] animate-in fade-in zoom-in-95 duration-150 origin-top-right">
                 
                 {/* User Header Info Card */}
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-1.5 border border-slate-100">

@@ -21,6 +21,7 @@ interface DashboardMapProps {
   selectedLotId?: string;
   onSelectLot?: (lotId: string) => void;
   className?: string;
+  grayscale?: boolean;
 }
 
 export default function DashboardMap({
@@ -29,6 +30,7 @@ export default function DashboardMap({
   selectedLotId,
   onSelectLot,
   className = "",
+  grayscale = false,
 }: DashboardMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
@@ -131,14 +133,12 @@ export default function DashboardMap({
         }[status];
       } else if (activeLayer === 'ndvi') {
         const ndvi = lot.ndviCurrent ?? 0.75;
-        if (ndvi >= 0.8) {
-          colorMap = { border: '#064e3b', fill: '#059669', badge: 'bg-emerald-800 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Excelente)` };
-        } else if (ndvi >= 0.7) {
-          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Bueno)` };
-        } else if (ndvi >= 0.6) {
-          colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `NDVI: ${ndvi.toFixed(2)} (Medio)` };
+        if (ndvi >= 0.7) {
+          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Alto)` };
+        } else if (ndvi >= 0.5) {
+          colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `NDVI: ${ndvi.toFixed(2)} (Moderado)` };
         } else {
-          colorMap = { border: '#78350f', fill: '#d97706', badge: 'bg-amber-700 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Bajo)` };
+          colorMap = { border: '#be123c', fill: '#f43f5e', badge: 'bg-rose-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Bajo)` };
         }
       } else if (activeLayer === 'humedad') {
         const au = lot.waterAvailableAU_pct ?? 70;
@@ -219,14 +219,12 @@ export default function DashboardMap({
         }[status];
       } else if (activeLayer === 'ndvi') {
         const ndvi = lot.ndviCurrent ?? 0.75;
-        if (ndvi >= 0.8) {
-          colorMap = { border: '#064e3b', fill: '#059669' };
-        } else if (ndvi >= 0.7) {
-          colorMap = { border: '#047857', fill: '#10b981' };
-        } else if (ndvi >= 0.6) {
-          colorMap = { border: '#854d0e', fill: '#fbbf24' };
+        if (ndvi >= 0.7) {
+          colorMap = { border: '#047857', fill: '#10b981' }; // High Vigor (> 0.7)
+        } else if (ndvi >= 0.5) {
+          colorMap = { border: '#854d0e', fill: '#fbbf24' }; // Moderate (0.5 - 0.7)
         } else {
-          colorMap = { border: '#78350f', fill: '#d97706' };
+          colorMap = { border: '#be123c', fill: '#f43f5e' }; // Low Vigor (< 0.5)
         }
       } else if (activeLayer === 'humedad') {
         const au = lot.waterAvailableAU_pct ?? 70;
@@ -256,7 +254,26 @@ export default function DashboardMap({
   }, [lots, selectedLotId, activeLayer, mapInstance]);
 
   return (
-    <div className={`relative w-full h-full min-h-[480px] lg:min-h-[540px] rounded-[28px] overflow-hidden border border-white/10 shadow-inner ${className}`}>
+    <div className={`relative w-full h-full min-h-[480px] lg:min-h-[540px] rounded-[28px] overflow-hidden border border-white/10 shadow-inner ${grayscale ? 'map-grayscale' : ''} ${className}`}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .leaflet-tooltip.custom-map-tooltip {
+          background: #0f172a !important;
+          border: 1px solid rgba(255, 255, 255, 0.18) !important;
+          border-radius: 14px !important;
+          padding: 10px 14px !important;
+          box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.55), 0 4px 8px -2px rgba(0, 0, 0, 0.35) !important;
+          font-family: inherit !important;
+        }
+        .leaflet-tooltip.custom-map-tooltip::before {
+          border-top-color: #0f172a !important;
+          border-bottom-color: #0f172a !important;
+        }
+        ${grayscale ? `
+          .map-grayscale .leaflet-tile-pane {
+            filter: grayscale(100%) brightness(0.8) contrast(1.15);
+          }
+        ` : ''}
+      `}} />
       <div ref={containerRef} className="w-full h-full min-h-[480px] lg:min-h-[540px]" />
       
       {/* Map Floating Legend */}
