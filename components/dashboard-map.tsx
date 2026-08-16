@@ -31,13 +31,13 @@ export default function DashboardMap({
   className = "",
 }: DashboardMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
   const polygonLayersRef = useRef<{ [id: string]: any }>({});
   const lastGeometrySignatureRef = useRef('');
   const onSelectLotRef = useRef(onSelectLot);
 
   const [activeLayer, setActiveLayer] = useState<'alertas' | 'ndvi' | 'humedad'>('alertas');
+  const [mapInstance, setMapInstance] = useState<any>(null);
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
@@ -47,6 +47,7 @@ export default function DashboardMap({
     if (!containerRef.current) return;
     const container = containerRef.current;
     let active = true;
+    let localMapInstance: any = null;
 
     const initMap = async () => {
       const L = await import('leaflet');
@@ -73,7 +74,7 @@ export default function DashboardMap({
         { subdomains: 'abcd', maxZoom: 20 }
       );
 
-      const mapInstance = L.map(container, {
+      const instance = L.map(container, {
         center: center,
         zoom: 15,
         layers: [esriSatellite, CartoDBLabels],
@@ -81,24 +82,27 @@ export default function DashboardMap({
         attributionControl: false,
       });
 
-      mapRef.current = mapInstance;
-      L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
+      localMapInstance = instance;
+      setTimeout(() => {
+        instance.invalidateSize();
+      }, 100);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(instance);
+      setMapInstance(instance);
     };
 
     initMap();
 
     return () => {
       active = false;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+      if (localMapInstance) {
+        localMapInstance.remove();
       }
     };
   }, []);
 
   useEffect(() => {
     const L = leafletRef.current;
-    const mapInstance = mapRef.current;
     if (!L || !mapInstance) return;
 
     Object.values(polygonLayersRef.current).forEach((layer) => {
@@ -187,14 +191,17 @@ export default function DashboardMap({
     if (geometryChanged && polygons.length > 0) {
       const group = L.featureGroup(polygons);
       mapInstance.fitBounds(group.getBounds(), { padding: [50, 50] });
+      mapInstance.invalidateSize();
       lastGeometrySignatureRef.current = geometrySignature;
     } else if (polygons.length === 0) {
       mapInstance.setView(center, 15);
+      mapInstance.invalidateSize();
       lastGeometrySignatureRef.current = '';
     }
-  }, [center, lots, activeLayer]);
+  }, [center, lots, activeLayer, mapInstance]);
 
   useEffect(() => {
+    if (!mapInstance) return;
     lots.forEach((lot) => {
       const polygon = polygonLayersRef.current[lot.id];
       if (!polygon) return;
@@ -246,7 +253,7 @@ export default function DashboardMap({
         polygon.bringToFront();
       }
     });
-  }, [lots, selectedLotId, activeLayer]);
+  }, [lots, selectedLotId, activeLayer, mapInstance]);
 
   return (
     <div className={`relative w-full h-full min-h-[480px] lg:min-h-[540px] rounded-[28px] overflow-hidden border border-white/10 shadow-inner ${className}`}>
