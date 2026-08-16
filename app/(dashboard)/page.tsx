@@ -16,7 +16,6 @@ import {
   Activity,
   CheckCircle
 } from 'lucide-react';
-import { Fao56LotDetail } from '@/components/fao56-lot-detail';
 import { useDashboard, defaultDemoPolygons } from './context';
 
 const DashboardMap = dynamic(
@@ -287,14 +286,76 @@ export default function DashboardHome() {
 
         {/* Consolidated Water Balance Detail (Right Column) */}
         <section className="lg:col-span-7">
-          <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-soft">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900/90 text-slate-900 dark:text-white">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
               <div>
                 <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Lista consolidada</span>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">Balance Hídrico Global por Lote</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">Balance Hídrico Global por Lote</h3>
               </div>
             </div>
-            <Fao56LotDetail />
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase font-extrabold text-[10px]">
+                    <th className="py-3 px-2">Lote</th>
+                    <th className="py-3 px-2">Cultivo</th>
+                    <th className="py-3 px-2 text-center">Estado</th>
+                    <th className="py-3 px-2 text-center">Déficit (Dr)</th>
+                    <th className="py-3 px-2 text-center">Agua Útil (AU)</th>
+                    <th className="py-3 px-2 text-center">Último Riego</th>
+                    <th className="py-3 px-2 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {lotsData.map((lotItem) => {
+                    const statusColor = lotItem.hydricStatus === 'Normal'
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : lotItem.hydricStatus === 'Atencion'
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400';
+
+                    return (
+                      <tr key={lotItem.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20">
+                        <td className="py-3.5 px-2 font-bold text-slate-900 dark:text-white">
+                          {lotItem.name}
+                        </td>
+                        <td className="py-3.5 px-2 text-slate-500">
+                          {lotItem.crop} ({lotItem.areaHa} ha)
+                        </td>
+                        <td className="py-3.5 px-2 text-center">
+                          <span className={`inline-block rounded-md px-2 py-0.5 font-semibold text-[11px] ${statusColor}`}>
+                            {lotItem.hydricStatus}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-2 text-center font-mono font-medium">
+                          {lotItem.deficitDr_mm.toFixed(1)} mm
+                        </td>
+                        <td className="py-3.5 px-2 text-center">
+                          <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                            {lotItem.waterAvailableAU_pct}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-2 text-center text-slate-500">
+                          {lotItem.lastIrrigationDate !== '-' 
+                            ? `${lotItem.lastIrrigationAmount_mm} mm (${lotItem.lastIrrigationDate})` 
+                            : 'Ninguno'}
+                        </td>
+                        <td className="py-3.5 px-2 text-right">
+                          <button
+                            onClick={() => handleInspectLot(lotItem.id)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-250 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 px-3 py-1.5 font-bold transition text-[11px]"
+                          >
+                            <span>Inspeccionar</span>
+                            <ArrowUpRight className="h-3.5 w-3.5 text-crop-600" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
