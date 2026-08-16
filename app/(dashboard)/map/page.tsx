@@ -53,11 +53,15 @@ export default function DashboardMapPage() {
           dr_mm: day.dr_mm,
           au_mm: day.au_mm,
           afd_mm: day.afd_mm,
+          raw_mm: day.raw_mm || day.afd_mm,
           taw_mm: day.taw_mm,
           irrigation_mm: day.irrigation_mm > 0 ? day.irrigation_mm : undefined,
           rain_mm: day.rain_mm > 0 ? day.rain_mm : undefined,
           ndvi: day.ndvi,
           kc: day.kc,
+          kc_source: day.kc_source,
+          under_stress: day.under_stress,
+          rain_source: day.rain_source,
         };
       });
 

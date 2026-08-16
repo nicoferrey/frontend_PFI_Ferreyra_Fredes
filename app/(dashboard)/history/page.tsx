@@ -123,11 +123,15 @@ export default function DashboardHistoryPage() {
           dr_mm: day.dr_mm,
           au_mm: day.au_mm,
           afd_mm: day.afd_mm,
+          raw_mm: day.raw_mm || day.afd_mm,
           taw_mm: day.taw_mm,
           irrigation_mm: day.irrigation_mm > 0 ? day.irrigation_mm : undefined,
           rain_mm: day.rain_mm > 0 ? day.rain_mm : undefined,
           ndvi: day.ndvi,
           kc: day.kc,
+          kc_source: day.kc_source,
+          under_stress: day.under_stress,
+          rain_source: day.rain_source,
         };
       });
 
@@ -609,6 +613,12 @@ export default function DashboardHistoryPage() {
                             <div className="space-y-1">
                               <p className="text-emerald-400 font-semibold">Agua Útil (AU): {data.au_mm?.toFixed(1)} mm</p>
                               <p className="text-amber-400 font-semibold">Déficit (Dr): {data.dr_mm?.toFixed(1)} mm</p>
+                              <p className="text-sky-300">Umbral RAW: {(data.raw_mm || data.afd_mm)?.toFixed(1)} mm</p>
+                              {data.kc ? (
+                                <p className="text-slate-350">
+                                  Kc: {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                </p>
+                              ) : null}
                               {data.irrigation_mm ? (
                                 <p className="text-cyan-300 font-bold mt-1 bg-cyan-500/20 px-2 py-0.5 rounded">
                                   💧 Riego: +{data.irrigation_mm} mm
@@ -616,9 +626,14 @@ export default function DashboardHistoryPage() {
                               ) : null}
                               {data.rain_mm ? (
                                 <p className="text-blue-300 font-bold mt-1 bg-blue-500/20 px-2 py-0.5 rounded">
-                                  🌧️ Lluvia: +{data.rain_mm} mm
+                                  🌧️ Lluvia: +{data.rain_mm} mm {data.rain_source ? `(${data.rain_source === 'manual' ? 'Manual' : 'Open-Meteo'})` : ''}
                                 </p>
                               ) : null}
+                              {(data.under_stress || data.dr_mm > (data.raw_mm || data.afd_mm)) && (
+                                <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
+                                  ⚠️ Estrés Hídrico Activo
+                                </p>
+                              )}
                             </div>
                           </div>
                         );

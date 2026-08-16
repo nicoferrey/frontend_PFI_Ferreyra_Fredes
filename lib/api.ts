@@ -715,6 +715,7 @@ export interface HydricHistoryDay {
   date: string;
   dr_mm: number;
   au_mm: number;
+  raw_mm?: number;
   afd_mm: number;
   taw_mm: number;
   etc_mm: number;
@@ -723,6 +724,9 @@ export interface HydricHistoryDay {
   irrigation_mm: number;
   ndvi?: number;
   kc?: number;
+  kc_source?: string;
+  under_stress?: boolean;
+  depletion_fraction_p?: number;
   rain_source: 'manual' | 'open_meteo' | 'none';
 }
 
@@ -907,4 +911,40 @@ export async function exportReportBlobApi(
   if (!response.ok) throw new Error('Failed to export report');
   return response.blob();
 }
+
+export interface NdviHistoryItem {
+  id: number;
+  field_id: number;
+  date: string;
+  ndvi_mean: number;
+  ndvi_min: number;
+  ndvi_max: number;
+  cloud_coverage_pct: number;
+  source: string;
+  quality_score: number;
+  quality_status: string;
+  vegetation_signal: string;
+  warnings: string[];
+  created_at: string;
+}
+
+export async function getNdviHistoryApi(
+  fieldId: string | number,
+  dateFrom: string,
+  dateTo: string,
+  source?: string
+): Promise<NdviHistoryItem[]> {
+  try {
+    let url = `/api/v1/fields/${fieldId}/ndvi-history?date_from=${dateFrom}&date_to=${dateTo}`;
+    if (source) {
+      url += `&source=${source}`;
+    }
+    const res = await apiFetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
 

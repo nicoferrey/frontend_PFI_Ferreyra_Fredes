@@ -23,24 +23,65 @@ export function Fao56LotDetail() {
   const {
     lotsData,
     selectedLotId,
-    selectedSnapshot
+    selectedSnapshot,
+    realHistory,
+    selectedField
   } = useDashboard();
 
-  // Selected active lot
+  // Selected active lot (with real history overlay)
   const lot = useMemo(() => {
-    return lotsData.find((l) => l.id === selectedLotId) || lotsData[0];
-  }, [lotsData, selectedLotId]);
+    const baseLot = lotsData.find((l) => l.id === selectedLotId) || lotsData[0];
+    if (baseLot && realHistory.length > 0 && selectedField && String(selectedField.id) === selectedLotId) {
+      const mappedTimeline = realHistory.map((day) => {
+        const parts = day.date.split('-');
+        const dateLabel = parts.length === 3 ? `${parts[2]}/${parts[1]}` : day.date;
+        const d = new Date(`${day.date}T12:00:00`);
+        const dayLabel = d.toLocaleDateString('es-AR', { weekday: 'short' });
+
+        return {
+          date: dateLabel,
+          dayLabel,
+          dr_mm: day.dr_mm,
+          au_mm: day.au_mm,
+          afd_mm: day.afd_mm,
+          raw_mm: day.raw_mm || day.afd_mm,
+          taw_mm: day.taw_mm,
+          irrigation_mm: day.irrigation_mm > 0 ? day.irrigation_mm : undefined,
+          rain_mm: day.rain_mm > 0 ? day.rain_mm : undefined,
+          ndvi: day.ndvi,
+          kc: day.kc,
+          kc_source: day.kc_source,
+          under_stress: day.under_stress,
+          rain_source: day.rain_source
+        };
+      });
+
+      return {
+        ...baseLot,
+        timeline: mappedTimeline
+      };
+    }
+    return baseLot;
+  }, [lotsData, selectedLotId, realHistory, selectedField]);
 
   // Dynamic chart data extracted from timeline
   const chartData = useMemo(() => {
     if (!lot || !lot.timeline) return [];
     const days = scale === '7 días' ? 7 : scale === '14 días' ? 14 : 30;
     return lot.timeline.slice(-days).map((item) => ({
-      day: item.date, // e.g. 05/08
+      day: item.dayLabel, // short weekday label (e.g. Lun, Mar)
       current: item.au_mm,
       depletion: item.dr_mm,
-      raw: item.afd_mm,
+      raw: item.raw_mm || item.afd_mm,
       taw: item.taw_mm,
+      date: item.date,
+      irrigation_mm: item.irrigation_mm,
+      rain_mm: item.rain_mm,
+      ndvi: item.ndvi,
+      kc: item.kc,
+      kc_source: item.kc_source,
+      under_stress: item.under_stress,
+      rain_source: item.rain_source
     }));
   }, [lot, scale]);
 
@@ -163,14 +204,44 @@ export function Fao56LotDetail() {
                   <XAxis dataKey="day" tick={{ fill: '#cbd5e1', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} />
                   <YAxis tick={{ fill: '#cbd5e1', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} domain={[0, Math.ceil(lot.totalAvailableTAW_mm * 1.05)]} />
                   <Tooltip
-                    contentStyle={{
-                      background: '#0f172a',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: 16,
-                      color: '#e2e8f0',
-                      fontSize: 11
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="rounded-2xl border border-slate-700 bg-slate-900/95 p-3.5 text-xs text-white shadow-2xl backdrop-blur-md">
+                            <p className="font-bold text-slate-200 border-b border-slate-800 pb-1 mb-2">
+                              {data.date || data.day} ({data.day})
+                            </p>
+                            <div className="space-y-1">
+                              <p className="text-emerald-400 font-semibold">Agua Útil (AU): {data.current} mm</p>
+                              <p className="text-amber-400 font-semibold">Déficit (Dr): {data.depletion} mm</p>
+                              <p className="text-sky-300">Umbral RAW: {data.raw} mm</p>
+                              {data.kc ? (
+                                <p className="text-slate-300">
+                                  Kc: {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                </p>
+                              ) : null}
+                              {data.irrigation_mm ? (
+                                <p className="text-cyan-300 font-bold mt-1 bg-cyan-500/20 px-2 py-0.5 rounded">
+                                  💧 Riego: +{data.irrigation_mm} mm
+                                </p>
+                              ) : null}
+                              {data.rain_mm ? (
+                                <p className="text-blue-300 font-bold mt-1 bg-blue-500/20 px-2 py-0.5 rounded">
+                                  🌧️ Lluvia: +{data.rain_mm} mm {data.rain_source ? `(${data.rain_source === 'manual' ? 'Manual' : 'Open-Meteo'})` : ''}
+                                </p>
+                              ) : null}
+                              {(data.under_stress || data.depletion > data.raw) && (
+                                <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
+                                  ⚠️ Estrés Hídrico Activo
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
-                    labelStyle={{ color: '#e2e8f0' }}
                   />
                   <ReferenceLine y={lot.easilyAvailableAFD_mm} stroke="#f59e0b" strokeDasharray="6 6" strokeWidth={2} label={{ value: 'RAW', fill: '#fbbf24', position: 'insideTopRight' }} />
                   <ReferenceLine y={lot.totalAvailableTAW_mm} stroke="#60a5fa" strokeDasharray="8 8" strokeWidth={1} label={{ value: 'TAW', fill: '#93c5fd', position: 'insideTopLeft' }} />

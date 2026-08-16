@@ -17,7 +17,13 @@ import {
   Layers
 } from 'lucide-react';
 import { useDashboard } from '@/app/(dashboard)/context';
-import { formatDate } from '@/app/(dashboard)/context';
+
+function formatDate(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const [year, month, day] = value.slice(0, 10).split('-');
+  if (!year || !month || !day) return fallback;
+  return `${day}/${month}/${year}`;
+}
 
 export default function DashboardAssistantPage() {
   const {

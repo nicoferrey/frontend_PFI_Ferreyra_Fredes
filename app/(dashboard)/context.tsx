@@ -44,11 +44,15 @@ export interface LotHydricData {
     dr_mm: number;
     au_mm: number;
     afd_mm: number;
+    raw_mm?: number;
     taw_mm: number;
     rain_mm?: number;
     irrigation_mm?: number;
     ndvi?: number;
     kc?: number;
+    kc_source?: string;
+    under_stress?: boolean;
+    rain_source?: string;
   }[];
 }
 

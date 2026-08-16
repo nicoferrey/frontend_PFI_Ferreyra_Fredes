@@ -43,7 +43,13 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { FieldAgentSnapshot } from '@/lib/api';
-import { formatDate } from '@/app/(dashboard)/context';
+
+function formatDate(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const [year, month, day] = value.slice(0, 10).split('-');
+  if (!year || !month || !day) return fallback;
+  return `${day}/${month}/${year}`;
+}
 
 export interface LotHydricData {
   id: string;
@@ -70,18 +76,21 @@ export interface LotHydricData {
   lastIrrigationAmount_mm: number;
   lastRainDate: string;
   lastRainAmount_mm: number;
-  // History series
   timeline: Array<{
     date: string;
     dayLabel: string;
     dr_mm: number;
     au_mm: number;
     afd_mm: number;
+    raw_mm?: number;
     taw_mm: number;
     irrigation_mm?: number;
     rain_mm?: number;
     ndvi?: number;
     kc?: number;
+    kc_source?: string;
+    under_stress?: boolean;
+    rain_source?: string;
   }>;
 }
 
@@ -495,7 +504,12 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                             <div className="space-y-1">
                               <p className="text-emerald-400 font-semibold">Agua Útil (AU): {data.au_mm} mm</p>
                               <p className="text-amber-400 font-semibold">Déficit (Dr): {data.dr_mm} mm</p>
-                              <p className="text-sky-300">Umbral AFD: {data.afd_mm} mm</p>
+                              <p className="text-sky-300">Umbral RAW: {data.raw_mm || data.afd_mm} mm</p>
+                              {data.kc ? (
+                                <p className="text-slate-300">
+                                  Kc: {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                </p>
+                              ) : null}
                               {data.irrigation_mm ? (
                                 <p className="text-cyan-300 font-bold mt-1 bg-cyan-500/20 px-2 py-0.5 rounded">
                                   💧 Riego: +{data.irrigation_mm} mm
@@ -503,9 +517,14 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                               ) : null}
                               {data.rain_mm ? (
                                 <p className="text-blue-300 font-bold mt-1 bg-blue-500/20 px-2 py-0.5 rounded">
-                                  🌧️ Lluvia: +{data.rain_mm} mm
+                                  🌧️ Lluvia: +{data.rain_mm} mm {data.rain_source ? `(${data.rain_source === 'manual' ? 'Manual' : 'Open-Meteo'})` : ''}
                                 </p>
                               ) : null}
+                              {(data.under_stress || data.dr_mm > (data.raw_mm || data.afd_mm)) && (
+                                <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
+                                  ⚠️ Estrés Hídrico Activo
+                                </p>
+                              )}
                             </div>
                           </div>
                         );
