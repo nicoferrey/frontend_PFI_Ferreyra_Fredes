@@ -287,10 +287,6 @@ export default function DashboardMapPage() {
                     <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
                   </div>
                   <p className="text-xs text-slate-300 mt-1">{lot.crop} &bull; {lot.areaHa} ha</p>
-                  <div className="mt-2 flex items-center justify-between text-[11px] pt-1.5 border-t border-white/10">
-                    <span className="text-slate-400">Déficit Dr:</span>
-                    <strong className="text-amber-300 font-mono">{lot.deficitDr_mm.toFixed(1)} mm</strong>
-                  </div>
                 </button>
               );
             })}
