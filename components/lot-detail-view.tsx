@@ -37,8 +37,13 @@ import {
   Sun,
   Timer,
   Waves,
-  X
+  X,
+  ShieldCheck,
+  BrainCircuit,
+  MessageSquare
 } from 'lucide-react';
+import { FieldAgentSnapshot } from '@/lib/api';
+import { formatDate } from '@/app/(dashboard)/context';
 
 export interface LotHydricData {
   id: string;
@@ -82,11 +87,12 @@ export interface LotHydricData {
 
 interface LotDetailViewProps {
   lot: LotHydricData;
+  snapshot?: FieldAgentSnapshot | null;
   onRegisterIrrigation?: (lotId: string, irrigationData: { date: string; amount_mm: number; method: string; notes?: string }) => void;
   className?: string;
 }
 
-export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: LotDetailViewProps) {
+export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className = "" }: LotDetailViewProps) {
   const [timeScale, setTimeScale] = useState<'7d' | '14d' | '30d'>('7d');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'balance' | 'events' | 'specs'>('balance');
@@ -603,11 +609,13 @@ export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: Lot
                     Diagnóstico del Agente de Riego
                   </h5>
                   <p className="mt-1 text-xs text-slate-200 leading-relaxed">
-                    {lot.hydricStatus === 'Normal'
+                    {snapshot?.analyze_response?.final_recommendation ||
+                     snapshot?.analyze_response?.explanation?.user_explanation ||
+                     (lot.hydricStatus === 'Normal'
                       ? `El lote se encuentra dentro del rango de confort hídrico. Se proyecta mantener lámina actual sin intervención por las próximas 48 h.`
                       : lot.hydricStatus === 'Atencion'
                       ? `El déficit Dr (${lot.deficitDr_mm} mm) se aproxima al umbral crítico AFD. Se sugiere aplicar ${Math.round(lot.deficitDr_mm * 0.75)} mm en la ventana nocturna.`
-                      : `Estado crítico: Déficit superó el umbral de estrés. Aplicar ${Math.round(lot.deficitDr_mm)} mm en forma urgente para restaurar capacidad de campo.`}
+                      : `Estado crítico: Déficit superó el umbral de estrés. Aplicar ${Math.round(lot.deficitDr_mm)} mm en forma urgente para restaurar capacidad de campo.`)}
                   </p>
                 </div>
               </div>
@@ -619,7 +627,308 @@ export function LotDetailView({ lot, onRegisterIrrigation, className = "" }: Lot
 
       </div>
 
-      {/* 4. MODAL: REGISTRAR RIEGO (CU-05) */}
+      {/* 4. AUDITORÍA DEL SISTEMA MULTI-AGENTE (MAS) */}
+      <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90 text-slate-900 dark:text-white">
+        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center md:justify-between dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-crop-50 text-crop-700 dark:bg-crop-950 dark:text-crop-300">
+                <BrainCircuit className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-950 dark:text-white">
+                  Auditoría Detallada Multi-Agente (MAS)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Parámetros, diagnósticos y validaciones de seguridad ejecutadas por los agentes autónomos.
+                </p>
+              </div>
+            </div>
+          </div>
+          {snapshot && (
+            <span className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/60 dark:text-emerald-300">
+              Snapshot: {formatDate(snapshot.generated_at)}
+            </span>
+          )}
+        </div>
+
+        {!snapshot ? (
+          <div className="mt-6 py-8 px-4 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20">
+            <Radio className="h-8 w-8 mx-auto text-slate-400 mb-2.5 animate-pulse" />
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Tablero en Modo Demo</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[340px] mx-auto leading-relaxed">
+              Para inspeccionar las métricas operativas de los agentes de IA en tiempo real, presiona <strong className="text-slate-700 dark:text-white">"Cargar agentes"</strong> o <strong className="text-slate-700 dark:text-white">"Actualizar agentes"</strong> en el visor del mapa.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            
+            {/* Col 1: Supervisor Decision */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4.5 dark:border-slate-800 dark:bg-slate-950/30 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-2">Decisión Operativa</span>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    snapshot.analyze_response?.action === 'IRRIGATE'
+                      ? 'bg-rose-500/15 text-rose-600 border border-rose-500/25 dark:text-rose-400'
+                      : snapshot.analyze_response?.action === 'MONITOR'
+                      ? 'bg-amber-500/15 text-amber-600 border border-amber-500/25 dark:text-amber-400'
+                      : 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 dark:text-emerald-400'
+                  }`}>
+                    {snapshot.analyze_response?.action === 'IRRIGATE' ? '💧 Regar' : snapshot.analyze_response?.action === 'MONITOR' ? '🔍 Monitorear' : '✅ No Regar'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    snapshot.analyze_response?.urgency === 'HIGH'
+                      ? 'bg-rose-600 text-white'
+                      : snapshot.analyze_response?.urgency === 'MEDIUM'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-emerald-500 text-white'
+                  }`}>
+                    Urgencia: {snapshot.analyze_response?.urgency || 'LOW'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic mb-4">
+                  "{snapshot.analyze_response?.final_recommendation || 'Sin recomendación explícita.'}"
+                </p>
+              </div>
+
+              {snapshot.analyze_response?.recommendation?.metrics && (
+                <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Riego Sugerido Neto:</span>
+                    <strong className="font-mono text-slate-800 dark:text-white">
+                      {snapshot.analyze_response.recommendation.metrics.recommended_net_irrigation_mm?.toFixed(1) || '0'} mm
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Riego Sugerido Bruto:</span>
+                    <strong className="font-mono text-slate-800 dark:text-white">
+                      {snapshot.analyze_response.recommendation.metrics.recommended_gross_irrigation_mm?.toFixed(1) || '0'} mm
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Aplicaciones sugeridas:</span>
+                    <strong className="font-mono text-slate-800 dark:text-white">
+                      {snapshot.analyze_response.recommendation.metrics.suggested_applications || '0'} pasadas
+                    </strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Col 2: Crop Coefficient & NDVI */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4.5 dark:border-slate-800 dark:bg-slate-950/30 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-2">Vigor y NDVI (Sentinel-2)</span>
+                
+                {snapshot.analyze_response?.ndvi_context ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Vigor:</span>
+                      <strong className={`text-xs ${
+                        snapshot.analyze_response.ndvi_context.vegetation_signal === 'HEALTHY'
+                          ? 'text-emerald-500'
+                          : snapshot.analyze_response.ndvi_context.vegetation_signal === 'MODERATE'
+                          ? 'text-amber-500'
+                          : 'text-rose-500'
+                      }`}>
+                        {snapshot.analyze_response.ndvi_context.vegetation_signal || 'NORMAL'}
+                      </strong>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 text-center text-xs border-y border-slate-200/50 dark:border-slate-800 py-2 font-mono">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Min</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{snapshot.analyze_response.ndvi_context.metrics?.ndvi_min?.toFixed(2) || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Medio</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{snapshot.analyze_response.ndvi_context.metrics?.ndvi_mean?.toFixed(2) || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Max</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{snapshot.analyze_response.ndvi_context.metrics?.ndvi_max?.toFixed(2) || '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Nubosidad:</span>
+                        <span className="font-medium">{snapshot.analyze_response.ndvi_context.metrics?.cloud_coverage_pct?.toFixed(1) || '0'}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Última Pasada:</span>
+                        <span className="font-medium">{snapshot.analyze_response.ndvi_context.metrics?.observation_date || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Calidad datos:</span>
+                        <span className="font-medium text-emerald-500">{snapshot.analyze_response.ndvi_context.data_quality || 'HIGH'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No hay datos NDVI en este snapshot.</p>
+                )}
+              </div>
+
+              {snapshot.analyze_response?.crop_coefficient_context && (
+                <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Kc Final Efectivo:</span>
+                    <strong className="text-slate-800 dark:text-white">{snapshot.analyze_response.crop_coefficient_context.crop_coefficient?.toFixed(2) || '1.0'}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Origen Kc:</span>
+                    <span className="rounded bg-slate-100 dark:bg-slate-800 px-1 py-0.2 text-[10px] font-bold">
+                      {snapshot.analyze_response.crop_coefficient_context.source || 'USER'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Col 3: Weather & Source Consensus */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4.5 dark:border-slate-800 dark:bg-slate-950/30 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-2">Consenso Clima y Diferencias</span>
+                
+                {snapshot.weather_compare_response ? (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Modo Consenso:</span>
+                      <strong className="text-slate-700 dark:text-slate-300 text-[10px] uppercase font-bold">
+                        {snapshot.weather_compare_response.operational_recommendation?.operational_mode?.replace('_', ' ') || 'CONSENSUS'}
+                      </strong>
+                    </div>
+
+                    <div className="border-t border-b border-slate-200/50 dark:border-slate-800 py-2 space-y-1.5">
+                      <p className="text-[10px] font-bold text-slate-400">Fuentes empleadas:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {snapshot.weather_compare_response.operational_recommendation?.sources_used?.map((src: string) => (
+                          <span key={src} className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
+                            {src}
+                          </span>
+                        )) || <span className="text-slate-500">EEAVI, Open-Meteo</span>}
+                      </div>
+                    </div>
+
+                    {snapshot.weather_compare_response.primary_context?.metrics && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Lluvia acumulada:</span>
+                          <span className="font-mono">{snapshot.weather_compare_response.primary_context.metrics.total_precipitation_mm?.toFixed(1) || '0'} mm</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">ET0 acumulada:</span>
+                          <span className="font-mono">{snapshot.weather_compare_response.primary_context.metrics.total_et0_mm?.toFixed(1) || '0'} mm</span>
+                        </div>
+                        <div className="flex justify-between text-rose-500">
+                          <span className="text-slate-500">Estrés térmico:</span>
+                          <span className="font-semibold">{snapshot.weather_compare_response.primary_context.metrics.heat_stress_days || '0'} días</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Consenso climático ausente.</p>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs flex justify-between">
+                <span className="text-slate-500">Confianza Consenso:</span>
+                <strong className="text-emerald-500 font-bold">
+                  {snapshot.weather_compare_response?.operational_recommendation?.confidence || 'HIGH'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Col 4: Safety & Validation Agent */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4.5 dark:border-slate-800 dark:bg-slate-950/30 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-2">Validaciones de Reglas de Seguridad</span>
+                
+                {snapshot.analyze_response?.validation ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      {snapshot.analyze_response.validation.is_recommendation_safe ? (
+                        <div className="flex items-center gap-1.5 text-emerald-500 text-xs font-bold">
+                          <ShieldCheck className="h-4.5 w-4.5" /> Prescripción Segura (PASS)
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-rose-500 text-xs font-bold">
+                          <ShieldAlert className="h-4.5 w-4.5" /> Requiere Revisión
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                      {snapshot.analyze_response.validation.checks?.map((chk: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between text-[11px] border-b border-slate-100 dark:border-slate-800 pb-1">
+                          <span className="text-slate-600 dark:text-slate-400 truncate max-w-[120px]" title={chk.name}>
+                            {chk.name}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1 rounded ${
+                            chk.status === 'PASS'
+                              ? 'bg-emerald-500/20 text-emerald-500'
+                              : chk.status === 'WARN'
+                              ? 'bg-amber-500/20 text-amber-500'
+                              : 'bg-rose-500/20 text-rose-500'
+                          }`}>
+                            {chk.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Validación de reglas no disponible.</p>
+                )}
+              </div>
+
+              <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3 text-xs flex justify-between">
+                <span className="text-slate-500">Confianza Global:</span>
+                <strong className="text-emerald-500 font-bold">
+                  {snapshot.analyze_response?.validation?.confidence || 'HIGH'}
+                </strong>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* LLM Narrative Explanation Box */}
+        {snapshot?.analyze_response?.explanation && (
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/20">
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+              <MessageSquare className="h-4 w-4 text-crop-500" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                Explicación Agronómica Generativa
+              </h4>
+              <span className="ml-auto rounded bg-crop-50 px-2 py-0.5 text-[9px] font-bold text-crop-700 dark:bg-crop-950 dark:text-crop-300">
+                Motor: {snapshot.analyze_response.explanation.provider || 'GEMINI'}
+              </span>
+            </div>
+            <div className="space-y-3.5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-white">Para el Productor:</p>
+                <p className="mt-1 italic">
+                  "{snapshot.analyze_response.explanation.user_explanation || 'Sin explicación para el productor.'}"
+                </p>
+              </div>
+              {snapshot.analyze_response.explanation.technical_explanation && (
+                <div>
+                  <p className="font-semibold text-slate-800 dark:text-white">Ficha de Soporte Técnico:</p>
+                  <p className="mt-1 font-mono text-[11px] whitespace-pre-wrap bg-white/70 dark:bg-slate-900/50 p-2.5 rounded-xl border border-black/5">
+                    {snapshot.analyze_response.explanation.technical_explanation}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 5. MODAL: REGISTRAR RIEGO (CU-05) */}
       {isRegisterModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">

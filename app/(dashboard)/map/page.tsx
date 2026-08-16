@@ -296,6 +296,7 @@ export default function DashboardMapPage() {
       {selectedLot && (
         <LotDetailView
           lot={selectedLot}
+          snapshot={selectedSnapshot}
           onRegisterIrrigation={handleRegisterIrrigation}
         />
       )}
