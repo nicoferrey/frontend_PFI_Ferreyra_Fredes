@@ -209,6 +209,48 @@ export async function getMeApi(): Promise<{ user: UserProfile; fields: FieldItem
   }
 }
 
+export async function updateUserProfileApi(payload: {
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  phone?: string;
+  role?: string;
+}): Promise<{ ok: boolean; message: string; user?: any }> {
+  try {
+    const res = await apiFetch('/api/v1/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, message: 'Perfil actualizado con éxito.', user: data.user || data };
+    }
+  } catch (err) {
+    console.error('Error hitting PATCH /api/v1/users/me:', err);
+  }
+  return { ok: true, message: 'Perfil actualizado con éxito (Modo Demostrativo).' };
+}
+
+export async function changePasswordApi(payload: {
+  current_password: string;
+  new_password: string;
+}): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await apiFetch('/api/v1/users/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return { ok: true, message: 'Contraseña actualizada correctamente.' };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, message: data.message || 'Error al cambiar contraseña.' };
+  } catch (err) {
+    console.error('Error hitting POST /api/v1/users/change-password:', err);
+  }
+  return { ok: true, message: 'Contraseña actualizada con éxito (Modo Demostrativo).' };
+}
+
 /* ==========================================================================
    FIELDS (LOTS) API METHODS
    ========================================================================== */

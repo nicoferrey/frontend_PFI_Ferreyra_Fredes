@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Bell, 
   ChevronDown, 
@@ -53,6 +53,7 @@ export function Topbar({
 }: TopbarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -364,33 +365,13 @@ export function Topbar({
                 {/* Navigation Options */}
                 <div className="space-y-0.5">
                   <Link
-                    href="/onboarding"
+                    href="/settings"
                     onClick={() => setUserDropdownOpen(false)}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    <MapPin className="h-4 w-4 text-crop-600" />
-                    <span>Configuración de Campo</span>
-                  </Link>
-
-                  <Link
-                    href="/"
-                    onClick={() => setUserDropdownOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    <Layers className="h-4 w-4 text-water-600" />
-                    <span>Panel de Lotes</span>
-                  </Link>
-
-                  <button
-                    onClick={() => {
-                      setUserDropdownOpen(false);
-                      // Feature preview trigger or modal
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                   >
                     <Settings className="h-4 w-4 text-slate-500" />
                     <span>Ajustes de Cuenta</span>
-                  </button>
+                  </Link>
 
                   <button
                     onClick={() => {
@@ -412,6 +393,7 @@ export function Topbar({
                     onClick={() => {
                       setUserDropdownOpen(false);
                       logout();
+                      router.push('/login');
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
                   >
