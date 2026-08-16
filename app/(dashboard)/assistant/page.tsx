@@ -4,19 +4,17 @@ import React, { useMemo } from 'react';
 import {
   Bot,
   BrainCircuit,
-  MessageSquare,
   ShieldCheck,
   ShieldAlert,
   Satellite,
-  Sun,
-  Waves,
-  Sparkles,
   Radio,
-  Droplet,
-  ArrowRight,
-  TrendingDown,
-  Activity,
-  CloudSun
+  Sparkles,
+  MessageSquare,
+  CheckCheck,
+  User,
+  Phone,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { useDashboard } from '@/app/(dashboard)/context';
 import { formatDate } from '@/app/(dashboard)/context';
@@ -41,11 +39,51 @@ export default function DashboardAssistantPage() {
     return fieldSnapshots[String(lot.id)] || null;
   }, [lot, fieldSnapshots]);
 
+  // Simulated WhatsApp conversation history associated with the lot
+  const whatsappConversations = useMemo(() => {
+    if (!lot) return [];
+    return [
+      {
+        user: "Ing. Carlos Gómez (Asesor Agrónomo)",
+        phone: "+54 9 11 5555-0192",
+        avatar: "CG",
+        lastMessage: "Confirmado. Las lecturas de humedad de suelo coinciden con el Dr de 15 mm estimado por el agente.",
+        summary: "Validación del balance hídrico y confirmación del programa de riego preventivo nocturno.",
+        timestamp: "Hoy, 10:24 hs",
+        tag: "Validación Balance",
+        tagClass: "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400 dark:border-emerald-900/40",
+        isDarkCard: false
+      },
+      {
+        user: "Martín Ferreyra (Operador de Pivot)",
+        phone: "+54 9 341 5555-0211",
+        avatar: "MF",
+        lastMessage: "Se completaron las 3 aplicaciones de 5 mm cada una sin novedades en la presión.",
+        summary: "Notificación de finalización de aplicación de riego manual de 15 mm en el lote.",
+        timestamp: "Ayer, 18:45 hs",
+        tag: "Riego Aplicado",
+        tagClass: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+        isDarkCard: true
+      },
+      {
+        user: "Luis Gómez (Encargado de Riego)",
+        phone: "+54 9 261 5555-0309",
+        avatar: "LG",
+        lastMessage: "Entendido, postergamos el inicio para las 02:00 debido a la alerta de ráfagas.",
+        summary: "Coordinación y reprogramación de la ventana de bombeo por alerta climatológica.",
+        timestamp: "Hace 2 días",
+        tag: "Aviso Clima",
+        tagClass: "bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400 dark:border-amber-900/40",
+        isDarkCard: false
+      }
+    ];
+  }, [lot]);
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-900 dark:text-slate-100">
       
       {/* HEADER HERO BANNER */}
-      <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-600 to-water-600 text-white shadow-md">
@@ -56,7 +94,7 @@ export default function DashboardAssistantPage() {
                 Asistente Inteligente MAS (Multi-Agent System)
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Auditoría en tiempo real del cerebro autónomo de AgroMAS para prescripción de riegos y clima.
+                Interacciones autónomas con sensores, satélites, meteorología y canales de comunicación.
               </p>
             </div>
           </div>
@@ -67,34 +105,64 @@ export default function DashboardAssistantPage() {
           </div>
         </div>
 
-        {/* Dynamic Lot Selector Carousel */}
-        <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-5">
+        {/* Dynamic Lot Selector Cards (Matching User Image Layout) */}
+        <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-5">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
             Seleccionar lote para inspeccionar diagnóstico:
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             {lotsData.map((item) => {
               const isActive = lot && item.id === lot.id;
+              const dotColor = item.hydricStatus === 'Normal' ? 'bg-emerald-400' : item.hydricStatus === 'Atencion' ? 'bg-amber-400' : 'bg-rose-400';
               return (
                 <button
                   key={item.id}
                   onClick={() => setSelectedLotId(item.id)}
-                  className={`px-4.5 py-2.5 rounded-2xl text-xs font-bold transition-all duration-150 border ${
+                  className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all duration-150 ${
                     isActive
-                      ? 'bg-gradient-to-r from-crop-600 to-water-600 text-white border-transparent shadow-md'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800/40 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800'
+                      ? 'border-sky-400 bg-sky-950/40 shadow-lg ring-2 ring-sky-400/30'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span>{item.name}</span>
-                    <span className={`h-1.5 w-1.5 rounded-full ${
-                      item.hydricStatus === 'Normal' ? 'bg-emerald-400' : item.hydricStatus === 'Atencion' ? 'bg-amber-400' : 'bg-rose-400'
-                    }`} />
+                  <div className="flex items-center justify-between w-full">
+                    <span className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{item.name}</span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
                   </div>
+                  <span className={`text-[11px] mt-1 ${isActive ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {item.crop} &bull; {item.areaHa} ha
+                  </span>
                 </button>
               );
             })}
           </div>
+        </div>
+      </div>
+
+      {/* THREE ACTIVE AGENTS CARDS (Alternating dark and light) */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Card 1: Light */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-900">
+          <span className="text-xs font-bold text-crop-700 uppercase tracking-wide">Agente FAO-56</span>
+          <p className="mt-1 text-base font-bold text-slate-900 dark:text-white">Balance Hídrico Dinámico</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Calcula Dr, AU y AFD integrando Kc satelital con ET0 de estaciones locales y evapotranspiración.
+          </p>
+        </div>
+        {/* Card 2: Dark */}
+        <div className="rounded-2xl border border-slate-900 bg-slate-950 p-5 shadow-soft text-white dark:border-white/10 dark:bg-slate-900">
+          <span className="text-xs font-bold text-water-400 uppercase tracking-wide">Agente Sentinel-2</span>
+          <p className="mt-1 text-base font-bold text-white">NDVI & Vigor Vegetativo</p>
+          <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+            Procesa imágenes multiespectrales cada 5 días para ajuste dinámico del coeficiente de cultivo.
+          </p>
+        </div>
+        {/* Card 3: Light */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-900">
+          <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Agente de Bombeo</span>
+          <p className="mt-1 text-base font-bold text-slate-900 dark:text-white">Tarifa Eléctrica & Eficiencia</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Programa ventanas de riego nocturnas (01:00 a 07:00 hs) para reducir drásticamente el costo energético.
+          </p>
         </div>
       </div>
 
@@ -103,7 +171,7 @@ export default function DashboardAssistantPage() {
         <div className="rounded-[28px] border border-dashed border-slate-200 bg-white/70 p-12 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900/40">
           <Radio className="h-12 w-12 mx-auto text-slate-400 mb-3 animate-pulse" />
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-            Inspección en Modo Demostrativo
+            Diagnóstico en Modo Demostrativo
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
             Para recuperar el análisis real ejecutado por el Supervisor y el Agente de Comparación Climática, por favor ve al <strong className="text-slate-700 dark:text-white">Visor de Mapa</strong> y haz clic en <strong className="text-slate-700 dark:text-white">"Actualizar agentes"</strong>.
@@ -256,233 +324,162 @@ export default function DashboardAssistantPage() {
             
           </div>
 
-          {/* LOWER ANALYSIS WORKSPACE GRID */}
-          <div className="grid gap-6 md:grid-cols-3">
-            
-            {/* Box 3: Climatic Consensus Comparison Table */}
-            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900 md:col-span-2">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <CloudSun className="h-5 w-5 text-amber-500" />
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Consenso de Clima (WeatherComparisonAgent)
-                    </h3>
-                    <p className="text-[10px] text-slate-400">Consolidación de métricas de ET0 y lluvias acumuladas.</p>
-                  </div>
+          {/* SECOND ROW (100% Width): WHATSAPP CONVERSATIONS SUMMARY */}
+          <div className="w-full overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                  <MessageSquare className="h-5.5 w-5.5" />
                 </div>
-                {snapshot.weather_compare_response?.operational_recommendation && (
-                  <span className="rounded-2xl border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700 dark:border-sky-950 dark:bg-sky-950/40 dark:text-sky-300 uppercase">
-                    Modo: {snapshot.weather_compare_response.operational_recommendation.operational_mode?.replace('_', ' ')}
-                  </span>
-                )}
-              </div>
-
-              {snapshot.weather_compare_response ? (
-                <div className="space-y-4">
-                  {/* Weather comparative table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase font-extrabold text-[10px]">
-                          <th className="py-2.5">Fuente de Clima</th>
-                          <th className="py-2.5 text-center">Acum. Lluvias</th>
-                          <th className="py-2.5 text-center">Acum. ET0</th>
-                          <th className="py-2.5 text-right">Estatus Clima</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {/* Primary Context Source (Local Station / EEAVI) */}
-                        <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20">
-                          <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">
-                            Estación Local (EEAVI)
-                          </td>
-                          <td className="py-3 text-center font-mono font-medium">
-                            {snapshot.weather_compare_response.primary_context?.metrics?.total_precipitation_mm?.toFixed(1) || '0.0'} mm
-                          </td>
-                          <td className="py-3 text-center font-mono font-medium">
-                            {snapshot.weather_compare_response.primary_context?.metrics?.total_et0_mm?.toFixed(1) || '0.0'} mm
-                          </td>
-                          <td className="py-3 text-right">
-                            <span className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-                              Base INTA
-                            </span>
-                          </td>
-                        </tr>
-
-                        {/* Open Meteo Satelital Source */}
-                        <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20">
-                          <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">
-                            Satélite (Open-Meteo)
-                          </td>
-                          <td className="py-3 text-center font-mono font-medium text-emerald-500">
-                            {snapshot.analyze_response?.recommendation?.water_balance?.weather_context?.metrics?.total_precipitation_mm?.toFixed(1) || 
-                             ((snapshot.weather_compare_response.primary_context?.metrics?.total_precipitation_mm || 0) * 1.05).toFixed(1)} mm
-                          </td>
-                          <td className="py-3 text-center font-mono font-medium">
-                            {snapshot.analyze_response?.recommendation?.water_balance?.weather_context?.metrics?.total_et0_mm?.toFixed(1) ||
-                             ((snapshot.weather_compare_response.primary_context?.metrics?.total_et0_mm || 0) * 0.98).toFixed(1)} mm
-                          </td>
-                          <td className="py-3 text-right">
-                            <span className="rounded bg-emerald-100 dark:bg-emerald-950/40 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">
-                              Lote Georef
-                            </span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Operational recommendation mm consensus */}
-                  <div className="grid gap-3 sm:grid-cols-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl dark:bg-slate-950/30">
-                      <span className="text-slate-400">Confianza del Consenso:</span>
-                      <strong className="text-emerald-500 font-bold uppercase">
-                        {snapshot.weather_compare_response.operational_recommendation?.confidence || 'ALTA'}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl dark:bg-slate-950/30">
-                      <span className="text-slate-400">Precip. Efectiva Consenso:</span>
-                      <strong className="font-mono text-slate-800 dark:text-white">
-                        {snapshot.weather_compare_response.operational_recommendation?.operational_recommendation_mm?.toFixed(1) || '0.0'} mm
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-6 text-center text-xs text-slate-400">
-                  Cargando balance de diferencias climáticas...
-                </div>
-              )}
-            </div>
-
-            {/* Box 4: Security Checklist Validation Rules */}
-            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Reglas de Seguridad
+                    Resumen de Conversaciones por WhatsApp
                   </h3>
-                </div>
-                <span className="rounded bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-mono">
-                  VALIDATION
-                </span>
-              </div>
-
-              {snapshot.analyze_response?.validation ? (
-                <div className="space-y-4">
-                  {/* Global badge status */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Estado de Recomendación:</span>
-                    {snapshot.analyze_response.validation.is_recommendation_safe ? (
-                      <span className="flex items-center gap-1 text-emerald-500 font-extrabold uppercase">
-                        SEGURO (PASS)
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-rose-500 font-extrabold uppercase">
-                        REVISIÓN (WARN)
-                      </span>
-                    )}
-                  </div>
-
-                  {/* List of rules */}
-                  <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                    {snapshot.analyze_response.validation.checks?.map((chk: any, index: number) => {
-                      const isPass = chk.status === 'PASS';
-                      const isWarn = chk.status === 'WARN';
-                      
-                      return (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between rounded-xl border border-slate-100/80 bg-slate-50/50 p-2.5 dark:border-slate-800/40 dark:bg-slate-950/20 text-xs"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {isPass ? (
-                              <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                            ) : (
-                              <ShieldAlert className={`h-4 w-4 shrink-0 ${isWarn ? 'text-amber-500' : 'text-rose-500'}`} />
-                            )}
-                            <span className="font-semibold text-slate-700 dark:text-slate-300 truncate" title={chk.name}>
-                              {chk.name}
-                            </span>
-                          </div>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
-                            isPass
-                              ? 'bg-emerald-500/10 text-emerald-500'
-                              : isWarn
-                              ? 'bg-amber-500/10 text-amber-500'
-                              : 'bg-rose-500/10 text-rose-500'
-                          }`}>
-                            {chk.status}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3 dark:border-slate-800 flex justify-between">
-                    <span>Confianza Global MAS:</span>
-                    <strong className="text-emerald-500 font-extrabold">
-                      {snapshot.analyze_response.validation.confidence || 'ALTA'}
-                    </strong>
-                  </div>
-                </div>
-              ) : (
-                <div className="py-6 text-center text-xs text-slate-400">
-                  Reglas de seguridad agronómicas ausentes.
-                </div>
-              )}
-            </div>
-            
-          </div>
-
-          {/* CHAT BUBBLE GENERATIVE EXPLANATION ROW */}
-          {snapshot.analyze_response?.explanation && (
-            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-soft dark:border-white/10 dark:bg-slate-900">
-              
-              {/* Box Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-4 dark:border-slate-800 dark:bg-slate-950/40">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-crop-600 to-emerald-500 text-white shadow-md">
-                    <Sparkles className="h-5 w-5" />
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Asistente Agronómico Generativo (Gemini AI)
-                    </h3>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Explicación adaptada en lenguaje natural para la toma de decisión final.
-                    </p>
-                  </div>
-                </div>
-                <span className="rounded-xl border border-crop-200 bg-crop-50 px-2.5 py-1 text-[10px] font-extrabold text-crop-800 dark:border-crop-950 dark:bg-crop-950/50 dark:text-crop-300">
-                  Engine: {snapshot.analyze_response.explanation.provider || 'GEMINI PRO'}
-                </span>
-              </div>
-
-              {/* Box Content */}
-              <div className="p-6 space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                <div className="relative rounded-2xl bg-gradient-to-r from-crop-500/5 to-water-500/5 p-4 border border-crop-500/10">
-                  <p className="text-[10px] text-crop-500 uppercase tracking-widest font-extrabold mb-1">Para el Productor</p>
-                  <p className="italic text-slate-900 dark:text-slate-100 text-sm font-medium">
-                    "{snapshot.analyze_response.explanation.user_explanation || 'Explicación del lote no disponible.'}"
+                  <p className="text-[10px] text-slate-400">
+                    Registro consolidado de reportes y notificaciones automáticas acordadas con el personal.
                   </p>
                 </div>
-
-                {snapshot.analyze_response.explanation.technical_explanation && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold">Ficha Técnica de Soporte</p>
-                    <p className="font-mono text-xs whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 p-4 leading-relaxed dark:border-slate-800 dark:bg-slate-950/60 text-slate-800 dark:text-slate-200">
-                      {snapshot.analyze_response.explanation.technical_explanation}
-                    </p>
-                  </div>
-                )}
               </div>
+              <span className="rounded bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">
+                Conectado
+              </span>
             </div>
-          )}
 
+            {/* Conversation Blocks with Alternating Styles */}
+            <div className="space-y-4">
+              {whatsappConversations.map((chat, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col sm:flex-row gap-3.5 items-start justify-between rounded-2xl border p-4 transition-all duration-150 ${
+                    chat.isDarkCard
+                      ? 'border-slate-900 bg-slate-950 text-white dark:border-white/10 dark:bg-slate-950/60'
+                      : 'border-slate-100 bg-slate-50 dark:border-slate-850 dark:bg-slate-950/20'
+                  }`}
+                >
+                  <div className="flex gap-3 items-start">
+                    {/* Avatar */}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-250 text-slate-700 font-bold text-xs dark:bg-slate-800 dark:text-slate-300">
+                      {chat.avatar}
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`font-bold ${chat.isDarkCard ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>
+                          {chat.user}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium font-mono">{chat.phone}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-medium">{chat.timestamp}</p>
+                      
+                      <div className={`mt-2.5 rounded-lg p-2.5 border ${
+                        chat.isDarkCard 
+                          ? 'bg-white/5 border-white/5' 
+                          : 'bg-white border-black/5 dark:bg-slate-900/60 dark:border-slate-800'
+                      }`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${chat.isDarkCard ? 'text-slate-300' : 'text-slate-500'}`}>
+                          Resumen:
+                        </p>
+                        <p className={`mt-0.5 leading-relaxed ${chat.isDarkCard ? 'text-slate-200' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {chat.summary}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-2 text-slate-400">
+                        <CheckCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span className="italic truncate max-w-[320px] text-[11px]">"{chat.lastMessage}"</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                    chat.isDarkCard ? 'bg-sky-500 text-slate-950 font-extrabold' : chat.tagClass
+                  }`}>
+                    {chat.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* THIRD ROW (100% Width): SECURITY RULES SPLIT IN 2 COLUMNS */}
+          <div className="w-full overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Reglas de Seguridad
+                </h3>
+              </div>
+              <span className="rounded bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-mono">
+                VALIDATION
+              </span>
+            </div>
+
+            {snapshot.analyze_response?.validation ? (
+              <div className="space-y-4">
+                {/* Global status */}
+                <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 dark:border-slate-800">
+                  <span className="text-slate-400">Estado de Recomendación:</span>
+                  {snapshot.analyze_response.validation.is_recommendation_safe ? (
+                    <span className="flex items-center gap-1 text-emerald-500 font-extrabold uppercase">
+                      SEGURO (PASS)
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-rose-500 font-extrabold uppercase">
+                      REVISIÓN (WARN)
+                    </span>
+                  )}
+                </div>
+
+                {/* Checklist of evaluated checks SPLIT IN 2 COLUMNS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {snapshot.analyze_response.validation.checks?.map((chk: any, index: number) => {
+                    const isPass = chk.status === 'PASS';
+                    const isWarn = chk.status === 'WARN';
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between rounded-xl border border-slate-100/80 bg-slate-50/50 p-3 dark:border-slate-800/40 dark:bg-slate-950/20 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {isPass ? (
+                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <ShieldAlert className={`h-4 w-4 shrink-0 ${isWarn ? 'text-amber-500' : 'text-rose-500'}`} />
+                          )}
+                          <span className="font-semibold text-slate-700 dark:text-slate-300 truncate" title={chk.name}>
+                            {chk.name}
+                          </span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
+                          isPass
+                            ? 'bg-emerald-500/10 text-emerald-500'
+                            : isWarn
+                            ? 'bg-amber-500/10 text-amber-500'
+                            : 'bg-rose-500/10 text-rose-500'
+                        }`}>
+                          {chk.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3 dark:border-slate-800 flex justify-between">
+                  <span>Confianza Global MAS:</span>
+                  <strong className="text-emerald-500 font-extrabold">
+                    {snapshot.analyze_response.validation.confidence || 'ALTA'}
+                  </strong>
+                </div>
+              </div>
+            ) : (
+              <div className="py-6 text-center text-xs text-slate-400">
+                Reglas de seguridad agronómicas ausentes.
+              </div>
+            )}
+          </div>
+          
         </div>
       )}
 
