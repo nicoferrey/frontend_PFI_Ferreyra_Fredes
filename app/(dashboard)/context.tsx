@@ -431,7 +431,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       await Promise.all(
         auth.fields.map(async (field) => {
-          const res = await refreshFieldAgentSnapshotApi(field.id);
+          const res = await refreshFieldAgentSnapshotApi(field.id, {
+            force: true,
+            date_from: dateFrom,
+            date_to: dateTo,
+          });
           if (res.ok && res.data) {
             setFieldSnapshots((prev) => ({
               ...prev,

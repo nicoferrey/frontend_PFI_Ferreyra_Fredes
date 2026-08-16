@@ -32,7 +32,9 @@ export default function DashboardMapPage() {
     agentRefreshError,
     setAgentRefreshError,
     setHistoryReloadTrigger,
-    realHistory
+    realHistory,
+    dateFrom,
+    dateTo
   } = useDashboard();
 
   // Selected Lot object (with real history overlay)
@@ -105,7 +107,11 @@ export default function DashboardMapPage() {
 
         // Force a snapshot refresh so the agents compute new values
         setIsRefreshingAgents(true);
-        const refreshRes = await refreshFieldAgentSnapshotApi(lotId, { force: true });
+        const refreshRes = await refreshFieldAgentSnapshotApi(lotId, {
+          force: true,
+          date_from: dateFrom,
+          date_to: dateTo,
+        });
         if (refreshRes.ok) {
           setFieldSnapshots((prev: any) => ({
             ...prev,
@@ -170,8 +176,9 @@ export default function DashboardMapPage() {
     setAgentRefreshError(null);
 
     const result = await refreshFieldAgentSnapshotApi(selectedField.id, {
-      force: false,
-      max_age_hours: 6,
+      force: true,
+      date_from: dateFrom,
+      date_to: dateTo,
     });
 
     if (result.ok) {
