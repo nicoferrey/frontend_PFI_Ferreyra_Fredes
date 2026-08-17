@@ -24,6 +24,13 @@ interface Lot {
   fc?: number; // Field Capacity (%)
   wp?: number; // Wilting Point (%)
   taw?: number; // Total Available Water (mm/m)
+  initialWaterPct?: number | null;
+  initialWaterMm?: number | null;
+  initialWaterSource?: string | null;
+  sowingDate?: string | null;
+  emergenceDate?: string | null;
+  expectedHarvestDate?: string | null;
+  phenologicalStage?: string | null;
 }
 
 // Preset locations for Norpatagonia farming regions (Argentina)
@@ -35,19 +42,76 @@ const PRESET_REGIONS = [
   { name: 'Valle del Río Colorado (Buenos Aires/Río Negro)', lat: -39.4833, lng: -62.6833, desc: 'Principal zona productora de cebolla y semillas' }
 ];
 
-// FAO-56 soil parameters lookup
+const AUTO_SOIL_ID = 'AUTO';
+
+// FAO/soil physical properties fallback lookup. AWC is shown as mm/m and
+// backend combines it with crop root depth; it is not sent as measured TAW.
 const SOIL_TYPES = [
-  { id: 'Franco', name: 'Franco (Loam)', fc: 28, wp: 14, taw: 140, desc: 'Excelente retención y drenaje moderado' },
-  { id: 'Franco-Arenoso', name: 'Franco Arenoso (Sandy Loam)', fc: 18, wp: 8, taw: 100, desc: 'Drenaje rápido, requiere riegos más frecuentes' },
-  { id: 'Arcilloso', name: 'Arcilloso (Clay)', fc: 38, wp: 22, taw: 160, desc: 'Alta retención hídrica, drenaje lento' },
-  { id: 'Arenoso', name: 'Arenoso (Sand)', fc: 10, wp: 5, taw: 50, desc: 'Muy baja capacidad de almacenamiento' }
+  { id: AUTO_SOIL_ID, name: 'Auto / estimado', fc: null, wp: null, taw: null, desc: 'Permite avanzar si no se conoce la textura; menor precisión hasta validar el suelo' },
+  { id: 'Arena Gruesa', name: 'Arena gruesa', fc: 8, wp: 4, taw: 80, desc: 'Muy baja retención; riegos cortos y frecuentes' },
+  { id: 'Arena', name: 'Arena', fc: 14, wp: 4, taw: 150, desc: 'Baja retención y drenaje rápido' },
+  { id: 'Arena Fina', name: 'Arena fina', fc: 14, wp: 4, taw: 150, desc: 'Retención baja a moderada' },
+  { id: 'Arenoso', name: 'Arenoso', fc: 14, wp: 4, taw: 150, desc: 'Textura liviana con alta infiltración' },
+  { id: 'Arenoso Franco', name: 'Arenoso franco', fc: 18, wp: 7, taw: 160, desc: 'Transición arenosa con algo más de reserva' },
+  { id: 'Franco-Arenoso', name: 'Franco arenoso', fc: 26, wp: 9, taw: 180, desc: 'Buen drenaje y reserva media' },
+  { id: 'Franco Arenoso Fino', name: 'Franco arenoso fino', fc: 26, wp: 9, taw: 180, desc: 'Reserva media con fracción fina mayor' },
+  { id: 'Franco', name: 'Franco', fc: 30, wp: 13, taw: 180, desc: 'Equilibrio entre retención y aireación' },
+  { id: 'Franco Limoso', name: 'Franco limoso', fc: 34, wp: 16, taw: 200, desc: 'Alta reserva de agua disponible' },
+  { id: 'Limoso', name: 'Limoso', fc: 34, wp: 16, taw: 200, desc: 'Alta retención, sensible a estructura superficial' },
+  { id: 'Franco Arcillo Arenoso', name: 'Franco arcillo arenoso', fc: 26, wp: 15, taw: 150, desc: 'Reserva media y drenaje más lento' },
+  { id: 'Franco Arcilloso Arenoso', name: 'Franco arcilloso arenoso', fc: 26, wp: 15, taw: 150, desc: 'Variante equivalente de textura mixta' },
+  { id: 'Franco Arcilloso', name: 'Franco arcilloso', fc: 34, wp: 18, taw: 180, desc: 'Buena reserva, infiltración moderada' },
+  { id: 'Franco Arcillo Limoso', name: 'Franco arcillo limoso', fc: 43, wp: 20, taw: 190, desc: 'Alta retención con manejo cuidadoso de drenaje' },
+  { id: 'Franco Arcilloso Limoso', name: 'Franco arcilloso limoso', fc: 43, wp: 20, taw: 190, desc: 'Variante equivalente de textura fina' },
+  { id: 'Arcillo Arenoso', name: 'Arcillo arenoso', fc: 29, wp: 19, taw: 140, desc: 'Textura pesada con fracción arenosa' },
+  { id: 'Arcilla Arenosa', name: 'Arcilla arenosa', fc: 29, wp: 19, taw: 140, desc: 'Retención moderada y drenaje lento' },
+  { id: 'Arcilloso', name: 'Arcilloso', fc: 42, wp: 25, taw: 180, desc: 'Alta retención total, agua menos disponible' },
+  { id: 'Arcilla', name: 'Arcilla', fc: 42, wp: 25, taw: 180, desc: 'Textura pesada; cuidar encharcamiento' },
+  { id: 'Arcillo Limoso', name: 'Arcillo limoso', fc: 43, wp: 20, taw: 190, desc: 'Alta retención y drenaje lento' }
+];
+
+const INITIAL_WATER_OPTIONS = [
+  { id: 'FIELD_CAPACITY', label: 'Suelo cargado', pct: 100, desc: 'El lote arranca cerca de capacidad de campo' },
+  { id: 'MEDIUM', label: 'Humedad media', pct: 60, desc: 'Reserva intermedia cuando no hay medición' },
+  { id: 'DRY', label: 'Suelo seco', pct: 30, desc: 'Condición inicial conservadora para lotes secos' },
+  { id: 'MEASURED', label: 'Valor medido', pct: null, desc: 'Carga agua disponible inicial en milímetros' },
+  { id: 'UNKNOWN', label: 'Auto / no sé', pct: null, desc: 'El backend usará capacidad de campo y avisará menor precisión' },
+];
+
+const PHENOLOGICAL_STAGES = [
+  { id: '', label: 'Auto / sin etapa' },
+  { id: 'inicial', label: 'Inicial' },
+  { id: 'desarrollo', label: 'Desarrollo' },
+  { id: 'media', label: 'Etapa media' },
+  { id: 'maduracion', label: 'Maduración' },
 ];
 
 const CROPS = [
   { id: 'Soja', name: 'Soja', icon: Sprout, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
   { id: 'Maíz', name: 'Maíz', icon: Layers3, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
   { id: 'Trigo', name: 'Trigo', icon: Sparkles, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-  { id: 'Girasol', name: 'Girasol', icon: Droplet, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' }
+  { id: 'Girasol', name: 'Girasol', icon: Droplet, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
+  { id: 'Cebada', name: 'Cebada', icon: Sparkles, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
+  { id: 'Avena', name: 'Avena', icon: Sparkles, color: 'text-lime-400 bg-lime-500/10 border-lime-500/20' },
+  { id: 'Sorgo', name: 'Sorgo', icon: Layers3, color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+  { id: 'Arroz', name: 'Arroz', icon: Droplet, color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
+  { id: 'Algodón', name: 'Algodón', icon: Sprout, color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' },
+  { id: 'Maní', name: 'Maní', icon: Sprout, color: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
+  { id: 'Caña de Azúcar', name: 'Caña de azúcar', icon: Layers3, color: 'text-green-400 bg-green-500/10 border-green-500/20' },
+  { id: 'Alfalfa', name: 'Alfalfa', icon: Sprout, color: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
+  { id: 'Papa', name: 'Papa', icon: Sprout, color: 'text-stone-300 bg-stone-500/10 border-stone-500/20' },
+  { id: 'Tomate', name: 'Tomate', icon: Sprout, color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+  { id: 'Cebolla', name: 'Cebolla', icon: Sprout, color: 'text-violet-300 bg-violet-500/10 border-violet-500/20' },
+  { id: 'Poroto', name: 'Poroto', icon: Sprout, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+  { id: 'Arveja', name: 'Arveja', icon: Sprout, color: 'text-green-300 bg-green-500/10 border-green-500/20' },
+  { id: 'Garbanzo', name: 'Garbanzo', icon: Sprout, color: 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20' },
+  { id: 'Lenteja', name: 'Lenteja', icon: Sprout, color: 'text-lime-300 bg-lime-500/10 border-lime-500/20' },
+  { id: 'Colza', name: 'Colza/Canola', icon: Sparkles, color: 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20' },
+  { id: 'Lino', name: 'Lino', icon: Sparkles, color: 'text-sky-300 bg-sky-500/10 border-sky-500/20' },
+  { id: 'Vid', name: 'Vid', icon: Sprout, color: 'text-purple-300 bg-purple-500/10 border-purple-500/20' },
+  { id: 'Citrus', name: 'Citrus', icon: Sprout, color: 'text-orange-300 bg-orange-500/10 border-orange-500/20' },
+  { id: 'Olivo', name: 'Olivo', icon: Sprout, color: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
+  { id: 'Pastura', name: 'Pastura', icon: Sprout, color: 'text-green-400 bg-green-500/10 border-green-500/20' }
 ];
 
 const IRRIGATION_SYSTEMS = [
@@ -79,6 +143,12 @@ export default function OnboardingWizard() {
   const [lotCrop, setLotCrop] = useState('');
   const [lotSoil, setLotSoil] = useState('');
   const [lotIrrigation, setLotIrrigation] = useState('');
+  const [lotInitialWaterSource, setLotInitialWaterSource] = useState('UNKNOWN');
+  const [lotInitialWaterMm, setLotInitialWaterMm] = useState('');
+  const [lotSowingDate, setLotSowingDate] = useState('');
+  const [lotEmergenceDate, setLotEmergenceDate] = useState('');
+  const [lotExpectedHarvestDate, setLotExpectedHarvestDate] = useState('');
+  const [lotPhenologicalStage, setLotPhenologicalStage] = useState('');
 
   // Setup completion animation state
   const [isFinishing, setIsFinishing] = useState(false);
@@ -105,11 +175,18 @@ export default function OnboardingWizard() {
           polygon: coords,
           area: f.area_ha,
           crop: f.crop_type,
-          soil: f.soil_type || SOIL_TYPES[0].id,
+          soil: f.soil_type || AUTO_SOIL_ID,
           irrigation: f.irrigation_system,
           fc: f.field_capacity_fc,
           wp: f.wilting_point_wp,
-          taw: f.total_available_water_taw
+          taw: f.total_available_water_taw,
+          initialWaterPct: f.initial_available_water_pct,
+          initialWaterMm: f.initial_available_water_mm,
+          initialWaterSource: f.initial_water_source || 'UNKNOWN',
+          sowingDate: f.sowing_date,
+          emergenceDate: f.emergence_date,
+          expectedHarvestDate: f.expected_harvest_date,
+          phenologicalStage: f.phenological_stage
         };
       });
 
@@ -140,7 +217,7 @@ export default function OnboardingWizard() {
   // Add a newly drawn polygon as a lot
   const handleAddLot = (newLot: { id: string; name: string; polygon: [number, number][]; area: number }) => {
     // Estimate default agronomic parameters
-    const defaultSoil = SOIL_TYPES[0]; // Franco
+    const defaultSoil = SOIL_TYPES[0];
     const crop = 'Maíz';
     const irrigation = 'Pivote';
 
@@ -149,9 +226,16 @@ export default function OnboardingWizard() {
       crop,
       soil: defaultSoil.id,
       irrigation,
-      fc: defaultSoil.fc,
-      wp: defaultSoil.wp,
-      taw: defaultSoil.taw
+      fc: undefined,
+      wp: undefined,
+      taw: undefined,
+      initialWaterPct: null,
+      initialWaterMm: null,
+      initialWaterSource: 'UNKNOWN',
+      sowingDate: null,
+      emergenceDate: null,
+      expectedHarvestDate: null,
+      phenologicalStage: null
     };
 
     setLots((prev) => [...prev, fullLot]);
@@ -162,6 +246,12 @@ export default function OnboardingWizard() {
     setLotCrop(crop);
     setLotSoil(defaultSoil.id);
     setLotIrrigation(irrigation);
+    setLotInitialWaterSource('UNKNOWN');
+    setLotInitialWaterMm('');
+    setLotSowingDate('');
+    setLotEmergenceDate('');
+    setLotExpectedHarvestDate('');
+    setLotPhenologicalStage('');
   };
 
   // Select lot for agronomic configuration
@@ -173,6 +263,12 @@ export default function OnboardingWizard() {
       setLotCrop(lot.crop);
       setLotSoil(lot.soil);
       setLotIrrigation(lot.irrigation);
+      setLotInitialWaterSource(lot.initialWaterSource || 'UNKNOWN');
+      setLotInitialWaterMm(lot.initialWaterMm ? String(lot.initialWaterMm) : '');
+      setLotSowingDate(lot.sowingDate || '');
+      setLotEmergenceDate(lot.emergenceDate || '');
+      setLotExpectedHarvestDate(lot.expectedHarvestDate || '');
+      setLotPhenologicalStage(lot.phenologicalStage || '');
     }
   };
 
@@ -212,12 +308,17 @@ export default function OnboardingWizard() {
           crop: field === 'crop' ? value : l.crop,
           soil: effectiveSoilId,
           irrigation: field === 'irrigation' ? value : l.irrigation,
-          fc: matchedSoil.fc,
-          wp: matchedSoil.wp,
-          taw: matchedSoil.taw,
+          fc: matchedSoil.fc ?? undefined,
+          wp: matchedSoil.wp ?? undefined,
+          taw: matchedSoil.taw ?? undefined,
         };
       })
     );
+  };
+
+  const updateSelectedLotAgronomicDetails = (updates: Partial<Lot>) => {
+    if (!selectedLotId) return;
+    setLots((prev) => prev.map((l) => (l.id === selectedLotId ? { ...l, ...updates } : l)));
   };
 
   // Remove a lot
@@ -293,12 +394,16 @@ export default function OnboardingWizard() {
             coordinates: [geojsonCoords]
           },
           area_ha: parseFloat(lot.area.toFixed(2)),
-          soil_type: lot.soil,
+          soil_type: lot.soil === AUTO_SOIL_ID ? null : lot.soil,
           crop_type: lot.crop,
           irrigation_system: lot.irrigation,
-          field_capacity_fc: lot.fc,
-          wilting_point_wp: lot.wp,
-          total_available_water_taw: lot.taw
+          initial_available_water_pct: lot.initialWaterPct ?? null,
+          initial_available_water_mm: lot.initialWaterSource === 'MEASURED' ? lot.initialWaterMm ?? null : null,
+          initial_water_source: lot.initialWaterSource || 'UNKNOWN',
+          sowing_date: lot.sowingDate || null,
+          emergence_date: lot.emergenceDate || null,
+          expected_harvest_date: lot.expectedHarvestDate || null,
+          phenological_stage: lot.phenologicalStage || null
         };
 
         const isExisting = existingFieldIds.includes(String(lot.id));
@@ -749,13 +854,126 @@ export default function OnboardingWizard() {
                               <div className="flex justify-between items-center font-bold text-slate-200">
                                 <span>{soil.name}</span>
                                 <span className={`text-[10px] font-mono ${isSelected ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
-                                  TAW: {soil.taw} mm/m
+                                  {soil.taw === null ? 'Menor precisión' : `TAW: ${soil.taw} mm/m`}
                                 </span>
                               </div>
                               <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{soil.desc}</p>
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+
+                    {/* Initial water state */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                        Estado hídrico inicial
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {INITIAL_WATER_OPTIONS.map((option) => {
+                          const isSelected = (currentSelectedLot.initialWaterSource || lotInitialWaterSource) === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              onClick={() => {
+                                setLotInitialWaterSource(option.id);
+                                updateSelectedLotAgronomicDetails({
+                                  initialWaterSource: option.id,
+                                  initialWaterPct: option.pct,
+                                  initialWaterMm: option.id === 'MEASURED' ? currentSelectedLot.initialWaterMm ?? null : null,
+                                });
+                              }}
+                              className={`text-left rounded-xl border p-2.5 text-xs transition ${
+                                isSelected
+                                  ? 'bg-cyan-500/10 border-cyan-400 text-white'
+                                  : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
+                              }`}
+                            >
+                              <span className="block font-bold text-slate-200">{option.label}</span>
+                              <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">{option.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {(currentSelectedLot.initialWaterSource || lotInitialWaterSource) === 'MEASURED' && (
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Agua disponible inicial medida (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={currentSelectedLot.initialWaterMm ?? lotInitialWaterMm}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setLotInitialWaterMm(value);
+                              updateSelectedLotAgronomicDetails({
+                                initialWaterMm: value === '' ? null : Number(value),
+                                initialWaterPct: null,
+                                initialWaterSource: 'MEASURED',
+                              });
+                            }}
+                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Crop timing and stage */}
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Fecha de siembra</label>
+                        <input
+                          type="date"
+                          value={currentSelectedLot.sowingDate || lotSowingDate}
+                          onChange={(e) => {
+                            setLotSowingDate(e.target.value);
+                            updateSelectedLotAgronomicDetails({ sowingDate: e.target.value || null });
+                          }}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Emergencia</label>
+                        <input
+                          type="date"
+                          value={currentSelectedLot.emergenceDate || lotEmergenceDate}
+                          onChange={(e) => {
+                            setLotEmergenceDate(e.target.value);
+                            updateSelectedLotAgronomicDetails({ emergenceDate: e.target.value || null });
+                          }}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Cosecha estimada</label>
+                        <input
+                          type="date"
+                          value={currentSelectedLot.expectedHarvestDate || lotExpectedHarvestDate}
+                          onChange={(e) => {
+                            setLotExpectedHarvestDate(e.target.value);
+                            updateSelectedLotAgronomicDetails({ expectedHarvestDate: e.target.value || null });
+                          }}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Etapa fenológica</label>
+                        <select
+                          value={currentSelectedLot.phenologicalStage || lotPhenologicalStage}
+                          onChange={(e) => {
+                            setLotPhenologicalStage(e.target.value);
+                            updateSelectedLotAgronomicDetails({ phenologicalStage: e.target.value || null });
+                          }}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        >
+                          {PHENOLOGICAL_STAGES.map((stage) => (
+                            <option key={stage.id || 'auto'} value={stage.id}>
+                              {stage.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -788,15 +1006,15 @@ export default function OnboardingWizard() {
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
                           <span className="text-slate-500 block text-[10px]">Cap. Campo (FC)</span>
-                          <span className="text-sm font-semibold text-white font-mono">{activeSoil.fc}%</span>
+                          <span className="text-sm font-semibold text-white font-mono">{activeSoil.fc ?? '-'}{activeSoil.fc === null ? '' : '%'}</span>
                         </div>
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
                           <span className="text-slate-500 block text-[10px]">Pto. Marchitez (WP)</span>
-                          <span className="text-sm font-semibold text-amber-300 font-mono">{activeSoil.wp}%</span>
+                          <span className="text-sm font-semibold text-amber-300 font-mono">{activeSoil.wp ?? '-'}{activeSoil.wp === null ? '' : '%'}</span>
                         </div>
                         <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
                           <span className="text-slate-500 block text-[10px]">Agua Útil (TAW)</span>
-                          <span className="text-sm font-semibold text-sky-300 font-mono">{activeSoil.taw} mm/m</span>
+                          <span className="text-sm font-semibold text-sky-300 font-mono">{activeSoil.taw === null ? 'Auto' : `${activeSoil.taw} mm/m`}</span>
                         </div>
                       </div>
                     </div>

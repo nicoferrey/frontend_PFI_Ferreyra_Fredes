@@ -139,6 +139,13 @@ export interface FieldItem {
   field_capacity_fc?: number;
   wilting_point_wp?: number;
   total_available_water_taw?: number;
+  initial_available_water_pct?: number | null;
+  initial_available_water_mm?: number | null;
+  initial_water_source?: string | null;
+  sowing_date?: string | null;
+  emergence_date?: string | null;
+  expected_harvest_date?: string | null;
+  phenological_stage?: string | null;
   created_at?: string;
   updated_at?: string;
   agent_snapshot?: FieldAgentSnapshot | null;
@@ -148,12 +155,19 @@ export interface CreateFieldPayload {
   name: string;
   geometry_geojson: FieldGeometry;
   area_ha: number;
-  soil_type?: string;
+  soil_type?: string | null;
   crop_type: string;
   irrigation_system: string;
   field_capacity_fc?: number;
   wilting_point_wp?: number;
   total_available_water_taw?: number;
+  initial_available_water_pct?: number | null;
+  initial_available_water_mm?: number | null;
+  initial_water_source?: string | null;
+  sowing_date?: string | null;
+  emergence_date?: string | null;
+  expected_harvest_date?: string | null;
+  phenological_stage?: string | null;
 }
 
 export async function registerApi(payload: RegisterPayload) {
@@ -555,17 +569,60 @@ interface AgentPayloadOptions {
 }
 
 const DEFAULT_CROP_COEFFICIENT_BY_CROP: Record<string, number> = {
-  maiz: 1.15,
-  maíz: 1.15,
-  corn: 1.15,
-  soja: 1.1,
-  soy: 1.1,
-  soybean: 1.1,
-  trigo: 1.05,
-  wheat: 1.05,
-  girasol: 1,
-  sunflower: 1,
-  alfalfa: 1.05,
+  maiz: 1.2,
+  corn: 1.2,
+  soja: 1.15,
+  soy: 1.15,
+  soybean: 1.15,
+  trigo: 1.15,
+  wheat: 1.15,
+  cebada: 1.15,
+  barley: 1.15,
+  avena: 1.15,
+  oats: 1.15,
+  sorgo: 1.05,
+  sorghum: 1.05,
+  arroz: 1.2,
+  rice: 1.2,
+  girasol: 1.1,
+  sunflower: 1.1,
+  algodon: 1.17,
+  cotton: 1.17,
+  mani: 1.15,
+  peanut: 1.15,
+  groundnut: 1.15,
+  'cana de azucar': 1.25,
+  sugarcane: 1.25,
+  alfalfa: 0.95,
+  papa: 1.15,
+  potato: 1.15,
+  tomate: 1.15,
+  tomato: 1.15,
+  cebolla: 1.05,
+  onion: 1.05,
+  poroto: 1.15,
+  bean: 1.15,
+  arveja: 1.15,
+  pea: 1.15,
+  garbanzo: 1.15,
+  chickpea: 1.15,
+  lenteja: 1.1,
+  lentil: 1.1,
+  colza: 1.08,
+  canola: 1.08,
+  rapeseed: 1.08,
+  lino: 1.1,
+  flax: 1.1,
+  vid: 0.7,
+  grape: 0.7,
+  citrus: 0.7,
+  citricos: 0.7,
+  limon: 0.7,
+  naranja: 0.7,
+  mandarina: 0.7,
+  olivo: 0.7,
+  olive: 0.7,
+  pastura: 0.95,
 };
 
 function toIsoDate(value: string | Date): string {
@@ -593,7 +650,12 @@ function normalizeCropName(field: FieldItem): string {
 }
 
 function normalizeCropKey(cropName: string): string {
-  return cropName.trim().toLowerCase();
+  return cropName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]/g, ' ');
 }
 
 function getCropCoefficient(field: FieldItem, override?: number): number {
@@ -772,12 +834,14 @@ export interface HydricHistoryDay {
   et0_mm: number;
   rain_mm: number;
   irrigation_mm: number;
+  deep_percolation_mm?: number;
   ndvi?: number;
   kc?: number;
   kc_source?: string;
   under_stress?: boolean;
   depletion_fraction_p?: number;
-  rain_source: 'manual' | 'open_meteo' | 'none';
+  rain_source: 'manual' | 'open_meteo' | 'nasa_power' | 'none';
+  warnings?: string[];
 }
 
 export interface ReportsSummary {
@@ -996,4 +1060,3 @@ export async function getNdviHistoryApi(
     return [];
   }
 }
-

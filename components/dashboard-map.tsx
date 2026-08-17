@@ -132,10 +132,12 @@ export default function DashboardMap({
           Critico: { border: '#ef4444', fill: '#f87171', badge: 'bg-rose-500 text-white', label: 'Crítico' },
         }[status];
       } else if (activeLayer === 'ndvi') {
-        const ndvi = lot.ndviCurrent ?? 0.75;
-        if (ndvi >= 0.7) {
-          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Alto)` };
-        } else if (ndvi >= 0.5) {
+        const ndvi = lot.ndviCurrent;
+        if (ndvi === undefined) {
+          colorMap = { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'NDVI: sin dato' };
+        } else if (ndvi >= 0.6) {
+          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Sano)` };
+        } else if (ndvi >= 0.35) {
           colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `NDVI: ${ndvi.toFixed(2)} (Moderado)` };
         } else {
           colorMap = { border: '#be123c', fill: '#f43f5e', badge: 'bg-rose-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Bajo)` };
@@ -218,13 +220,15 @@ export default function DashboardMap({
           Critico: { border: '#ef4444', fill: '#f87171' },
         }[status];
       } else if (activeLayer === 'ndvi') {
-        const ndvi = lot.ndviCurrent ?? 0.75;
-        if (ndvi >= 0.7) {
-          colorMap = { border: '#047857', fill: '#10b981' }; // High Vigor (> 0.7)
-        } else if (ndvi >= 0.5) {
-          colorMap = { border: '#854d0e', fill: '#fbbf24' }; // Moderate (0.5 - 0.7)
+        const ndvi = lot.ndviCurrent;
+        if (ndvi === undefined) {
+          colorMap = { border: '#64748b', fill: '#94a3b8' };
+        } else if (ndvi >= 0.6) {
+          colorMap = { border: '#047857', fill: '#10b981' };
+        } else if (ndvi >= 0.35) {
+          colorMap = { border: '#854d0e', fill: '#fbbf24' };
         } else {
-          colorMap = { border: '#be123c', fill: '#f43f5e' }; // Low Vigor (< 0.5)
+          colorMap = { border: '#be123c', fill: '#f43f5e' };
         }
       } else if (activeLayer === 'humedad') {
         const au = lot.waterAvailableAU_pct ?? 70;
@@ -297,16 +301,16 @@ export default function DashboardMap({
         {activeLayer === 'ndvi' && (
           <>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-emerald-800/40 px-2 py-0.5 text-emerald-300 border border-emerald-800/40">
-              <span className="h-2 w-2 rounded-full bg-emerald-800" /> &gt;0.80 (Exc)
+              <span className="h-2 w-2 rounded-full bg-emerald-800" /> &gt;=0.60 (Sano)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-emerald-600/20 px-2 py-0.5 text-emerald-400 border border-emerald-600/30">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> 0.70-0.80 (Bueno)
+              <span className="h-2 w-2 rounded-full bg-amber-400" /> 0.35-0.60 (Moderado)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-amber-500/20 px-2 py-0.5 text-amber-300 border border-amber-500/30">
-              <span className="h-2 w-2 rounded-full bg-amber-400" /> 0.60-0.70 (Medio)
+              <span className="h-2 w-2 rounded-full bg-rose-500" /> &lt;0.35 (Bajo)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-amber-700/20 px-2 py-0.5 text-amber-500 border border-amber-700/30">
-              <span className="h-2 w-2 rounded-full bg-amber-600" /> &lt;0.60 (Bajo)
+              <span className="h-2 w-2 rounded-full bg-slate-400" /> Sin dato
             </span>
           </>
         )}
@@ -358,4 +362,3 @@ export default function DashboardMap({
     </div>
   );
 }
-

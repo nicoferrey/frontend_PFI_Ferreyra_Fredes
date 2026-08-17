@@ -104,9 +104,13 @@ export default function DashboardHome() {
       hydricStatus: l.hydricStatus,
       deficitDr_mm: l.deficitDr_mm,
       waterAvailableAU_pct: l.waterAvailableAU_pct,
-      ndviCurrent: l.ndviCurrent,
+      ndviCurrent: l.ndviDataAvailable ? l.ndviCurrent : undefined,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
+
+  const estimatedLots = useMemo(() => {
+    return lotsData.filter((lot) => lot.usesEstimatedAgronomicData);
+  }, [lotsData]);
 
   // Extract proactive alerts recommended by agents
   const priorityAlerts = useMemo(() => {
@@ -150,6 +154,28 @@ export default function DashboardHome() {
           </div>
         </div>
       </div>
+
+      {estimatedLots.length > 0 && (
+        <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-soft">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div>
+                <h3 className="text-sm font-extrabold">Parámetros agronómicos estimados</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                  {estimatedLots.length} lote{estimatedLots.length === 1 ? '' : 's'} usan suelo, capacidad hídrica o estado inicial estimado. Validar esos datos mejora la precisión del balance y de la recomendación.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/configuracion"
+              className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700"
+            >
+              Revisar datos
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Interactive Satellite Overview Map */}
       <section className="overflow-hidden rounded-[30px] border border-slate-900 bg-slate-950 p-6 text-white shadow-soft">

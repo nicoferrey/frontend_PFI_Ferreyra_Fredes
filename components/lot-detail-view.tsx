@@ -68,6 +68,7 @@ export interface LotHydricData {
   etcToday_mm: number;
   et0Today_mm: number;
   ndviCurrent: number;
+  ndviDataAvailable?: boolean;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
   priorityReason: string;
@@ -86,6 +87,7 @@ export interface LotHydricData {
     taw_mm: number;
     irrigation_mm?: number;
     rain_mm?: number;
+    deep_percolation_mm?: number;
     ndvi?: number;
     kc?: number;
     kc_source?: string;
@@ -333,13 +335,16 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <Satellite className="h-3.5 w-3.5 text-crop-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.ndviCurrent.toFixed(2)}
+              {lot.ndviDataAvailable ? lot.ndviCurrent.toFixed(2) : '-'}
             </p>
             {(() => {
+              if (!lot.ndviDataAvailable) {
+                return <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Sin dato satelital reciente</span>;
+              }
               const val = lot.ndviCurrent;
-              if (val >= 0.7) {
-                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor vegetativo alto</span>;
-              } else if (val >= 0.5) {
+              if (val >= 0.6) {
+                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor vegetativo sano</span>;
+              } else if (val >= 0.35) {
                 return <span className="text-[10px] text-amber-600 dark:text-amber-450 font-semibold">Vigor vegetativo moderado</span>;
               } else {
                 return <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Vigor vegetativo bajo</span>;

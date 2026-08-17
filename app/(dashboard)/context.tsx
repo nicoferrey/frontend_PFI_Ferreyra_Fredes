@@ -30,6 +30,8 @@ export interface LotHydricData {
   etcToday_mm: number;
   et0Today_mm: number;
   ndviCurrent: number;
+  ndviDataAvailable?: boolean;
+  usesEstimatedAgronomicData?: boolean;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
   priorityReason: string;
@@ -48,6 +50,7 @@ export interface LotHydricData {
     taw_mm: number;
     rain_mm?: number;
     irrigation_mm?: number;
+    deep_percolation_mm?: number;
     ndvi?: number;
     kc?: number;
     kc_source?: string;
@@ -319,7 +322,13 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
   const totalRain = asNumber(weatherMetrics.total_precipitation_mm, 0);
   const irrigationApplied = asNumber(metrics.irrigation_applied_mm, 0);
   const kc = asNumber(kcContext.crop_coefficient, asNumber(metrics.crop_coefficient, 1));
-  const ndvi = asNumber(ndviMetrics.ndvi_mean, 0);
+  const hasNdvi = typeof ndviMetrics.ndvi_mean === 'number';
+  const ndvi = hasNdvi ? asNumber(ndviMetrics.ndvi_mean, 0) : 0;
+  const usesEstimatedAgronomicData =
+    !field.soil_type ||
+    field.soil_type === 'AUTO' ||
+    !field.total_available_water_taw ||
+    (field.initial_available_water_pct == null && field.initial_available_water_mm == null);
   const dateTo = snapshot?.analyze_payload?.date_to || snapshot?.weather_compare_payload?.date_to;
 
   return {
@@ -327,7 +336,7 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     name: field.name,
     crop: field.crop_type || 'Cultivo',
     areaHa: field.area_ha || 0,
-    soilType: field.soil_type || 'Sin especificar',
+    soilType: field.soil_type || 'Auto / estimado',
     irrigationSystem: field.irrigation_system || 'Sin especificar',
     hydricStatus,
     deficitDr_mm: deficit,
@@ -338,6 +347,8 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     etcToday_mm: round1(totalEtc / daysAnalyzed),
     et0Today_mm: round1(totalEt0 / daysAnalyzed),
     ndviCurrent: ndvi,
+    ndviDataAvailable: hasNdvi,
+    usesEstimatedAgronomicData,
     kcSatellite: kc,
     irrigationPriority: priority,
     priorityReason:

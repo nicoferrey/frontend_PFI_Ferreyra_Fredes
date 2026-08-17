@@ -57,6 +57,7 @@ export default function DashboardMapPage() {
           taw_mm: day.taw_mm,
           irrigation_mm: day.irrigation_mm > 0 ? day.irrigation_mm : undefined,
           rain_mm: day.rain_mm > 0 ? day.rain_mm : undefined,
+          deep_percolation_mm: day.deep_percolation_mm,
           ndvi: day.ndvi,
           kc: day.kc,
           kc_source: day.kc_source,
@@ -84,6 +85,7 @@ export default function DashboardMapPage() {
       hydricStatus: l.hydricStatus,
       deficitDr_mm: l.deficitDr_mm,
       waterAvailableAU_pct: l.waterAvailableAU_pct,
+      ndviCurrent: l.ndviDataAvailable ? l.ndviCurrent : undefined,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 
