@@ -32,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
 import { useDashboard } from '../context';
 import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
@@ -54,7 +53,6 @@ import {
 } from '@/lib/api';
 
 export default function DashboardHistoryPage() {
-  const auth = useAuth();
   const {
     lotsData,
     selectedLotId,
@@ -213,7 +211,23 @@ export default function DashboardHistoryPage() {
       return uuid;
     };
 
-    const defaultNdvi = selectedLot?.ndviCurrent ? selectedLot.ndviCurrent.toFixed(2) : '0.78';
+    const eventDateKey = (value: string) => value.slice(0, 10);
+    const ndviByDate = new Map(
+      realHistory
+        .filter((day) => typeof day.ndvi === 'number')
+        .map((day) => [day.date, day.ndvi as number])
+    );
+    const selectedLotNdvi = selectedLot?.ndviDataAvailable ? selectedLot.ndviCurrent.toFixed(2) : null;
+    const formatNdviObservation = (dateKey: string, fallback?: number | null, originalNotes?: string) => {
+      const dateNdvi = ndviByDate.get(dateKey);
+      const ndviText =
+        typeof dateNdvi === 'number'
+          ? `NDVI fecha: ${dateNdvi.toFixed(2)}`
+          : typeof fallback === 'number'
+          ? `NDVI fecha: ${fallback.toFixed(2)}`
+          : 'NDVI fecha: sin dato';
+      return originalNotes ? `${ndviText} | ${originalNotes}` : ndviText;
+    };
 
     // 1. Manual irrigation events from API
     const mappedIrrig = irrigationEvents.map((e) => ({
@@ -222,7 +236,7 @@ export default function DashboardHistoryPage() {
       applied_at: e.applied_at,
       amount_mm: e.amount_mm,
       method: e.method || 'Manual Campo',
-      notes: `NDVI: ${defaultNdvi}`,
+      notes: formatNdviObservation(eventDateKey(e.applied_at), null, e.notes),
       registered_by: getMemberName(e.registered_by),
       isManual: true,
     }));
@@ -234,7 +248,7 @@ export default function DashboardHistoryPage() {
       applied_at: e.recorded_at,
       amount_mm: e.amount_mm,
       method: 'Pluviómetro Manual',
-      notes: `NDVI: ${defaultNdvi}`,
+      notes: formatNdviObservation(eventDateKey(e.recorded_at), null, e.notes),
       registered_by: getMemberName(e.registered_by),
       isManual: true,
     }));
@@ -258,7 +272,6 @@ export default function DashboardHistoryPage() {
           : day.date;
         const normalizedDate = dateStr.length === 5 ? `2026-${dateStr}` : dateStr;
         const isoDate = `${normalizedDate}T08:00:00Z`;
-        const dayNdvi = day.ndvi ? day.ndvi.toFixed(2) : defaultNdvi;
 
         // Climatic Rain (if no manual rain registered on this date)
         if (day.rain_mm && day.rain_mm > 0 && !manualDateKeys.has(`${normalizedDate}-lluvia`)) {
@@ -268,7 +281,7 @@ export default function DashboardHistoryPage() {
             applied_at: isoDate,
             amount_mm: day.rain_mm,
             method: day.rain_source === 'manual' ? 'Pluviómetro Manual' : 'Estación Open-Meteo',
-            notes: `NDVI: ${dayNdvi}`,
+            notes: formatNdviObservation(normalizedDate, day.ndvi),
             registered_by: day.rain_source === 'manual' ? 'Operario Campo' : 'Open-Meteo Satelital',
             isManual: false,
           });
@@ -282,7 +295,7 @@ export default function DashboardHistoryPage() {
             applied_at: isoDate,
             amount_mm: day.irrigation_mm,
             method: 'Pivote Central (Modelo MAS)',
-            notes: `NDVI: ${dayNdvi}`,
+            notes: formatNdviObservation(normalizedDate, day.ndvi),
             registered_by: 'Sistema AgroMAS',
             isManual: false,
           });
@@ -307,7 +320,7 @@ export default function DashboardHistoryPage() {
         applied_at: '2026-08-04T08:00:00Z',
         amount_mm: 20.0,
         method: 'Pivote Central',
-        notes: `NDVI: ${defaultNdvi}`,
+        notes: selectedLotNdvi ? `NDVI fecha: ${selectedLotNdvi}` : 'NDVI fecha: sin dato',
         registered_by: 'Esteban Ferreyra',
         isManual: false,
       },
@@ -317,12 +330,12 @@ export default function DashboardHistoryPage() {
         applied_at: '2026-07-28T18:00:00Z',
         amount_mm: 18.0,
         method: 'Estación Meteorológica',
-        notes: `NDVI: ${defaultNdvi}`,
+        notes: selectedLotNdvi ? `NDVI fecha: ${selectedLotNdvi}` : 'NDVI fecha: sin dato',
         registered_by: 'Open-Meteo Satelital',
         isManual: false,
       },
     ];
-  }, [auth.fields, irrigationEvents, rainfallEvents, teamMembers, selectedLot]);
+  }, [irrigationEvents, rainfallEvents, realHistory, teamMembers, selectedLot]);
 
   // Pagination state for consolidated events table (5 items per page)
   const [currentPage, setCurrentPage] = useState(1);
