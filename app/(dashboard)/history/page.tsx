@@ -37,6 +37,7 @@ import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
 import {
   getIrrigationEventsApi,
+  getNdviHistoryApi,
   getRainfallEventsApi,
   getReportsSummaryApi,
   getTeamMembersApi,
@@ -48,6 +49,7 @@ import {
   updateRainfallEventApi,
   exportReportBlobApi,
   IrrigationEvent,
+  NdviHistoryItem,
   RainfallEvent,
   ReportsSummary
 } from '@/lib/api';
@@ -85,6 +87,7 @@ export default function DashboardHistoryPage() {
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [irrigationEvents, setIrrigationEvents] = useState<IrrigationEvent[]>([]);
   const [rainfallEvents, setRainfallEvents] = useState<RainfallEvent[]>([]);
+  const [ndviHistory, setNdviHistory] = useState<NdviHistoryItem[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -170,9 +173,10 @@ export default function DashboardHistoryPage() {
       setIsLoadingReports(true);
 
       try {
-        const [irrigs, rains, summary, team] = await Promise.all([
+        const [irrigs, rains, ndviItems, summary, team] = await Promise.all([
           getIrrigationEventsApi(fieldId, dateFrom, dateTo),
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
+          getNdviHistoryApi(fieldId, dateFrom, dateTo),
           getReportsSummaryApi(fieldId, dateFrom, dateTo),
           getTeamMembersApi(fieldId)
         ]);
@@ -180,6 +184,7 @@ export default function DashboardHistoryPage() {
         if (!isCancelled) {
           setIrrigationEvents(irrigs);
           setRainfallEvents(rains);
+          setNdviHistory(ndviItems);
           setReportsSummary(summary);
           setTeamMembers(team);
         }
@@ -212,20 +217,40 @@ export default function DashboardHistoryPage() {
     };
 
     const eventDateKey = (value: string) => value.slice(0, 10);
-    const ndviByDate = new Map(
-      realHistory
+    const formatDateLabel = (value: string) => {
+      const [year, month, day] = value.split('-');
+      return year && month && day ? `${day}/${month}` : value;
+    };
+    const ndviObservations = [
+      ...realHistory
         .filter((day) => typeof day.ndvi === 'number')
-        .map((day) => [day.date, day.ndvi as number])
-    );
-    const selectedLotNdvi = selectedLot?.ndviDataAvailable ? selectedLot.ndviCurrent.toFixed(2) : null;
+        .map((day) => ({ date: day.date, value: day.ndvi as number })),
+      ...ndviHistory.map((item) => ({ date: item.date, value: item.ndvi_mean })),
+    ]
+      .filter((item, index, items) => items.findIndex((other) => other.date === item.date) === index)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const findNdviForDate = (dateKey: string, fallback?: number | null) => {
+      const exact = ndviObservations.find((item) => item.date === dateKey);
+      if (exact) return { ...exact, exact: true };
+
+      const previous = [...ndviObservations]
+        .reverse()
+        .find((item) => item.date <= dateKey);
+      if (previous) return { ...previous, exact: false };
+
+      if (typeof fallback === 'number') return { date: dateKey, value: fallback, exact: true };
+      return null;
+    };
+
+    const selectedLotNdvi = selectedLot?.ndviDataAvailable ? selectedLot.ndviCurrent : null;
     const formatNdviObservation = (dateKey: string, fallback?: number | null, originalNotes?: string) => {
-      const dateNdvi = ndviByDate.get(dateKey);
-      const ndviText =
-        typeof dateNdvi === 'number'
-          ? `NDVI fecha: ${dateNdvi.toFixed(2)}`
-          : typeof fallback === 'number'
-          ? `NDVI fecha: ${fallback.toFixed(2)}`
-          : 'NDVI fecha: sin dato';
+      const observation = findNdviForDate(dateKey, fallback);
+      const ndviText = observation
+        ? observation.exact
+          ? `NDVI del día: ${observation.value.toFixed(2)}`
+          : `NDVI más reciente ${formatDateLabel(observation.date)}: ${observation.value.toFixed(2)}`
+        : 'NDVI: sin observación en el período';
       return originalNotes ? `${ndviText} | ${originalNotes}` : ndviText;
     };
 
@@ -320,7 +345,7 @@ export default function DashboardHistoryPage() {
         applied_at: '2026-08-04T08:00:00Z',
         amount_mm: 20.0,
         method: 'Pivote Central',
-        notes: selectedLotNdvi ? `NDVI fecha: ${selectedLotNdvi}` : 'NDVI fecha: sin dato',
+        notes: selectedLotNdvi ? `NDVI del día: ${selectedLotNdvi.toFixed(2)}` : 'NDVI: sin observación en el período',
         registered_by: 'Esteban Ferreyra',
         isManual: false,
       },
@@ -330,12 +355,12 @@ export default function DashboardHistoryPage() {
         applied_at: '2026-07-28T18:00:00Z',
         amount_mm: 18.0,
         method: 'Estación Meteorológica',
-        notes: selectedLotNdvi ? `NDVI fecha: ${selectedLotNdvi}` : 'NDVI fecha: sin dato',
+        notes: selectedLotNdvi ? `NDVI del día: ${selectedLotNdvi.toFixed(2)}` : 'NDVI: sin observación en el período',
         registered_by: 'Open-Meteo Satelital',
         isManual: false,
       },
     ];
-  }, [irrigationEvents, rainfallEvents, realHistory, teamMembers, selectedLot]);
+  }, [irrigationEvents, rainfallEvents, ndviHistory, realHistory, teamMembers, selectedLot]);
 
   // Pagination state for consolidated events table (5 items per page)
   const [currentPage, setCurrentPage] = useState(1);
