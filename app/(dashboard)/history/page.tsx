@@ -23,10 +23,17 @@ import {
   CheckCircle2,
   Droplets,
   SunMedium,
-  ShieldAlert
+  ShieldAlert,
+  Calendar,
+  SlidersHorizontal,
+  Layers,
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useDashboard } from '../context';
+import { CustomSelect, SelectOption } from '@/components/custom-select';
+import { CustomDatePicker } from '@/components/custom-date-picker';
 import {
   getIrrigationEventsApi,
   getRainfallEventsApi,
@@ -62,6 +69,15 @@ export default function DashboardHistoryPage() {
     setTeamMembers,
   } = useDashboard();
 
+  // Mapped options for custom dropdown
+  const lotSelectOptions: SelectOption[] = useMemo(() => {
+    return lotsData.map((lot) => ({
+      value: lot.id,
+      label: lot.name,
+      sublabel: `${lot.crop} · ${lot.areaHa} ha`,
+    }));
+  }, [lotsData]);
+
   // Reports and Local Loading States
   const [reportsSummary, setReportsSummary] = useState<ReportsSummary | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
@@ -70,16 +86,25 @@ export default function DashboardHistoryPage() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  // Rainfall registration modal state
-  const [isRainModalOpen, setIsRainModalOpen] = useState(false);
-  const [rainForm, setRainForm] = useState({
+  // Unified event registration modal state (Riego / Lluvia)
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [eventForm, setEventForm] = useState<{
+    type: 'riego' | 'lluvia';
+    date: string;
+    time: string;
+    amount_mm: string;
+    method: string;
+    notes: string;
+  }>({
+    type: 'riego',
     date: new Date().toISOString().split('T')[0],
     time: '12:00',
-    amount_mm: '10',
-    notes: 'Registro manual del pluviómetro.',
+    amount_mm: '15',
+    method: 'Pivote Central',
+    notes: '',
   });
-  const [isSubmittingRain, setIsSubmittingRain] = useState(false);
-  const [rainFormSuccess, setRainFormSuccess] = useState(false);
+  const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
+  const [eventFormSuccess, setEventFormSuccess] = useState(false);
 
   // Edit event modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -94,18 +119,6 @@ export default function DashboardHistoryPage() {
     method?: string;
     notes: string;
   } | null>(null);
-
-  // Manual irrigation modal state in history tab
-  const [isHistoryIrrigModalOpen, setIsHistoryIrrigModalOpen] = useState(false);
-  const [historyIrrigForm, setHistoryIrrigForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    time: '08:00',
-    amount_mm: '15',
-    method: 'Pivote Central',
-    notes: 'Riego manual registrado en historial.',
-  });
-  const [isSubmittingHistoryIrrig, setIsSubmittingHistoryIrrig] = useState(false);
-  const [historyIrrigFormSuccess, setHistoryIrrigFormSuccess] = useState(false);
 
   // Selected Lot object (with real history overlay)
   const selectedLot = useMemo(() => {
@@ -255,72 +268,58 @@ export default function DashboardHistoryPage() {
     }
   }, [auth.fields, irrigationEvents, rainfallEvents, teamMembers]);
 
-  // Handler to register rainfall manual
-  const handleSaveRainfall = async (e: React.FormEvent) => {
+  // Handler for unified event registration (Riego or Lluvia)
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedField) return;
-    setIsSubmittingRain(true);
-    const localDate = new Date(`${rainForm.date}T${rainForm.time}`);
+    setIsSubmittingEvent(true);
+    const localDate = new Date(`${eventForm.date}T${eventForm.time}`);
     const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
 
-    const res = await createRainfallEventApi(selectedField.id, {
-      recorded_at: isoDate,
-      amount_mm: parseFloat(rainForm.amount_mm) || 0,
-      notes: rainForm.notes,
-    });
+    let res;
+    if (eventForm.type === 'riego') {
+      res = await createIrrigationEventApi(selectedField.id, {
+        applied_at: isoDate,
+        amount_mm: parseFloat(eventForm.amount_mm) || 0,
+        method: eventForm.method,
+        notes: eventForm.notes,
+      });
+    } else {
+      res = await createRainfallEventApi(selectedField.id, {
+        recorded_at: isoDate,
+        amount_mm: parseFloat(eventForm.amount_mm) || 0,
+        notes: eventForm.notes,
+      });
+    }
 
     if (res.ok) {
-      setRainFormSuccess(true);
+      setEventFormSuccess(true);
       setTimeout(() => {
-        setRainFormSuccess(false);
-        setIsRainModalOpen(false);
+        setEventFormSuccess(false);
+        setIsEventModalOpen(false);
         setHistoryReloadTrigger((prev: number) => prev + 1);
-        setRainForm({
+        setEventForm({
+          type: 'riego',
           date: new Date().toISOString().split('T')[0],
           time: '12:00',
-          amount_mm: '10',
-          notes: 'Registro manual del pluviómetro.',
-        });
-      }, 1000);
-    } else {
-      alert('Error al registrar lluvia: ' + (res.data?.detail || 'Inténtelo de nuevo.'));
-    }
-    setIsSubmittingRain(false);
-  };
-
-  // Handler to register manual irrigation from history tab
-  const handleSaveHistoryIrrig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedField) return;
-    setIsSubmittingHistoryIrrig(true);
-    const localDate = new Date(`${historyIrrigForm.date}T${historyIrrigForm.time}`);
-    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
-
-    const res = await createIrrigationEventApi(selectedField.id, {
-      applied_at: isoDate,
-      amount_mm: parseFloat(historyIrrigForm.amount_mm) || 0,
-      method: historyIrrigForm.method,
-      notes: historyIrrigForm.notes,
-    });
-
-    if (res.ok) {
-      setHistoryIrrigFormSuccess(true);
-      setTimeout(() => {
-        setHistoryIrrigFormSuccess(false);
-        setIsHistoryIrrigModalOpen(false);
-        setHistoryReloadTrigger((prev: number) => prev + 1);
-        setHistoryIrrigForm({
-          date: new Date().toISOString().split('T')[0],
-          time: '08:00',
           amount_mm: '15',
           method: 'Pivote Central',
-          notes: 'Riego manual registrado en historial.',
+          notes: '',
         });
       }, 1000);
     } else {
-      alert('Error al registrar riego: ' + (res.data?.detail || 'Inténtelo de nuevo.'));
+      alert(`Error al registrar ${eventForm.type}: ` + (res.data?.detail || 'Inténtelo de nuevo.'));
     }
-    setIsSubmittingHistoryIrrig(false);
+    setIsSubmittingEvent(false);
+  };
+
+  // Quick preset helper for date range filter
+  const handleApplyQuickDatePreset = (days: number) => {
+    const today = new Date();
+    const past = new Date();
+    past.setDate(today.getDate() - days);
+    setDateTo(today.toISOString().split('T')[0]);
+    setDateFrom(past.toISOString().split('T')[0]);
   };
 
   // Handler to delete event (irrigation or rainfall)
@@ -400,7 +399,7 @@ export default function DashboardHistoryPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header card with selection and export actions */}
-      <div className="rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
+      <div className="relative z-30 rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-water-100 text-water-700">
@@ -415,21 +414,22 @@ export default function DashboardHistoryPage() {
           {/* Actions buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => setIsHistoryIrrigModalOpen(true)}
+              onClick={() => {
+                setEventForm({
+                  type: 'riego',
+                  date: new Date().toISOString().split('T')[0],
+                  time: '12:00',
+                  amount_mm: '15',
+                  method: 'Pivote Central',
+                  notes: '',
+                });
+                setIsEventModalOpen(true);
+              }}
               disabled={!selectedField}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-150 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-150 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              Registrar Riego (CU-05)
-            </button>
-
-            <button
-              onClick={() => setIsRainModalOpen(true)}
-              disabled={!selectedField}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-150 disabled:opacity-50"
-            >
-              <CloudRain className="h-4 w-4" />
-              Registrar Lluvia Manual
+              Registrar Evento (Riego / Lluvia)
             </button>
 
             <button
@@ -438,55 +438,86 @@ export default function DashboardHistoryPage() {
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition disabled:opacity-50"
             >
               <Download className="h-4 w-4 text-emerald-600" />
-              Excel (XLSX)
-            </button>
-
-            <button
-              onClick={() => handleExportReport('csv')}
-              disabled={!selectedField || isLoadingReports}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition disabled:opacity-50"
-            >
-              <Download className="h-4 w-4 text-crop-600" />
-              CSV
+              Exportar Reporte (Excel)
             </button>
           </div>
         </div>
 
-        {/* Filter bar */}
-        <div className="mt-6 grid gap-4 border-t border-slate-200/80 pt-5 sm:grid-cols-3">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Lote activo</label>
-            <select
-              value={selectedLotId}
-              onChange={(e) => setSelectedLotId(e.target.value)}
-              className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 shadow-sm"
-            >
-              {lotsData.map((lot) => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.name} ({lot.crop})
-                </option>
-              ))}
-            </select>
+        {/* Modernized Filter bar */}
+        <div className="mt-6 border-t border-slate-200/80 pt-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <SlidersHorizontal className="h-4 w-4 text-crop-600" />
+              <span>Filtros de Análisis</span>
+            </div>
+
+            {/* Quick date range preset pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-medium text-slate-400 mr-1">Rápido:</span>
+              <button
+                type="button"
+                onClick={() => handleApplyQuickDatePreset(7)}
+                className="rounded-full border border-slate-200 bg-slate-50 hover:bg-crop-50 hover:border-crop-300 px-3 py-1 text-[11px] font-medium text-slate-700 transition"
+              >
+                Últimos 7d
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyQuickDatePreset(30)}
+                className="rounded-full border border-slate-200 bg-slate-50 hover:bg-crop-50 hover:border-crop-300 px-3 py-1 text-[11px] font-medium text-slate-700 transition"
+              >
+                Últimos 30d
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyQuickDatePreset(90)}
+                className="rounded-full border border-slate-200 bg-slate-50 hover:bg-crop-50 hover:border-crop-300 px-3 py-1 text-[11px] font-medium text-slate-700 transition"
+              >
+                Últimos 90d
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Fecha desde</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 shadow-sm"
-            />
-          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* Lote Selector */}
+            <div className="relative z-30">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                <Layers className="h-3.5 w-3.5 text-crop-600" />
+                Lote Activo
+              </label>
+              <CustomSelect
+                options={lotSelectOptions}
+                value={selectedLotId}
+                onChange={setSelectedLotId}
+                placeholder="Seleccionar Lote"
+              />
+            </div>
 
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Fecha hasta</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 shadow-sm"
-            />
+            {/* Fecha Desde */}
+            <div className="relative z-20">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                <Calendar className="h-3.5 w-3.5 text-water-600" />
+                Fecha Desde
+              </label>
+              <CustomDatePicker
+                value={dateFrom}
+                onChange={setDateFrom}
+                placeholder="Fecha inicial"
+              />
+            </div>
+
+            {/* Fecha Hasta */}
+            <div className="relative z-10">
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                <Calendar className="h-3.5 w-3.5 text-water-600" />
+                Fecha Hasta
+              </label>
+              <CustomDatePicker
+                value={dateTo}
+                onChange={setDateTo}
+                placeholder="Fecha final"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -760,204 +791,179 @@ export default function DashboardHistoryPage() {
       </div>
 
       {/* ==========================================
-         MODAL 1: REGISTRAR LLUVIA MANUAL
+         UNIFIED MODAL: REGISTRAR EVENTO HÍDRICO (RIEGO / LLUVIA)
          ========================================== */}
-      {isRainModalOpen && (
+      {isEventModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <CloudRain className="h-5 w-5" />
+                <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                  eventForm.type === 'riego' 
+                    ? 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400' 
+                    : 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                }`}>
+                  {eventForm.type === 'riego' ? <Droplets className="h-5 w-5" /> : <CloudRain className="h-5 w-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Registrar Lluvia (Pluviómetro)</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {eventForm.type === 'riego' ? 'Registrar Evento de Riego' : 'Registrar Lluvia Manual'}
+                  </h3>
                   <p className="text-xs text-slate-500">Lote: <strong className="text-slate-700 dark:text-slate-200">{selectedLot?.name || 'N/A'}</strong></p>
                 </div>
               </div>
-              <button onClick={() => setIsRainModalOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <button 
+                onClick={() => setIsEventModalOpen(false)} 
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {rainFormSuccess ? (
+            {eventFormSuccess ? (
               <div className="py-10 text-center animate-fade-in">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">¡Lluvia Registrada Exitosamente!</h4>
-                <p className="mt-1 text-xs text-slate-500">El registro manual ha sido guardado.</p>
+                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
+                  ¡{eventForm.type === 'riego' ? 'Riego' : 'Lluvia'} Registrado Exitosamente!
+                </h4>
+                <p className="mt-1 text-xs text-slate-500">El evento hídrico ha sido guardado en el historial.</p>
               </div>
             ) : (
-              <form onSubmit={handleSaveRainfall} className="mt-4 space-y-4">
+              <form onSubmit={handleSaveEvent} className="mt-4 space-y-4">
+                {/* Event Type Toggle Selector */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Tipo de Evento Hídrico</label>
+                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setEventForm((prev) => ({ ...prev, type: 'riego' }))}
+                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+                        eventForm.type === 'riego'
+                          ? 'bg-white text-cyan-700 shadow-sm dark:bg-slate-700 dark:text-cyan-300'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      <Droplets className="h-4 w-4 text-cyan-600" />
+                      💧 Riego Aplicado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventForm((prev) => ({ ...prev, type: 'lluvia' }))}
+                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+                        eventForm.type === 'lluvia'
+                          ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      <CloudRain className="h-4 w-4 text-blue-600" />
+                      🌧️ Lluvia Pluviómetro
+                    </button>
+                  </div>
+                </div>
+
+                {/* Date & Time fields */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Fecha</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Fecha</label>
                     <input
                       type="date"
                       required
-                      value={rainForm.date}
-                      onChange={(e) => setRainForm({ ...rainForm, date: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                      value={eventForm.date}
+                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Hora</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Hora</label>
                     <input
                       type="time"
                       required
-                      value={rainForm.time}
-                      onChange={(e) => setRainForm({ ...rainForm, time: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                      value={eventForm.time}
+                      onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">Lámina caída (mm)</label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="300"
-                      required
-                      value={rainForm.amount_mm}
-                      onChange={(e) => setRainForm({ ...rainForm, amount_mm: e.target.value })}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none"
-                    />
-                    <span className="absolute right-3 top-2 text-xs font-medium text-slate-400">mm</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-700">Notas / Observaciones</label>
-                  <textarea
-                    rows={2}
-                    value={rainForm.notes}
-                    onChange={(e) => setRainForm({ ...rainForm, notes: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none"
-                    placeholder="Detalles adicionales..."
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                  <button type="button" disabled={isSubmittingRain} onClick={() => setIsRainModalOpen(false)} className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">
-                    Cancelar
-                  </button>
-                  <button type="submit" disabled={isSubmittingRain} className="rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50">
-                    {isSubmittingRain ? 'Guardando...' : 'Guardar Registro'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ==========================================
-         MODAL 2: REGISTRAR RIEGO MANUAL (TAB HISTORIAL)
-         ========================================== */}
-      {isHistoryIrrigModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-water-50 text-water-600">
-                  <Droplets className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Registrar Riego</h3>
-                  <p className="text-xs text-slate-500">Lote: <strong className="text-slate-700 dark:text-slate-200">{selectedLot?.name || 'N/A'}</strong></p>
-                </div>
-              </div>
-              <button onClick={() => setIsHistoryIrrigModalOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {historyIrrigFormSuccess ? (
-              <div className="py-10 text-center animate-fade-in">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 className="h-8 w-8" />
-                </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">¡Riego Registrado Exitosamente!</h4>
-                <p className="mt-1 text-xs text-slate-500">El registro manual ha sido guardado.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveHistoryIrrig} className="mt-4 space-y-4">
+                {/* Amount and Method */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Fecha</label>
-                    <input
-                      type="date"
-                      required
-                      value={historyIrrigForm.date}
-                      onChange={(e) => setHistoryIrrigForm({ ...historyIrrigForm, date: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700">Hora</label>
-                    <input
-                      type="time"
-                      required
-                      value={historyIrrigForm.time}
-                      onChange={(e) => setHistoryIrrigForm({ ...historyIrrigForm, time: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700">Lámina aplicada (mm)</label>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {eventForm.type === 'riego' ? 'Lámina Aplicada (mm)' : 'Lámina Caída (mm)'}
+                    </label>
                     <div className="relative mt-1">
                       <input
                         type="number"
-                        step="0.5"
-                        min="1"
-                        max="100"
+                        step="0.1"
+                        min="0.1"
+                        max="300"
                         required
-                        value={historyIrrigForm.amount_mm}
-                        onChange={(e) => setHistoryIrrigForm({ ...historyIrrigForm, amount_mm: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none"
+                        value={eventForm.amount_mm}
+                        onChange={(e) => setEventForm({ ...eventForm, amount_mm: e.target.value })}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       />
                       <span className="absolute right-3 top-2 text-xs font-medium text-slate-400">mm</span>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700">Método / Equipo</label>
-                    <select
-                      value={historyIrrigForm.method}
-                      onChange={(e) => setHistoryIrrigForm({ ...historyIrrigForm, method: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-crop-500"
-                    >
-                      <option value="Pivote Central">Pivote Central</option>
-                      <option value="Goteo">Goteo Subterráneo</option>
-                      <option value="Aspersión">Aspersión Fija</option>
-                      <option value="Cañón Enrollador">Cañón Enrollador</option>
-                    </select>
-                  </div>
+
+                  {eventForm.type === 'riego' ? (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Método / Equipo</label>
+                      <select
+                        value={eventForm.method}
+                        onChange={(e) => setEventForm({ ...eventForm, method: e.target.value })}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      >
+                        <option value="Pivote Central">Pivote Central</option>
+                        <option value="Goteo">Goteo Subterráneo</option>
+                        <option value="Aspersión">Aspersión Fija</option>
+                        <option value="Cañón Enrollador">Cañón Enrollador</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Fuente de Medición</label>
+                      <input
+                        type="text"
+                        disabled
+                        value="Pluviómetro Manual Campo"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800/50"
+                      />
+                    </div>
+                  )}
                 </div>
 
+                {/* Notes */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Notes / Observaciones</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Observaciones</label>
                   <textarea
                     rows={2}
-                    value={historyIrrigForm.notes}
-                    onChange={(e) => setHistoryIrrigForm({ ...historyIrrigForm, notes: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none"
-                    placeholder="Detalles adicionales..."
+                    value={eventForm.notes}
+                    onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    placeholder="Detalles adicionales sobre la condición o mediciones..."
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                  <button type="button" disabled={isSubmittingHistoryIrrig} onClick={() => setIsHistoryIrrigModalOpen(false)} className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <button 
+                    type="button" 
+                    disabled={isSubmittingEvent} 
+                    onClick={() => setIsEventModalOpen(false)} 
+                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  >
                     Cancelar
                   </button>
-                  <button type="submit" disabled={isSubmittingHistoryIrrig} className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50">
-                    {isSubmittingHistoryIrrig ? 'Guardando...' : 'Guardar Riego'}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingEvent} 
+                    className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50"
+                  >
+                    {isSubmittingEvent ? 'Guardando...' : 'Guardar Evento'}
                   </button>
                 </div>
               </form>
