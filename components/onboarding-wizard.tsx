@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { 
   MapPin, Compass, Settings2, Sparkles, ChevronLeft, ChevronRight, 
   Trash2, Sprout, Layers3, Droplet, CheckCircle, Info, ArrowLeft,
-  Home
+  Home, Search
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
 import { createFieldApi, updateFieldApi, deleteFieldApi } from '@/lib/api';
@@ -120,6 +120,101 @@ const IRRIGATION_SYSTEMS = [
   { id: 'Aspersión', name: 'Aspersión Fija/Móvil', desc: 'Riego uniforme a campo abierto' },
   { id: 'Gravedad', name: 'Gravedad / Surcos', desc: 'Riego tradicional por escurrimiento' }
 ];
+
+type SearchableOption = {
+  id: string;
+  name: string;
+  desc?: string;
+  meta?: string;
+  icon?: typeof Sprout;
+  color?: string;
+};
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function SearchableSelector({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: SearchableOption[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const selected = options.find((option) => option.id === value);
+  const filtered = options.filter((option) => {
+    const haystack = normalizeSearch(`${option.name} ${option.id} ${option.desc || ''}`);
+    return haystack.includes(normalizeSearch(query));
+  });
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">{label}</label>
+      <div className="rounded-2xl border border-white/10 bg-slate-950 p-2">
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900 px-3 py-2">
+          <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={selected ? selected.name : placeholder}
+            className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-200 outline-none placeholder:text-slate-500"
+          />
+        </div>
+        <div className="mt-2 max-h-[252px] overflow-y-auto pr-1">
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/10 p-3 text-xs text-slate-500">
+              Sin resultados para la búsqueda.
+            </div>
+          ) : (
+            filtered.map((option) => {
+              const Icon = option.icon;
+              const isSelected = option.id === value;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.id);
+                    setQuery('');
+                  }}
+                  className={`mb-1.5 flex min-h-[44px] w-full items-center gap-2 rounded-xl border p-2.5 text-left text-xs transition last:mb-0 ${
+                    isSelected
+                      ? 'border-cyan-400 bg-cyan-500/10 text-white ring-1 ring-cyan-400/30'
+                      : 'border-white/5 bg-slate-900/70 text-slate-400 hover:bg-slate-800/60'
+                  }`}
+                >
+                  {Icon && (
+                    <div className={`rounded-lg p-1.5 ${option.color || 'text-slate-300 bg-slate-500/10 border-slate-500/20'}`}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-bold text-slate-200">{option.name}</span>
+                      {option.meta && <span className="shrink-0 font-mono text-[10px] text-cyan-400">{option.meta}</span>}
+                    </div>
+                    {option.desc && <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-slate-500">{option.desc}</p>}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -803,66 +898,32 @@ export default function OnboardingWizard() {
                     </div>
 
                     {/* Crop selector */}
-                    <div className="space-y-2">
-                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Tipo de Cultivo Actual</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {CROPS.map((crop) => {
-                          const Icon = crop.icon;
-                          const isSelected = (currentSelectedLot.crop || lotCrop) === crop.id;
-                          return (
-                            <button
-                              key={crop.id}
-                              onClick={() => updateLotField('crop', crop.id)}
-                              className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition ${
-                                isSelected 
-                                  ? 'bg-cyan-500/10 border-cyan-400 text-white' 
-                                  : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
-                              }`}
-                            >
-                              <div className={`p-1.5 rounded-lg ${crop.color}`}>
-                                <Icon className="h-3.5 w-3.5" />
-                              </div>
-                              <span>{crop.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <SearchableSelector
+                      label="Tipo de cultivo actual"
+                      value={currentSelectedLot.crop || lotCrop}
+                      placeholder="Buscar cultivo"
+                      options={CROPS.map((crop) => ({
+                        id: crop.id,
+                        name: crop.name,
+                        icon: crop.icon,
+                        color: crop.color,
+                      }))}
+                      onChange={(value) => updateLotField('crop', value)}
+                    />
 
                     {/* Soil Texture selector */}
-                    <div className="space-y-2">
-                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block flex items-center justify-between">
-                        <span>Textura del Suelo (Física)</span>
-                        <span className="text-[10px] text-emerald-400 flex items-center gap-1 normal-case font-normal">
-                          <Info className="h-3 w-3" /> FAO-56 Auto
-                        </span>
-                      </label>
-                      
-                      <div className="space-y-1.5">
-                        {SOIL_TYPES.map((soil) => {
-                          const isSelected = (currentSelectedLot.soil || lotSoil) === soil.id;
-                          return (
-                            <button
-                              key={soil.id}
-                              onClick={() => updateLotField('soil', soil.id)}
-                              className={`w-full text-left p-2.5 rounded-xl border text-xs transition ${
-                                isSelected 
-                                  ? 'bg-cyan-500/10 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400/30' 
-                                  : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
-                              }`}
-                            >
-                              <div className="flex justify-between items-center font-bold text-slate-200">
-                                <span>{soil.name}</span>
-                                <span className={`text-[10px] font-mono ${isSelected ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
-                                  {soil.taw === null ? 'Menor precisión' : `TAW: ${soil.taw} mm/m`}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{soil.desc}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <SearchableSelector
+                      label="Textura del suelo"
+                      value={currentSelectedLot.soil || lotSoil}
+                      placeholder="Buscar textura"
+                      options={SOIL_TYPES.map((soil) => ({
+                        id: soil.id,
+                        name: soil.name,
+                        desc: soil.desc,
+                        meta: soil.taw === null ? 'Auto' : `${soil.taw} mm/m`,
+                      }))}
+                      onChange={(value) => updateLotField('soil', value)}
+                    />
 
                     {/* Initial water state */}
                     <div className="space-y-2">
@@ -935,7 +996,7 @@ export default function OnboardingWizard() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Emergencia</label>
+                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Fecha de emergencia / brote</label>
                         <input
                           type="date"
                           value={currentSelectedLot.emergenceDate || lotEmergenceDate}
@@ -945,6 +1006,9 @@ export default function OnboardingWizard() {
                           }}
                           className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
                         />
+                        <p className="text-[10px] leading-relaxed text-slate-500">
+                          Día en que el cultivo aparece sobre la superficie; ayuda a estimar la etapa real del ciclo.
+                        </p>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Cosecha estimada</label>

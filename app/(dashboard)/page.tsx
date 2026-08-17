@@ -168,7 +168,7 @@ export default function DashboardHome() {
               </div>
             </div>
             <Link
-              href="/configuracion"
+              href="/settings"
               className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700"
             >
               Revisar datos
