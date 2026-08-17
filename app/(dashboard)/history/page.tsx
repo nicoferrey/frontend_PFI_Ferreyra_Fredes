@@ -211,7 +211,7 @@ export default function DashboardHistoryPage() {
       const mappedRain = rainfallEvents.map((e) => ({
         id: e.id,
         type: 'lluvia' as const,
-        applied_at: e.applied_at,
+        applied_at: e.recorded_at,
         amount_mm: e.amount_mm,
         method: 'Pluviómetro Manual',
         notes: e.notes || '',
@@ -264,7 +264,7 @@ export default function DashboardHistoryPage() {
     const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
 
     const res = await createRainfallEventApi(selectedField.id, {
-      applied_at: isoDate,
+      recorded_at: isoDate,
       amount_mm: parseFloat(rainForm.amount_mm) || 0,
       notes: rainForm.notes,
     });
@@ -349,17 +349,19 @@ export default function DashboardHistoryPage() {
 
     const localDate = new Date(`${editingEvent.date}T${editingEvent.time}`);
     const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
-    const payload = {
-      applied_at: isoDate,
-      amount_mm: parseFloat(editingEvent.amount_mm) || 0,
-      notes: editingEvent.notes,
-      ...(editingEvent.type === 'riego' ? { method: editingEvent.method } : {}),
-    };
-
     const apiCall =
       editingEvent.type === 'riego'
-        ? updateIrrigationEventApi(selectedField.id, editingEvent.id, payload)
-        : updateRainfallEventApi(selectedField.id, editingEvent.id, payload);
+        ? updateIrrigationEventApi(selectedField.id, editingEvent.id, {
+            applied_at: isoDate,
+            amount_mm: parseFloat(editingEvent.amount_mm) || 0,
+            method: editingEvent.method,
+            notes: editingEvent.notes,
+          })
+        : updateRainfallEventApi(selectedField.id, editingEvent.id, {
+            recorded_at: isoDate,
+            amount_mm: parseFloat(editingEvent.amount_mm) || 0,
+            notes: editingEvent.notes,
+          });
 
     const res = await apiCall;
 

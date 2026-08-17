@@ -754,7 +754,7 @@ export interface IrrigationEvent {
 export interface RainfallEvent {
   id: number | string;
   field_id: number;
-  applied_at: string;
+  recorded_at: string;
   amount_mm: number;
   notes?: string;
   registered_by?: string; // UUID
@@ -996,5 +996,4 @@ export async function getNdviHistoryApi(
     return [];
   }
 }
-
 
