@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
 import { DashboardProvider } from './context';
+import { Logo } from '@/components/logo';
 
 const navigationItems = [
   { label: 'Inicio / Dashboard', icon: Home, href: '/' },
@@ -47,7 +48,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {/* Logo & Brand */}
               <div className="flex items-center gap-3 border-b border-slate-200/80 pb-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-500 to-water-500 text-white shadow-lg shadow-crop-500/20">
-                  <Sprout className="h-6 w-6" />
+                  <Logo className="h-7 w-7 text-white" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">AgroMAS</p>

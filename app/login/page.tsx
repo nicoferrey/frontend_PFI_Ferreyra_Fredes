@@ -6,7 +6,7 @@ import {
   Satellite, ArrowUpRight, CheckCircle2 
 } from 'lucide-react';
 import AuthForm from '@/components/auth-form';
-
+import { Logo } from '@/components/logo';
 export default function LoginPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row overflow-hidden font-sans">
@@ -22,7 +22,7 @@ export default function LoginPage() {
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-3 group w-fit">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
-              <Sprout className="h-6 w-6 text-white" />
+              <Logo className="h-7 w-7 text-white" />
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Plataforma AgTech</p>
