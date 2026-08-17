@@ -286,16 +286,14 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           return;
         }
 
-        const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
-        const userHasFields = res.hasFields || auth.fields.length > 0 || hasLotsInStorage;
-
-        if (userHasFields) {
-          setSuccessMessage('¡Cuenta creada con éxito! Redirigiendo a tu panel de monitoreo...');
-          setTimeout(() => router.push('/'), 800);
-        } else {
-          setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
-          setTimeout(() => router.push('/onboarding'), 800);
+        // Clear any stale local storage from previous session/user to ensure clean onboarding
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('agromas_lots');
+          localStorage.removeItem('agromas_center');
         }
+
+        setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
+        setTimeout(() => router.push('/onboarding'), 800);
       }
     } catch (err: any) {
       setErrorMessage('Error de conexión con el servidor.');

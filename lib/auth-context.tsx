@@ -244,6 +244,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('agromas_user');
     localStorage.removeItem('agromas_access_token');
     sessionStorage.removeItem('agromas_access_token');
+    localStorage.removeItem('agromas_lots');
+    localStorage.removeItem('agromas_center');
   };
 
   const setUserFields = (newFields: FieldItem[]) => {

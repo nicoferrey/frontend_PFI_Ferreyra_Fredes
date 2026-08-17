@@ -28,6 +28,7 @@ interface InteractiveOnboardingMapProps {
   circleRadius: number;
   rectWidth: number;
   rectHeight: number;
+  onUpdateLotPolygon?: (id: string, polygon: [number, number][], area: number) => void;
 }
 
 // Equirectangular local projection for small agricultural lots (highly accurate under 100km2)
@@ -94,6 +95,38 @@ function generateRectanglePolygon(center: [number, number], widthMeters: number,
   ];
 }
 
+// Helper to find the index of the closest segment to insert a new vertex
+function findInsertIndex(clickLatLng: [number, number], polygon: [number, number][]): number {
+  let minDistance = Infinity;
+  let insertIndex = polygon.length;
+  const R = 6378137;
+
+  // Click point in radians
+  const cLat = clickLatLng[0] * Math.PI / 180;
+  const cLng = clickLatLng[1] * Math.PI / 180;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+
+    // Midpoint of the segment as a simple approximation
+    const mLat = ((p1[0] + p2[0]) / 2) * Math.PI / 180;
+    const mLng = ((p1[1] + p2[1]) / 2) * Math.PI / 180;
+
+    // Distance from click point to midpoint
+    const dLat = cLat - mLat;
+    const dLng = cLng - mLng;
+    const d = dLat * dLat + dLng * dLng;
+
+    if (d < minDistance) {
+      minDistance = d;
+      insertIndex = i + 1;
+    }
+  }
+
+  return insertIndex;
+}
+
 export default function InteractiveOnboardingMap({
   step,
   center,
@@ -108,6 +141,7 @@ export default function InteractiveOnboardingMap({
   circleRadius,
   rectWidth,
   rectHeight,
+  onUpdateLotPolygon,
 }: InteractiveOnboardingMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -115,9 +149,10 @@ export default function InteractiveOnboardingMap({
   const currentDrawPolygonRef = useRef<any>(null);
   const currentDrawLineRef = useRef<any>(null);
   const drawMarkersRef = useRef<any[]>([]);
+  const editMarkersRef = useRef<any[]>([]);
   const lotsLayersRef = useRef<{ [id: string]: any }>({});
   const LRef = useRef<any>(null);
-
+ 
   // References to dynamic variables to prevent stale closures in event handlers
   const stepRef = useRef(step);
   const centerRefVal = useRef(center);
@@ -128,12 +163,13 @@ export default function InteractiveOnboardingMap({
   const onSelectLotRef = useRef(onSelectLot);
   const onAddLotRef = useRef(onAddLot);
   const setDrawingVerticesRef = useRef(setDrawingVertices);
-
+  const onUpdateLotPolygonRef = useRef(onUpdateLotPolygon);
+ 
   const drawModeRef = useRef(drawMode);
   const circleRadiusRef = useRef(circleRadius);
   const rectWidthRef = useRef(rectWidth);
   const rectHeightRef = useRef(rectHeight);
-
+ 
   // Keep references updated on every render
   useEffect(() => { stepRef.current = step; }, [step]);
   useEffect(() => { centerRefVal.current = center; }, [center]);
@@ -144,7 +180,8 @@ export default function InteractiveOnboardingMap({
   useEffect(() => { onSelectLotRef.current = onSelectLot; }, [onSelectLot]);
   useEffect(() => { onAddLotRef.current = onAddLot; }, [onAddLot]);
   useEffect(() => { setDrawingVerticesRef.current = setDrawingVertices; }, [setDrawingVertices]);
-
+  useEffect(() => { onUpdateLotPolygonRef.current = onUpdateLotPolygon; }, [onUpdateLotPolygon]);
+ 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { circleRadiusRef.current = circleRadius; }, [circleRadius]);
   useEffect(() => { rectWidthRef.current = rectWidth; }, [rectWidth]);
@@ -463,6 +500,10 @@ export default function InteractiveOnboardingMap({
     });
     lotsLayersRef.current = {};
 
+    // Clear old edit markers
+    editMarkersRef.current.forEach((m) => map.removeLayer(m));
+    editMarkersRef.current = [];
+
     // Redraw lots
     lots.forEach((lot) => {
       const isSelected = lot.id === selectedLotId;
@@ -489,10 +530,87 @@ export default function InteractiveOnboardingMap({
         }
       );
 
+      // Draggable vertex markers for selected lot in Step 2
+      if (step === 2 && isSelected) {
+        lot.polygon.forEach((vertex, idx) => {
+          const vertexMarker = L.marker(vertex, {
+            draggable: true,
+            icon: L.divIcon({
+              className: 'custom-edit-vertex-marker',
+              html: `<div class="w-3.5 h-3.5 bg-yellow-400 border border-white rounded-full shadow-[0_0_8px_#facc15] cursor-move"></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7],
+            }),
+          }).addTo(map);
+
+          vertexMarker.bindTooltip(
+            `<span class="text-[10px] bg-slate-950 text-white border border-white/10 px-2 py-0.5 rounded-lg">
+              Mover. Click derecho / Doble click para borrar.
+            </span>`,
+            { permanent: false, direction: 'top' }
+          );
+
+          // Drag vertex (native update for smooth visual feedback)
+          vertexMarker.on('drag', (e: any) => {
+            const newPos = e.target.getLatLng();
+            const updatedPolygon = [...lot.polygon];
+            updatedPolygon[idx] = [newPos.lat, newPos.lng];
+            if (polygonLayer) {
+              polygonLayer.setLatLngs(updatedPolygon);
+            }
+          });
+
+          // Drag end (save changes to React state)
+          vertexMarker.on('dragend', (e: any) => {
+            const newPos = e.target.getLatLng();
+            const updatedPolygon = [...lot.polygon];
+            updatedPolygon[idx] = [newPos.lat, newPos.lng];
+            const newArea = calculateAreaInHectares(updatedPolygon);
+            if (onUpdateLotPolygonRef.current) {
+              onUpdateLotPolygonRef.current(lot.id, updatedPolygon, newArea);
+            }
+          });
+
+          // Delete vertex
+          const handleDeleteVertex = (e: any) => {
+            L.DomEvent.stopPropagation(e);
+            if (lot.polygon.length <= 3) {
+              alert('Un lote debe tener al menos 3 vértices.');
+              return;
+            }
+            const updatedPolygon = lot.polygon.filter((_, i) => i !== idx);
+            const newArea = calculateAreaInHectares(updatedPolygon);
+            if (onUpdateLotPolygonRef.current) {
+              onUpdateLotPolygonRef.current(lot.id, updatedPolygon, newArea);
+            }
+          };
+
+          vertexMarker.on('contextmenu', handleDeleteVertex);
+          vertexMarker.on('dblclick', handleDeleteVertex);
+
+          editMarkersRef.current.push(vertexMarker);
+        });
+      }
+
       // Click to select/edit agronomic parameters (use ref to avoid stale state)
+      // If selected and step === 2, clicking inserts a new vertex
       polygonLayer.on('click', (e: any) => {
         L.DomEvent.stopPropagation(e);
-        if (stepRef.current === 2 || stepRef.current === 3) {
+        if (stepRef.current === 2) {
+          if (isSelected) {
+            // Insert a new point at click location
+            const clickLatLng: [number, number] = [e.latlng.lat, e.latlng.lng];
+            const insertIdx = findInsertIndex(clickLatLng, lot.polygon);
+            const updatedPolygon = [...lot.polygon];
+            updatedPolygon.splice(insertIdx, 0, clickLatLng);
+            const newArea = calculateAreaInHectares(updatedPolygon);
+            if (onUpdateLotPolygonRef.current) {
+              onUpdateLotPolygonRef.current(lot.id, updatedPolygon, newArea);
+            }
+          } else {
+            onSelectLotRef.current(lot.id);
+          }
+        } else if (stepRef.current === 3) {
           onSelectLotRef.current(lot.id);
         }
       });

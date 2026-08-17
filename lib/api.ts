@@ -284,6 +284,14 @@ export async function deleteFieldApi(fieldId: string | number): Promise<boolean>
   }
 }
 
+export async function updateFieldApi(fieldId: string | number, payload: Partial<CreateFieldPayload>): Promise<{ ok: boolean; data: any }> {
+  const res = await apiFetch(`/api/v1/fields/${fieldId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return { ok: res.ok, data: await res.json().catch(() => ({})) };
+}
+
 /* ==========================================================================
    FIELD TEAM & USERS API METHODS (CU - Gestión de Usuarios del Campo)
    ========================================================================== */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -9,7 +9,7 @@ import {
   Home
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
-import { createFieldApi } from '@/lib/api';
+import { createFieldApi, updateFieldApi, deleteFieldApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
 interface Lot {
@@ -26,13 +26,13 @@ interface Lot {
   taw?: number; // Total Available Water (mm/m)
 }
 
-// Preset locations for Argentinian farming regions (perfect for demo/thesis)
+// Preset locations for Norpatagonia farming regions (Argentina)
 const PRESET_REGIONS = [
-  { name: 'Pergamino (Buenos Aires)', lat: -33.8906, lng: -60.5732, desc: 'Zona núcleo de cultivos anuales' },
-  { name: 'Tandil (Buenos Aires)', lat: -37.3216, lng: -59.1332, desc: 'Suelos con relieve y cultivos de invierno' },
-  { name: 'Río Cuarto (Córdoba)', lat: -33.1232, lng: -64.3492, desc: 'Clima semiárido con riego por pivote' },
-  { name: 'Balcarce (Buenos Aires)', lat: -37.8482, lng: -58.2612, desc: 'Papa, maíz y trigo de alto rendimiento' },
-  { name: 'San Francisco (Córdoba)', lat: -31.4278, lng: -62.0827, desc: 'Cuenca lechera y pasturas' }
+  { name: 'Alto Valle (Río Negro)', lat: -39.0267, lng: -67.5750, desc: 'Fruticultura intensiva (manzanas, peras) y vid bajo riego' },
+  { name: 'Valle Medio (Río Negro)', lat: -39.2667, lng: -65.6667, desc: 'Horticultura, pasturas y cereales en transición' },
+  { name: 'San Patricio del Chañar (Neuquén)', lat: -38.6500, lng: -68.3167, desc: 'Vitivinicultura fina y fruticultura de precisión' },
+  { name: 'Valle Inferior - IDEVI (Río Negro)', lat: -40.8135, lng: -62.9967, desc: 'Producción de frutos secos y forrajes bajo riego' },
+  { name: 'Valle del Río Colorado (Buenos Aires/Río Negro)', lat: -39.4833, lng: -62.6833, desc: 'Principal zona productora de cebolla y semillas' }
 ];
 
 // FAO-56 soil parameters lookup
@@ -63,7 +63,7 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
   
   // States
-  const [center, setCenter] = useState<[number, number]>([-33.8906, -60.5732]); // Default: Pergamino
+  const [center, setCenter] = useState<[number, number]>([-39.0267, -67.5750]); // Default: Alto Valle (Río Negro)
   const [lots, setLots] = useState<Lot[]>([]);
   const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
   const [drawingVertices, setDrawingVertices] = useState<[number, number][]>([]);
@@ -82,6 +82,55 @@ export default function OnboardingWizard() {
 
   // Setup completion animation state
   const [isFinishing, setIsFinishing] = useState(false);
+
+  // Load existing fields on mount if they exist
+  useEffect(() => {
+    if (!auth.isLoading && auth.fields && auth.fields.length > 0) {
+      const mappedLots: Lot[] = auth.fields.map((f, idx) => {
+        let coords: [number, number][] = [];
+        if (f.geometry_geojson?.coordinates?.[0]) {
+          coords = f.geometry_geojson.coordinates[0].map((c: any) => [c[1], c[0]]);
+          // Remove closing coordinate if it equals the first coordinate to avoid duplicate vertex markers
+          if (coords.length > 1) {
+            const first = coords[0];
+            const last = coords[coords.length - 1];
+            if (first[0] === last[0] && first[1] === last[1]) {
+              coords.pop();
+            }
+          }
+        }
+        return {
+          id: String(f.id),
+          name: f.name,
+          polygon: coords,
+          area: f.area_ha,
+          crop: f.crop_type,
+          soil: f.soil_type || SOIL_TYPES[0].id,
+          irrigation: f.irrigation_system,
+          fc: f.field_capacity_fc,
+          wp: f.wilting_point_wp,
+          taw: f.total_available_water_taw
+        };
+      });
+
+      setLots(mappedLots);
+
+      // Center the map on the first field coordinates
+      const firstField = auth.fields[0];
+      if (firstField?.geometry_geojson?.coordinates?.[0]?.[0]) {
+        const poly = firstField.geometry_geojson.coordinates[0];
+        const sum = poly.reduce((acc: number[], coord: number[]) => {
+          const lat = typeof coord[1] === 'number' ? coord[1] : 0;
+          const lng = typeof coord[0] === 'number' ? coord[0] : 0;
+          return [acc[0] + lat, acc[1] + lng];
+        }, [0, 0]);
+        setCenter([sum[0] / poly.length, sum[1] / poly.length]);
+      }
+
+      // Automatically jump to Step 2
+      setStep(2);
+    }
+  }, [auth.fields, auth.isLoading]);
 
   // Handle Preset selection
   const handlePresetSelect = (preset: typeof PRESET_REGIONS[0]) => {
@@ -124,12 +173,21 @@ export default function OnboardingWizard() {
       setLotCrop(lot.crop);
       setLotSoil(lot.soil);
       setLotIrrigation(lot.irrigation);
-      
-      // If we are in Step 2, auto-advance to Step 3 so they configure it!
-      if (step === 2) {
-        setStep(3);
-      }
     }
+  };
+
+  // Update lot polygon from interactive map
+  const handleUpdateLotPolygon = (id: string, newPolygon: [number, number][], newArea: number) => {
+    setLots((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        return {
+          ...l,
+          polygon: newPolygon,
+          area: newArea
+        };
+      })
+    );
   };
 
   // Update agronomic data of the selected lot synchronously without stale closures
@@ -203,8 +261,18 @@ export default function OnboardingWizard() {
     localStorage.setItem('agromas_lots', JSON.stringify(lots));
     localStorage.setItem('agromas_center', JSON.stringify(center));
 
-    // Persist each lot to the backend database via POST /api/v1/fields
+    // Persist each lot to the backend database via POST/PATCH/DELETE
     try {
+      const existingFieldIds = auth.fields?.map((f) => String(f.id)) || [];
+      const currentLotIds = lots.map((l) => String(l.id));
+      const deletedFieldIds = existingFieldIds.filter((id) => !currentLotIds.includes(id));
+
+      // 1. Delete fields removed by the user
+      for (const idToDelete of deletedFieldIds) {
+        await deleteFieldApi(idToDelete);
+      }
+
+      // 2. Create or update current lots
       for (const [idx, lot] of lots.entries()) {
         // Convert [lat, lng] to standard GeoJSON [lng, lat]
         const geojsonCoords = lot.polygon.map(([lat, lng]) => [lng, lat]);
@@ -218,10 +286,10 @@ export default function OnboardingWizard() {
           }
         }
 
-        await createFieldApi({
+        const payload = {
           name: lot.name || `Lote ${idx + 1}`,
           geometry_geojson: {
-            type: 'Polygon',
+            type: 'Polygon' as const,
             coordinates: [geojsonCoords]
           },
           area_ha: parseFloat(lot.area.toFixed(2)),
@@ -231,8 +299,20 @@ export default function OnboardingWizard() {
           field_capacity_fc: lot.fc,
           wilting_point_wp: lot.wp,
           total_available_water_taw: lot.taw
-        });
+        };
+
+        const isExisting = existingFieldIds.includes(String(lot.id));
+        if (isExisting) {
+          // Update existing field
+          await updateFieldApi(lot.id, payload);
+        } else {
+          // Create new field
+          await createFieldApi(payload);
+        }
       }
+
+      // Refresh auth profile to update fields globally
+      await auth.refreshProfile();
     } catch (err) {
       console.warn('Backend field sync error during onboarding:', err);
     }
@@ -843,6 +923,7 @@ export default function OnboardingWizard() {
           circleRadius={circleRadius}
           rectWidth={rectWidth}
           rectHeight={rectHeight}
+          onUpdateLotPolygon={handleUpdateLotPolygon}
         />
       </section>
 
