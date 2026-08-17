@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { MapPinned, AlertTriangle, Droplets, CircleGauge } from 'lucide-react';
+import { Activity, AlertTriangle, Droplets, Sparkles } from 'lucide-react';
 import {
   FieldAgentSnapshot,
   FieldItem,
@@ -62,10 +62,10 @@ export interface LotHydricData {
 export type MenuTab = 'dashboard' | 'mapa_lotes' | 'historial' | 'asistente_ia' | 'configuracion';
 
 export const kpis = [
-  { title: 'Lotes monitoreados', value: '4', delta: '+1 este ciclo', icon: MapPinned, tone: 'text-crop-700 bg-crop-100 dark:bg-crop-950 dark:text-crop-300' },
-  { title: 'Alertas activas', value: '2', delta: '1 crítica en Lote Sur', icon: AlertTriangle, tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300' },
-  { title: 'Agua optimizada', value: '18.4%', delta: 'vs. método tradicional', icon: Droplets, tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300' },
-  { title: 'Eficiencia MAS', value: '92%', delta: 'decisiones en ventana óptima', icon: CircleGauge, tone: 'text-sky-700 bg-sky-100 dark:bg-sky-950 dark:text-sky-300' },
+  { title: 'Próxima acción', value: 'Revisar riego', delta: '1 lote se acerca al umbral', icon: Sparkles, tone: 'text-crop-700 bg-crop-100 dark:bg-crop-950 dark:text-crop-300' },
+  { title: 'Lotes críticos', value: '1', delta: 'Lote Sur', icon: AlertTriangle, tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300' },
+  { title: 'Agua disponible', value: '68%', delta: 'Promedio utilizable por el cultivo', icon: Droplets, tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300' },
+  { title: 'Estado agentes', value: 'OK', delta: 'Agentes con datos actualizados', icon: Activity, tone: 'text-sky-700 bg-sky-100 dark:bg-sky-950 dark:text-sky-300' },
 ];
 
 export const initialMockLots: LotHydricData[] = [

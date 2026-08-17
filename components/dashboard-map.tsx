@@ -134,13 +134,13 @@ export default function DashboardMap({
       } else if (activeLayer === 'ndvi') {
         const ndvi = lot.ndviCurrent;
         if (ndvi === undefined) {
-          colorMap = { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'NDVI: sin dato' };
+          colorMap = { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'Vigor: sin dato' };
         } else if (ndvi >= 0.6) {
-          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Sano)` };
+          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `Vigor: ${ndvi.toFixed(2)} (Sano)` };
         } else if (ndvi >= 0.35) {
-          colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `NDVI: ${ndvi.toFixed(2)} (Moderado)` };
+          colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `Vigor: ${ndvi.toFixed(2)} (Moderado)` };
         } else {
-          colorMap = { border: '#be123c', fill: '#f43f5e', badge: 'bg-rose-600 text-white', label: `NDVI: ${ndvi.toFixed(2)} (Bajo)` };
+          colorMap = { border: '#be123c', fill: '#f43f5e', badge: 'bg-rose-600 text-white', label: `Vigor: ${ndvi.toFixed(2)} (Bajo)` };
         }
       } else if (activeLayer === 'humedad') {
         const au = lot.waterAvailableAU_pct ?? 70;
@@ -175,8 +175,8 @@ export default function DashboardMap({
             <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${colorMap.badge}">${colorMap.label}</span>
           </div>
           <p class="text-slate-200 text-[11px]">${lot.crop} &bull; ${lot.area.toFixed(1)} ha</p>
-          ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Déficit: ${lot.deficitDr_mm} mm &bull; AU: ${lot.waterAvailableAU_pct}%</p>` : ''}
-          ${lot.ndviCurrent !== undefined ? `<p class="text-emerald-300 text-[10px] font-mono">NDVI Satelital: ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
+          ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Agua faltante: ${lot.deficitDr_mm} mm &bull; disponible: ${lot.waterAvailableAU_pct}%</p>` : ''}
+          ${lot.ndviCurrent !== undefined ? `<p class="text-emerald-300 text-[10px] font-mono">Vigor satelital (NDVI): ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
           <p class="text-[9px] text-sky-300 mt-1 italic">Click para seleccionar lote</p>
          </div>`,
         {
@@ -283,7 +283,7 @@ export default function DashboardMap({
       {/* Map Floating Legend */}
       <div className="absolute top-4 left-4 z-[400] flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-slate-950/80 p-2 text-xs text-white backdrop-blur-md shadow-lg">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1">
-          {activeLayer === 'alertas' ? 'Estado:' : activeLayer === 'ndvi' ? 'NDVI Satelital:' : 'Humedad (Agua Útil):'}
+          {activeLayer === 'alertas' ? 'Estado:' : activeLayer === 'ndvi' ? 'Vigor satelital:' : 'Agua disponible:'}
         </span>
         {activeLayer === 'alertas' && (
           <>
@@ -348,7 +348,7 @@ export default function DashboardMap({
             activeLayer === 'ndvi' ? 'bg-crop-600 text-white shadow-sm font-extrabold' : 'text-slate-300 hover:text-white'
           }`}
         >
-          <span>NDVI Satelital</span>
+          <span>Vigor satelital</span>
         </button>
         <button
           onClick={() => setActiveLayer('humedad')}
@@ -356,7 +356,7 @@ export default function DashboardMap({
             activeLayer === 'humedad' ? 'bg-crop-600 text-white shadow-sm font-extrabold' : 'text-slate-300 hover:text-white'
           }`}
         >
-          <span>Humedad Suelo (AU)</span>
+          <span>Agua disponible</span>
         </button>
       </div>
     </div>

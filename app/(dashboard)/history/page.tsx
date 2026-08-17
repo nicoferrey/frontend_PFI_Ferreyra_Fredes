@@ -69,6 +69,8 @@ export default function DashboardHistoryPage() {
     setHistoryReloadTrigger,
     teamMembers,
     setTeamMembers,
+    fieldSnapshots,
+    isRefreshingAgents,
   } = useDashboard();
 
   // Mapped options for custom dropdown
@@ -465,6 +467,85 @@ export default function DashboardHistoryPage() {
     }
   };
 
+  const handleExportOperationalSummary = () => {
+    const escapeCsv = (value: string | number | null | undefined) => {
+      const text = value == null ? '' : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const getNextAction = (status: string) => {
+      if (status === 'Critico') return 'Regar hoy';
+      if (status === 'Atencion') return 'Revisar riego';
+      return 'Esperar';
+    };
+
+    const getSuggestedWater = (lot: typeof lotsData[number]) => {
+      if (lot.hydricStatus === 'Normal') return 0;
+      return Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
+    };
+
+    const getDaysUntilStress = (lot: typeof lotsData[number]) => {
+      const dailyCropUse = Math.max(0.1, lot.etcToday_mm);
+      return Math.max(0, Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / dailyCropUse));
+    };
+
+    const headers = [
+      'Lote',
+      'Cultivo',
+      'Fecha del análisis',
+      'Estado',
+      'Próxima acción recomendada',
+      'Agua disponible (%)',
+      'Agua disponible (mm)',
+      'Agua faltante (mm)',
+      'Agua recomendada para aplicar (mm)',
+      'Días estimados hasta estrés',
+      'Último riego',
+      'Aporte reciente por lluvia',
+      'Vigor satelital (NDVI)',
+      'Estado del análisis de agentes',
+    ];
+
+    const rows = lotsData.map((lot) => {
+      const agentState = isRefreshingAgents
+        ? 'Actualizando'
+        : fieldSnapshots[lot.id]
+        ? 'OK'
+        : 'Incompleto';
+
+      return [
+        lot.name,
+        lot.crop,
+        dateTo,
+        lot.hydricStatus,
+        getNextAction(lot.hydricStatus),
+        lot.waterAvailableAU_pct,
+        lot.waterAvailableAU_mm.toFixed(1),
+        lot.deficitDr_mm.toFixed(1),
+        getSuggestedWater(lot),
+        getDaysUntilStress(lot),
+        lot.lastIrrigationDate !== '-' ? `${lot.lastIrrigationAmount_mm} mm (${lot.lastIrrigationDate})` : 'Sin registro',
+        lot.lastRainDate !== '-' ? `${lot.lastRainAmount_mm} mm (${lot.lastRainDate})` : 'Sin registro',
+        lot.ndviDataAvailable ? lot.ndviCurrent.toFixed(2) : 'Sin dato',
+        agentState,
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `resumen_operativo_riego_${dateTo}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header card with selection and export actions */}
@@ -508,6 +589,15 @@ export default function DashboardHistoryPage() {
             >
               <Download className="h-4 w-4 text-emerald-600" />
               Exportar Reporte (Excel)
+            </button>
+
+            <button
+              onClick={handleExportOperationalSummary}
+              disabled={lotsData.length === 0}
+              className="inline-flex items-center gap-2 rounded-2xl border border-crop-200 bg-crop-50 hover:bg-crop-100 px-4 py-2.5 text-xs font-semibold text-crop-800 shadow-sm transition disabled:opacity-50"
+            >
+              <Download className="h-4 w-4 text-crop-700" />
+              Resumen operativo (CSV)
             </button>
           </div>
         </div>
@@ -628,7 +718,7 @@ export default function DashboardHistoryPage() {
         {/* 3. Evapotranspiración Acumulada */}
         <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Consumo Cultivo (ETc)</p>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Consumo del cultivo (ETc)</p>
             <p className="mt-2 text-2xl font-bold text-slate-900 font-mono">
               {reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '58.5'} <span className="text-xs font-normal text-slate-500">mm</span>
             </p>
@@ -649,7 +739,7 @@ export default function DashboardHistoryPage() {
               {reportsSummary?.metrics?.days_under_stress_raw ?? 3} <span className="text-xs font-normal text-slate-500">días</span>
             </p>
             <p className="mt-1 text-[11px] text-rose-500 font-medium">
-              Bajo el umbral óptimo (AFD)
+              Días por encima del umbral de estrés
             </p>
           </div>
           <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
@@ -678,16 +768,16 @@ export default function DashboardHistoryPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua Útil (AU)
+                <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua disponible (AU)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-amber-500" /> Déficit (Dr)
+                <span className="h-3 w-3 rounded-full bg-amber-500" /> Agua faltante (Dr)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral AFD ({selectedLot?.easilyAvailableAFD_mm?.toFixed(0) ?? 40} mm)
+                <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {selectedLot?.easilyAvailableAFD_mm?.toFixed(0) ?? 40} mm)
               </span>
             </div>
-            <span className="text-[11px] text-slate-400">Capacidad Campo TAW = {selectedLot?.totalAvailableTAW_mm ?? 100} mm</span>
+            <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {selectedLot?.totalAvailableTAW_mm ?? 100} mm</span>
           </div>
 
           <div className="h-[300px] w-full">
@@ -713,12 +803,12 @@ export default function DashboardHistoryPage() {
                               Fecha: {data.date} ({data.dayLabel})
                             </p>
                             <div className="space-y-1">
-                              <p className="text-emerald-400 font-semibold">Agua Útil (AU): {data.au_mm?.toFixed(1)} mm</p>
-                              <p className="text-amber-400 font-semibold">Déficit (Dr): {data.dr_mm?.toFixed(1)} mm</p>
-                              <p className="text-sky-300">Umbral RAW: {(data.raw_mm || data.afd_mm)?.toFixed(1)} mm</p>
+                              <p className="text-emerald-400 font-semibold">Agua disponible (AU): {data.au_mm?.toFixed(1)} mm</p>
+                              <p className="text-amber-400 font-semibold">Agua faltante (Dr): {data.dr_mm?.toFixed(1)} mm</p>
+                              <p className="text-sky-300">Umbral antes de estrés (AFD/RAW): {(data.raw_mm || data.afd_mm)?.toFixed(1)} mm</p>
                               {data.kc ? (
                                 <p className="text-slate-350">
-                                  Kc: {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                  Coeficiente del cultivo (Kc): {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
                                 </p>
                               ) : null}
                               {data.irrigation_mm ? (
@@ -743,8 +833,8 @@ export default function DashboardHistoryPage() {
                       return null;
                     }}
                   />
-                  <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'AFD', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
-                  <ReferenceLine y={selectedLot?.totalAvailableTAW_mm} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'TAW', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
+                  <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
+                  <ReferenceLine y={selectedLot?.totalAvailableTAW_mm} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
                   <Area type="monotone" dataKey="au_mm" stroke="#10b981" fill="url(#auHistoryGrad)" strokeWidth={2.5} />
                   <Line type="monotone" dataKey="dr_mm" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, fill: '#f59e0b' }} />
                 </ComposedChart>
@@ -773,7 +863,7 @@ export default function DashboardHistoryPage() {
               <tr>
                 <th className="p-3">Fecha y Hora</th>
                 <th className="p-3">Tipo de Evento</th>
-                <th className="p-3">Lámina (mm)</th>
+                <th className="p-3">Agua registrada (mm)</th>
                 <th className="p-3">Método / Fuente</th>
                 <th className="p-3">Registrado Por</th>
                 <th className="p-3">Observaciones</th>
@@ -1002,7 +1092,7 @@ export default function DashboardHistoryPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {eventForm.type === 'riego' ? 'Lámina Aplicada (mm)' : 'Lámina Caída (mm)'}
+                      {eventForm.type === 'riego' ? 'Agua aplicada en el riego (mm)' : 'Agua caída por lluvia (mm)'}
                     </label>
                     <div className="relative mt-1">
                       <input
@@ -1142,7 +1232,7 @@ export default function DashboardHistoryPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Lámina (mm)</label>
+                    <label className="text-xs font-semibold text-slate-700">Agua registrada (mm)</label>
                     <div className="relative mt-1">
                       <input
                         type="number"

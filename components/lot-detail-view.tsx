@@ -163,19 +163,35 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     return lot.timeline.slice(-days);
   }, [lot.timeline, timeScale]);
 
+  const dailyCropUseMm = Math.max(0.1, lot.etcToday_mm);
+  const daysUntilStress = Math.max(
+    0,
+    Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / dailyCropUseMm)
+  );
+  const suggestedWaterMm =
+    lot.hydricStatus === 'Normal'
+      ? 0
+      : Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
+  const nextActionLabel =
+    lot.hydricStatus === 'Critico'
+      ? 'Regar hoy'
+      : lot.hydricStatus === 'Atencion'
+      ? 'Revisar riego'
+      : 'Esperar';
+
   // Export CSV Handler
   const handleExportCSV = () => {
     const headers = [
       'Fecha',
       'Dia',
-      'Deficit_Dr_mm',
-      'Agua_Util_AU_mm',
-      'Agua_Facilmente_Disp_AFD_mm',
-      'Capacidad_Campo_TAW_mm',
+      'Agua_faltante_Dr_mm',
+      'Agua_disponible_AU_mm',
+      'Umbral_antes_de_estres_AFD_mm',
+      'Capacidad_total_suelo_TAW_mm',
       'Riego_mm',
       'Lluvia_mm',
-      'NDVI',
-      'Kc'
+      'Vigor_satelital_NDVI',
+      'Coeficiente_cultivo_Kc'
     ];
 
     const rows = lot.timeline.map((item) => [
@@ -278,60 +294,60 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
         {/* 2. GRID OF 10 SPECIFIC TECHNICAL INDICATORS */}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           
-          {/* 1. Déficit Hídrico Dr */}
+          {/* 1. Acción recomendada */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Déficit hídrico (Dr)</span>
-              <Droplet className="h-3.5 w-3.5 text-amber-500" />
+              <span>Próxima acción</span>
+              <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
             </div>
-            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.deficitDr_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm</span>
+            <p className="mt-1.5 text-lg font-extrabold text-slate-900 dark:text-white">
+              {nextActionLabel}
             </p>
-            <span className="text-[10px] text-slate-400">Lámina neta faltante</span>
+            <span className="text-[10px] text-slate-400">Según balance y agentes</span>
           </div>
 
-          {/* 2. Agua Útil AU */}
+          {/* 2. Agua recomendada */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Agua Útil (AU)</span>
+              <span>Agua recomendada</span>
+              <Droplet className="h-3.5 w-3.5 text-water-600" />
+            </div>
+            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
+              {suggestedWaterMm} <span className="text-xs font-medium text-slate-500">mm</span>
+            </p>
+            <span className="text-[10px] text-slate-400">A aplicar si se decide regar</span>
+          </div>
+
+          {/* 3. Días hasta estrés */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Días hasta estrés</span>
+              <Timer className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
+              {daysUntilStress} <span className="text-xs font-medium text-slate-500">días</span>
+            </p>
+            <span className="text-[10px] text-slate-400">Estimado con consumo diario</span>
+          </div>
+
+          {/* 4. Agua disponible */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Agua disponible</span>
               <Waves className="h-3.5 w-3.5 text-water-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.waterAvailableAU_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm</span>
+              {lot.waterAvailableAU_pct}% <span className="text-xs font-medium text-slate-500">({lot.waterAvailableAU_mm.toFixed(1)} mm)</span>
             </p>
             <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-              {lot.waterAvailableAU_pct}% de TAW
+              Agua que todavía puede usar el cultivo
             </span>
           </div>
 
-          {/* 3. Agua Fácilmente Disponible AFD */}
+          {/* 5. Vigor satelital NDVI */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Umbral AFD (RAW)</span>
-              <Gauge className="h-3.5 w-3.5 text-sky-500" />
-            </div>
-            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.easilyAvailableAFD_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm</span>
-            </p>
-            <span className="text-[10px] text-slate-400">Límite antes de estrés</span>
-          </div>
-
-          {/* 4. ETc del día */}
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>ETc del día</span>
-              <Sun className="h-3.5 w-3.5 text-orange-500" />
-            </div>
-            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.etcToday_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm/día</span>
-            </p>
-            <span className="text-[10px] text-slate-400">ET0: {lot.et0Today_mm.toFixed(1)} mm</span>
-          </div>
-
-          {/* 5. NDVI Actual */}
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>NDVI Satelital</span>
+              <span>Vigor satelital (NDVI)</span>
               <Satellite className="h-3.5 w-3.5 text-crop-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
@@ -352,23 +368,23 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             })()}
           </div>
 
-          {/* 6. Kc Dinámico */}
+          {/* 6. Consumo del cultivo */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Kc satélite</span>
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span>Consumo cultivo (ETc)</span>
+              <Sun className="h-3.5 w-3.5 text-orange-500" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.kcSatellite.toFixed(2)}
+              {lot.etcToday_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm/día</span>
             </p>
-            <span className="text-[10px] text-slate-400">Ajustado por Sentinel-2</span>
+            <span className="text-[10px] text-slate-400">Evapotranspiración ref. (ET0): {lot.et0Today_mm.toFixed(1)} mm</span>
           </div>
 
-          {/* 7. Prioridad de Riego */}
+          {/* 7. Prioridad de riego */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <span>Prioridad riego</span>
-              <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
             </div>
             <div className="mt-1.5">
               <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-bold ${priorityConfig}`}>
@@ -403,10 +419,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             </span>
           </div>
 
-          {/* 10. Última lluvia registrada */}
+          {/* 10. Aporte reciente por lluvia */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Última lluvia</span>
+              <span>Aporte reciente por lluvia</span>
               <CloudRain className="h-3.5 w-3.5 text-sky-500" />
             </div>
             <p className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white">
@@ -433,7 +449,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               </span>
             </div>
             <h3 className="mt-1 text-xl font-bold text-white">
-              Evolución Temporal de Déficit ($D_r$), Agua Útil ($AU$) y Umbral ($AFD$)
+              Evolución de agua disponible, agua faltante y umbral antes de estrés
             </h3>
             <p className="text-xs text-slate-400 mt-1">
               Los puntos marcados indican eventos de aplicación de riego (💧) y precipitaciones efectivas (🌧️).
@@ -467,16 +483,16 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua Útil (AU)
+                  <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua disponible (AU)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-amber-500" /> Déficit (Dr)
+                  <span className="h-3 w-3 rounded-full bg-amber-500" /> Agua faltante (Dr)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral AFD ({lot.easilyAvailableAFD_mm.toFixed(0)} mm)
+                  <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {lot.easilyAvailableAFD_mm.toFixed(0)} mm)
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400">Capacidad Campo TAW = {lot.totalAvailableTAW_mm} mm</span>
+              <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {lot.totalAvailableTAW_mm} mm</span>
             </div>
 
             <div className="h-[320px] w-full">
@@ -516,12 +532,12 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                               {data.date} ({data.dayLabel})
                             </p>
                             <div className="space-y-1">
-                              <p className="text-emerald-400 font-semibold">Agua Útil (AU): {data.au_mm} mm</p>
-                              <p className="text-amber-400 font-semibold">Déficit (Dr): {data.dr_mm} mm</p>
-                              <p className="text-sky-300">Umbral RAW: {data.raw_mm || data.afd_mm} mm</p>
+                              <p className="text-emerald-400 font-semibold">Agua disponible (AU): {data.au_mm} mm</p>
+                              <p className="text-amber-400 font-semibold">Agua faltante (Dr): {data.dr_mm} mm</p>
+                              <p className="text-sky-300">Umbral antes de estrés (AFD/RAW): {data.raw_mm || data.afd_mm} mm</p>
                               {data.kc ? (
                                 <p className="text-slate-300">
-                                  Kc: {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                  Coeficiente del cultivo (Kc): {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
                                 </p>
                               ) : null}
                               {data.irrigation_mm ? (
@@ -553,7 +569,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     stroke="#38bdf8" 
                     strokeDasharray="5 5" 
                     strokeWidth={2} 
-                    label={{ value: 'AFD (Umbral RAW)', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} 
+                    label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} 
                   />
 
                   {/* Reference line for TAW */}
@@ -562,13 +578,13 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     stroke="#94a3b8" 
                     strokeDasharray="3 3" 
                     strokeWidth={1} 
-                    label={{ value: 'TAW (Capacidad Campo)', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} 
+                    label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} 
                   />
 
                   <Area 
                     type="monotone" 
                     dataKey="au_mm" 
-                    name="Agua Útil (AU)" 
+                    name="Agua disponible (AU)" 
                     stroke="#10b981" 
                     fill="url(#auGrad)" 
                     strokeWidth={2.5} 
@@ -577,7 +593,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                   <Line 
                     type="monotone" 
                     dataKey="dr_mm" 
-                    name="Déficit (Dr)" 
+                    name="Agua faltante (Dr)" 
                     stroke="#f59e0b" 
                     strokeWidth={2.5} 
                     dot={{ r: 3, fill: '#f59e0b' }} 
@@ -644,10 +660,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     {snapshot?.analyze_response?.final_recommendation ||
                      snapshot?.analyze_response?.explanation?.user_explanation ||
                      (lot.hydricStatus === 'Normal'
-                      ? `El lote se encuentra dentro del rango de confort hídrico. Se proyecta mantener lámina actual sin intervención por las próximas 48 h.`
+                      ? `El lote se encuentra dentro del rango de confort hídrico. Se proyecta esperar sin intervención por las próximas 48 h.`
                       : lot.hydricStatus === 'Atencion'
-                      ? `El déficit Dr (${lot.deficitDr_mm} mm) se aproxima al umbral crítico AFD. Se sugiere aplicar ${Math.round(lot.deficitDr_mm * 0.75)} mm en la ventana nocturna.`
-                      : `Estado crítico: Déficit superó el umbral de estrés. Aplicar ${Math.round(lot.deficitDr_mm)} mm en forma urgente para restaurar capacidad de campo.`)}
+                      ? `El agua faltante (${lot.deficitDr_mm} mm) se aproxima al umbral de estrés. Se sugiere revisar el riego y, si corresponde, aplicar ${suggestedWaterMm} mm en la ventana nocturna.`
+                      : `Estado crítico: el agua faltante superó el umbral de estrés. Aplicar aproximadamente ${suggestedWaterMm} mm en forma urgente.`)}
                   </p>
                 </div>
               </div>
@@ -735,7 +751,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Lámina aplicada (mm)
+                      Agua aplicada en el riego (mm)
                     </label>
                     <div className="relative mt-1">
                       <input

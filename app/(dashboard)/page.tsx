@@ -6,10 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Map,
-  MapPinned,
   AlertTriangle,
   Droplets,
-  CircleGauge,
   Sparkles,
   ArrowUpRight,
   TrendingUp,
@@ -27,68 +25,82 @@ export default function DashboardHome() {
   const router = useRouter();
   const {
     lotsData,
-    selectedLotId,
     setSelectedLotId,
     customCenter,
-    rawCustomPolygons
+    rawCustomPolygons,
+    fieldSnapshots,
+    isRefreshingAgents
   } = useDashboard();
 
-  // Dynamic KPI values calculation
-  const totalMonitoredLots = lotsData.length;
-  
-  const activeAlertsCount = useMemo(() => {
-    return lotsData.filter(l => l.hydricStatus === 'Critico' || l.hydricStatus === 'Atencion').length;
+  const criticalLots = useMemo(() => {
+    return lotsData.filter((lot) => lot.hydricStatus === 'Critico');
   }, [lotsData]);
 
-  const criticalAlertsText = useMemo(() => {
-    const criticalCount = lotsData.filter(l => l.hydricStatus === 'Critico').length;
-    if (criticalCount === 1) return '1 crítica activa';
-    if (criticalCount > 1) return `${criticalCount} críticas activas`;
-    return 'Sin alertas críticas';
-  }, [lotsData]);
-
-  const waterOptimizedPct = useMemo(() => {
-    const customCount = lotsData.filter(l => !l.id.startsWith('mock')).length;
-    if (customCount > 0) {
-      return `${(18.4 + (customCount * 1.2)).toFixed(1)}%`;
+  const nextAction = useMemo(() => {
+    if (criticalLots.length > 0) {
+      return {
+        value: 'Regar hoy',
+        delta: `${criticalLots[0].name} requiere prioridad alta`,
+      };
     }
-    return '18.4%';
+    const attentionLot = lotsData.find((lot) => lot.hydricStatus === 'Atencion');
+    if (attentionLot) {
+      return {
+        value: 'Revisar riego',
+        delta: `${attentionLot.name} se acerca al umbral`,
+      };
+    }
+    return {
+      value: 'Esperar',
+      delta: 'Sin intervención urgente',
+    };
+  }, [criticalLots, lotsData]);
+
+  const averageAvailableWater = useMemo(() => {
+    if (lotsData.length === 0) return 0;
+    const total = lotsData.reduce((sum, lot) => sum + lot.waterAvailableAU_pct, 0);
+    return Math.round(total / lotsData.length);
   }, [lotsData]);
 
-  const systemEfficiencyScore = useMemo(() => {
-    if (lotsData.length === 0) return '92%';
-    const stressDaysCount = lotsData.filter(l => l.hydricStatus === 'Critico').length;
-    const efficiency = Math.max(70, Math.min(98, 95 - (stressDaysCount * 5)));
-    return `${efficiency}%`;
-  }, [lotsData]);
+  const agentStatus = useMemo(() => {
+    if (isRefreshingAgents) return { value: 'Actualizando', delta: 'Agentes recalculando datos' };
+    const snapshotCount = Object.values(fieldSnapshots).filter(Boolean).length;
+    if (lotsData.length === 0 || snapshotCount === 0) {
+      return { value: 'Incompleto', delta: 'Faltan análisis de agentes' };
+    }
+    if (snapshotCount < lotsData.length) {
+      return { value: 'Revisar', delta: `${snapshotCount}/${lotsData.length} lotes analizados` };
+    }
+    return { value: 'OK', delta: 'Agentes con datos actualizados' };
+  }, [fieldSnapshots, isRefreshingAgents, lotsData.length]);
 
   const dynamicKpis = [
     {
-      title: 'Lotes monitoreados',
-      value: String(totalMonitoredLots),
-      delta: '+1 este ciclo',
-      icon: MapPinned,
+      title: 'Próxima acción',
+      value: nextAction.value,
+      delta: nextAction.delta,
+      icon: Sparkles,
       tone: 'text-crop-700 bg-crop-100 dark:bg-crop-950 dark:text-crop-300'
     },
     {
-      title: 'Alertas activas',
-      value: String(activeAlertsCount),
-      delta: criticalAlertsText,
+      title: 'Lotes críticos',
+      value: String(criticalLots.length),
+      delta: criticalLots.length > 0 ? criticalLots.map((lot) => lot.name).slice(0, 2).join(', ') : 'Sin estrés crítico',
       icon: AlertTriangle,
       tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300'
     },
     {
-      title: 'Agua optimizada',
-      value: waterOptimizedPct,
-      delta: 'vs. método tradicional',
+      title: 'Agua disponible',
+      value: `${averageAvailableWater}%`,
+      delta: 'Promedio utilizable por el cultivo',
       icon: Droplets,
       tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300'
     },
     {
-      title: 'Eficiencia MAS',
-      value: systemEfficiencyScore,
-      delta: 'decisiones en ventana óptima',
-      icon: CircleGauge,
+      title: 'Estado agentes',
+      value: agentStatus.value,
+      delta: agentStatus.delta,
+      icon: Activity,
       tone: 'text-sky-700 bg-sky-100 dark:bg-sky-950 dark:text-sky-300'
     }
   ];
@@ -246,7 +258,7 @@ export default function DashboardHome() {
                     <CheckCircle className="h-10 w-10 mx-auto text-emerald-500 mb-3" />
                     <h4 className="text-sm font-bold text-emerald-950">¡Estabilidad Hídrica Lograda!</h4>
                     <p className="text-xs text-emerald-700 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                      Ningún lote se encuentra bajo estrés crítico. Los agentes reportan confort hídrico total.
+                      Ningún lote se encuentra bajo estrés crítico. Los agentes no recomiendan intervención inmediata.
                     </p>
                   </div>
                 ) : (
@@ -271,7 +283,7 @@ export default function DashboardHome() {
                               ? 'bg-rose-600 text-white'
                               : 'bg-amber-500 text-slate-950'
                           }`}>
-                            <Sparkles className="h-3 w-3" /> Priority: {alert.priority}
+                            <Sparkles className="h-3 w-3" /> Prioridad: {alert.priority}
                           </span>
                         </div>
 
@@ -318,7 +330,7 @@ export default function DashboardHome() {
               <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
                   <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Lista consolidada</span>
-                  <h3 className="text-base font-bold text-slate-900 mt-0.5">Balance Hídrico Global por Lote</h3>
+                  <h3 className="text-base font-bold text-slate-900 mt-0.5">Estado operativo por lote</h3>
                 </div>
               </div>
               
@@ -329,8 +341,8 @@ export default function DashboardHome() {
                       <th className="py-3 px-2">Lote</th>
                       <th className="py-3 px-2">Cultivo</th>
                       <th className="py-3 px-2 text-center">Estado</th>
-                      <th className="py-3 px-2 text-center">Déficit (Dr)</th>
-                      <th className="py-3 px-2 text-center">Agua Útil (AU)</th>
+                      <th className="py-3 px-2 text-center">Agua faltante</th>
+                      <th className="py-3 px-2 text-center">Agua disponible</th>
                       <th className="py-3 px-2 text-center">Último Riego</th>
                       <th className="py-3 px-2 text-right">Acción</th>
                     </tr>
