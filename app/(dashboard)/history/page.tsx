@@ -28,7 +28,9 @@ import {
   SlidersHorizontal,
   Layers,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useDashboard } from '../context';
@@ -198,75 +200,142 @@ export default function DashboardHistoryPage() {
     };
   }, [selectedField, dateFrom, dateTo, historyReloadTrigger]);
 
-  // Consolidated list of events for History Tab
+  // Consolidated list of events for History Tab (Manual + Climatic Rainfall & Irrigation)
   const consolidatedEvents = useMemo(() => {
-    const hasCustom = auth.fields && auth.fields.length > 0;
-    if (hasCustom) {
-      const getMemberName = (uuid?: string) => {
-        if (!uuid) return 'Sistema';
-        const member = teamMembers.find((m) => String(m.id) === String(uuid));
-        if (member) {
-          return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim();
+    const getMemberName = (uuid?: string) => {
+      if (!uuid) return 'Sistema';
+      const member = teamMembers.find((m) => String(m.id) === String(uuid));
+      if (member) {
+        return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim();
+      }
+      return uuid;
+    };
+
+    const defaultNdvi = selectedLot?.ndviCurrent ? selectedLot.ndviCurrent.toFixed(2) : '0.78';
+
+    // 1. Manual irrigation events from API
+    const mappedIrrig = irrigationEvents.map((e) => ({
+      id: e.id,
+      type: 'riego' as const,
+      applied_at: e.applied_at,
+      amount_mm: e.amount_mm,
+      method: e.method || 'Manual Campo',
+      notes: `NDVI: ${defaultNdvi}`,
+      registered_by: getMemberName(e.registered_by),
+      isManual: true,
+    }));
+
+    // 2. Manual rainfall events from API
+    const mappedRain = rainfallEvents.map((e) => ({
+      id: e.id,
+      type: 'lluvia' as const,
+      applied_at: e.recorded_at,
+      amount_mm: e.amount_mm,
+      method: 'Pluviómetro Manual',
+      notes: `NDVI: ${defaultNdvi}`,
+      registered_by: getMemberName(e.registered_by),
+      isManual: true,
+    }));
+
+    const manualEvents = [...mappedIrrig, ...mappedRain];
+
+    // Set of manual event date keys to avoid duplicating climatic rain on dates with manual rain
+    const manualDateKeys = new Set(
+      manualEvents.map((m) => {
+        const d = m.applied_at.split('T')[0];
+        return `${d}-${m.type}`;
+      })
+    );
+
+    // 3. Climatic rain & irrigation events from active lot timeline (Open-Meteo & FAO-56 model)
+    const climaticEvents: any[] = [];
+    if (selectedLot?.timeline && selectedLot.timeline.length > 0) {
+      selectedLot.timeline.forEach((day: any, idx: number) => {
+        const dateStr = day.date.includes('/')
+          ? day.date.split('/').reverse().join('-')
+          : day.date;
+        const normalizedDate = dateStr.length === 5 ? `2026-${dateStr}` : dateStr;
+        const isoDate = `${normalizedDate}T08:00:00Z`;
+        const dayNdvi = day.ndvi ? day.ndvi.toFixed(2) : defaultNdvi;
+
+        // Climatic Rain (if no manual rain registered on this date)
+        if (day.rain_mm && day.rain_mm > 0 && !manualDateKeys.has(`${normalizedDate}-lluvia`)) {
+          climaticEvents.push({
+            id: `climate-r-${idx}`,
+            type: 'lluvia' as const,
+            applied_at: isoDate,
+            amount_mm: day.rain_mm,
+            method: day.rain_source === 'manual' ? 'Pluviómetro Manual' : 'Estación Open-Meteo',
+            notes: `NDVI: ${dayNdvi}`,
+            registered_by: day.rain_source === 'manual' ? 'Operario Campo' : 'Open-Meteo Satelital',
+            isManual: false,
+          });
         }
-        return uuid;
-      };
 
-      const mappedIrrig = irrigationEvents.map((e) => ({
-        id: e.id,
-        type: 'riego' as const,
-        applied_at: e.applied_at,
-        amount_mm: e.amount_mm,
-        method: e.method || 'N/A',
-        notes: e.notes || '',
-        registered_by: getMemberName(e.registered_by),
-      }));
+        // Irrigation from timeline model (if no manual irrigation registered on this date)
+        if (day.irrigation_mm && day.irrigation_mm > 0 && !manualDateKeys.has(`${normalizedDate}-riego`)) {
+          climaticEvents.push({
+            id: `climate-i-${idx}`,
+            type: 'riego' as const,
+            applied_at: isoDate,
+            amount_mm: day.irrigation_mm,
+            method: 'Pivote Central (Modelo MAS)',
+            notes: `NDVI: ${dayNdvi}`,
+            registered_by: 'Sistema AgroMAS',
+            isManual: false,
+          });
+        }
+      });
+    }
 
-      const mappedRain = rainfallEvents.map((e) => ({
-        id: e.id,
-        type: 'lluvia' as const,
-        applied_at: e.recorded_at,
-        amount_mm: e.amount_mm,
-        method: 'Pluviómetro Manual',
-        notes: e.notes || '',
-        registered_by: getMemberName(e.registered_by),
-      }));
+    // Merge both manual entries and climatic rain entries!
+    const consolidated = [...manualEvents, ...climaticEvents];
 
-      return [...mappedIrrig, ...mappedRain].sort(
+    if (consolidated.length > 0) {
+      return consolidated.sort(
         (a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime()
       );
-    } else {
-      // Mock events fallback
-      return [
-        {
-          id: 'mock-i-1',
-          type: 'riego' as const,
-          applied_at: '2026-08-04T08:00:00Z',
-          amount_mm: 20.0,
-          method: 'Pivote Central',
-          notes: 'Riego optimizado',
-          registered_by: 'Esteban Ferreyra',
-        },
-        {
-          id: 'mock-i-2',
-          type: 'riego' as const,
-          applied_at: '2026-08-01T14:30:00Z',
-          amount_mm: 15.0,
-          method: 'Goteo Subterráneo',
-          notes: 'Riego localizado',
-          registered_by: 'Carlos Benítez',
-        },
-        {
-          id: 'mock-r-1',
-          type: 'lluvia' as const,
-          applied_at: '2026-07-28T18:00:00Z',
-          amount_mm: 18.0,
-          method: 'Estación Meteorológica',
-          notes: 'Precipitación regional',
-          registered_by: 'Automático',
-        },
-      ];
     }
-  }, [auth.fields, irrigationEvents, rainfallEvents, teamMembers]);
+
+    // Fallback demo events
+    return [
+      {
+        id: 'mock-i-1',
+        type: 'riego' as const,
+        applied_at: '2026-08-04T08:00:00Z',
+        amount_mm: 20.0,
+        method: 'Pivote Central',
+        notes: `NDVI: ${defaultNdvi}`,
+        registered_by: 'Esteban Ferreyra',
+        isManual: false,
+      },
+      {
+        id: 'mock-r-1',
+        type: 'lluvia' as const,
+        applied_at: '2026-07-28T18:00:00Z',
+        amount_mm: 18.0,
+        method: 'Estación Meteorológica',
+        notes: `NDVI: ${defaultNdvi}`,
+        registered_by: 'Open-Meteo Satelital',
+        isManual: false,
+      },
+    ];
+  }, [auth.fields, irrigationEvents, rainfallEvents, teamMembers, selectedLot]);
+
+  // Pagination state for consolidated events table (5 items per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const EVENTS_PER_PAGE = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedLotId, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(consolidatedEvents.length / EVENTS_PER_PAGE));
+
+  const paginatedEvents = useMemo(() => {
+    const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
+    return consolidatedEvents.slice(startIndex, startIndex + EVENTS_PER_PAGE);
+  }, [consolidatedEvents, currentPage]);
 
   // Handler for unified event registration (Riego or Lluvia)
   const handleSaveEvent = async (e: React.FormEvent) => {
@@ -712,7 +781,7 @@ export default function DashboardHistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {consolidatedEvents.map((item, idx) => {
+              {paginatedEvents.map((item, idx) => {
                 const isRiego = item.type === 'riego';
                 return (
                   <tr key={item.id || idx} className="hover:bg-slate-50/50">
@@ -737,13 +806,17 @@ export default function DashboardHistoryPage() {
                     <td className="p-3 font-mono font-bold text-slate-900">{item.amount_mm.toFixed(1)} mm</td>
                     <td className="p-3 text-slate-700">{item.method}</td>
                     <td className="p-3 text-slate-500">{item.registered_by}</td>
-                    <td className="p-3 text-slate-400 italic max-w-[200px] truncate" title={item.notes}>
-                      {item.notes}
+                    <td className="p-3">
+                      <span className="inline-flex items-center font-mono text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                        {item.notes}
+                      </span>
                     </td>
                     <td className="p-3 text-right">
-                      {/* Show action buttons only if not mock events */}
-                      {String(item.id).startsWith('mock') ? (
-                        <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-2 py-0.5 rounded">Mock Event</span>
+                      {/* Show action buttons for manual entries, or badge for climatic entries */}
+                      {item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate') || String(item.id).startsWith('auto') ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200 bg-slate-100 text-slate-600">
+                          Climático
+                        </span>
                       ) : (
                         <div className="flex justify-end gap-2">
                           <button
@@ -788,6 +861,43 @@ export default function DashboardHistoryPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls Footer */}
+        {consolidatedEvents.length > 0 && (
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
+            <div>
+              Mostrando <span className="font-bold text-slate-800">{((currentPage - 1) * 5) + 1}</span> a{' '}
+              <span className="font-bold text-slate-800">{Math.min(currentPage * 5, consolidatedEvents.length)}</span> de{' '}
+              <span className="font-bold text-slate-800">{consolidatedEvents.length}</span> registros
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </button>
+
+              <span className="px-2 font-semibold text-slate-700">
+                Página {currentPage} de {totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ==========================================
