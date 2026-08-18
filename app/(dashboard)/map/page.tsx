@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Sparkles } from 'lucide-react';
 import { useDashboard, formatDate, defaultDemoPolygons } from '../context';
 import { LotDetailView } from '@/components/lot-detail-view';
+import { DashboardMapLayer } from '@/components/dashboard-map';
 import {
   createIrrigationEventApi,
   refreshFieldAgentSnapshotApi,
@@ -17,6 +18,7 @@ const DashboardMap = dynamic(
 );
 
 export default function DashboardMapPage() {
+  const [activeMapLayer, setActiveMapLayer] = useState<DashboardMapLayer>('ndvi');
   const {
     lotsData,
     setLotsData,
@@ -86,6 +88,8 @@ export default function DashboardMapPage() {
       deficitDr_mm: l.deficitDr_mm,
       waterAvailableAU_pct: l.waterAvailableAU_pct,
       ndviCurrent: l.ndviDataAvailable ? l.ndviCurrent : undefined,
+      ndviObservationDate: l.ndviObservationDate,
+      ndviCloudCoveragePct: l.ndviCloudCoveragePct,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 
@@ -199,6 +203,44 @@ export default function DashboardMapPage() {
     setIsRefreshingAgents(false);
   };
 
+  const activeLayerCopy = {
+    alertas: {
+      eyebrow: 'Capa activa: balance hídrico',
+      title: 'Delimitación de parcelas por necesidad de riego',
+      help: 'El color del lote representa si requiere riego, no el vigor del cultivo.',
+    },
+    ndvi: {
+      eyebrow: 'Capa activa: vigor satelital',
+      title: 'Delimitación de parcelas por vigor vegetativo',
+      help: 'El color del lote representa NDVI. El fondo satelital puede verse amarillo aunque el índice calculado sea alto.',
+    },
+    humedad: {
+      eyebrow: 'Capa activa: agua disponible',
+      title: 'Delimitación de parcelas por agua disponible',
+      help: 'El color del lote representa el agua que todavía puede usar el cultivo.',
+    },
+  }[activeMapLayer];
+
+  const getVigorLabel = (lot: typeof lotsData[number]) => {
+    if (!lot.ndviDataAvailable) return 'Vigor: sin dato';
+    if (lot.ndviCurrent >= 0.6) return 'Vigor: sano';
+    if (lot.ndviCurrent >= 0.35) return 'Vigor: moderado';
+    return 'Vigor: bajo';
+  };
+
+  const getVigorClass = (lot: typeof lotsData[number]) => {
+    if (!lot.ndviDataAvailable) return 'border-slate-500/40 bg-slate-500/15 text-slate-300';
+    if (lot.ndviCurrent >= 0.6) return 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300';
+    if (lot.ndviCurrent >= 0.35) return 'border-amber-500/40 bg-amber-500/15 text-amber-300';
+    return 'border-rose-500/40 bg-rose-500/15 text-rose-300';
+  };
+
+  const formatNdviDate = (value?: string | null) => {
+    if (!value) return 'sin fecha';
+    const [year, month, day] = value.slice(0, 10).split('-');
+    return year && month && day ? `${day}/${month}` : value;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       
@@ -248,10 +290,11 @@ export default function DashboardMapPage() {
       <div className="overflow-hidden rounded-[30px] border border-slate-900 bg-slate-950 p-6 text-white shadow-soft">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">Capa Satelital Esri / Sentinel-2</span>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">{activeLayerCopy.eyebrow}</span>
             <h3 className="text-xl font-bold text-white mt-0.5">
-              Delimitación de Parcelas por Estado Hídrico
+              {activeLayerCopy.title}
             </h3>
+            <p className="mt-1 text-xs text-slate-400">{activeLayerCopy.help}</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Resolución: 10m</span>
@@ -265,6 +308,8 @@ export default function DashboardMapPage() {
             lots={mapLots}
             selectedLotId={selectedLotId}
             onSelectLot={(id) => setSelectedLotId(id)}
+            initialLayer="ndvi"
+            onLayerChange={setActiveMapLayer}
           />
         </div>
 
@@ -276,7 +321,11 @@ export default function DashboardMapPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {lotsData.map((lot) => {
               const isSelected = lot.id === selectedLotId;
-              const dotColor = lot.hydricStatus === 'Normal' ? 'bg-emerald-400' : lot.hydricStatus === 'Atencion' ? 'bg-amber-400' : 'bg-rose-400';
+              const statusClass = lot.hydricStatus === 'Normal'
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                : lot.hydricStatus === 'Atencion'
+                ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                : 'border-rose-500/40 bg-rose-500/15 text-rose-300';
 
               return (
                 <button
@@ -290,9 +339,19 @@ export default function DashboardMapPage() {
                 >
                   <div className="flex items-center justify-between w-full">
                     <span className="text-sm font-bold text-white">{lot.name}</span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${dotColor}`} />
                   </div>
                   <p className="text-xs text-slate-300 mt-1">{lot.crop} &bull; {lot.areaHa} ha</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${statusClass}`}>
+                      Riego: {lot.hydricStatus}
+                    </span>
+                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${getVigorClass(lot)}`}>
+                      {getVigorLabel(lot)}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-slate-400">
+                    NDVI: {lot.ndviDataAvailable ? `${lot.ndviCurrent.toFixed(2)} · ${formatNdviDate(lot.ndviObservationDate)}` : 'sin dato'}
+                  </p>
                 </button>
               );
             })}

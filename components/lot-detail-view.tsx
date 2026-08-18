@@ -51,6 +51,13 @@ function formatDate(value: string | undefined, fallback = '-'): string {
   return `${day}/${month}/${year}`;
 }
 
+function formatShortDate(value: string | null | undefined, fallback = 'sin fecha'): string {
+  if (!value) return fallback;
+  const [year, month, day] = value.slice(0, 10).split('-');
+  if (!year || !month || !day) return fallback;
+  return `${day}/${month}`;
+}
+
 export interface LotHydricData {
   id: string;
   name: string;
@@ -69,6 +76,8 @@ export interface LotHydricData {
   et0Today_mm: number;
   ndviCurrent: number;
   ndviDataAvailable?: boolean;
+  ndviObservationDate?: string | null;
+  ndviCloudCoveragePct?: number | null;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
   priorityReason: string;
@@ -358,12 +367,13 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                 return <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Sin dato satelital reciente</span>;
               }
               const val = lot.ndviCurrent;
+              const dateLabel = `Imagen ${formatShortDate(lot.ndviObservationDate)}`;
               if (val >= 0.6) {
-                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor vegetativo sano</span>;
+                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor sano · {dateLabel}</span>;
               } else if (val >= 0.35) {
-                return <span className="text-[10px] text-amber-600 dark:text-amber-450 font-semibold">Vigor vegetativo moderado</span>;
+                return <span className="text-[10px] text-amber-600 dark:text-amber-450 font-semibold">Vigor moderado · {dateLabel}</span>;
               } else {
-                return <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Vigor vegetativo bajo</span>;
+                return <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Vigor bajo · {dateLabel}</span>;
               }
             })()}
           </div>

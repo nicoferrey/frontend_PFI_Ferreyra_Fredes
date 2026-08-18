@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import "leaflet/dist/leaflet.css";
 
+export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad';
+
 export interface MapLotItem {
   id: string;
   name: string;
@@ -13,6 +15,8 @@ export interface MapLotItem {
   deficitDr_mm?: number;
   waterAvailableAU_pct?: number;
   ndviCurrent?: number;
+  ndviObservationDate?: string | null;
+  ndviCloudCoveragePct?: number | null;
 }
 
 interface DashboardMapProps {
@@ -20,6 +24,8 @@ interface DashboardMapProps {
   lots: MapLotItem[];
   selectedLotId?: string;
   onSelectLot?: (lotId: string) => void;
+  initialLayer?: DashboardMapLayer;
+  onLayerChange?: (layer: DashboardMapLayer) => void;
   className?: string;
   grayscale?: boolean;
 }
@@ -29,6 +35,8 @@ export default function DashboardMap({
   lots,
   selectedLotId,
   onSelectLot,
+  initialLayer = 'alertas',
+  onLayerChange,
   className = "",
   grayscale = false,
 }: DashboardMapProps) {
@@ -38,12 +46,16 @@ export default function DashboardMap({
   const lastGeometrySignatureRef = useRef('');
   const onSelectLotRef = useRef(onSelectLot);
 
-  const [activeLayer, setActiveLayer] = useState<'alertas' | 'ndvi' | 'humedad'>('alertas');
+  const [activeLayer, setActiveLayer] = useState<DashboardMapLayer>(initialLayer);
   const [mapInstance, setMapInstance] = useState<any>(null);
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
   }, [onSelectLot]);
+
+  useEffect(() => {
+    onLayerChange?.(activeLayer);
+  }, [activeLayer, onLayerChange]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -177,6 +189,7 @@ export default function DashboardMap({
           <p class="text-slate-200 text-[11px]">${lot.crop} &bull; ${lot.area.toFixed(1)} ha</p>
           ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Agua faltante: ${lot.deficitDr_mm} mm &bull; disponible: ${lot.waterAvailableAU_pct}%</p>` : ''}
           ${lot.ndviCurrent !== undefined ? `<p class="text-emerald-300 text-[10px] font-mono">Vigor satelital (NDVI): ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
+          ${lot.ndviObservationDate ? `<p class="text-slate-300 text-[10px]">Imagen NDVI: ${lot.ndviObservationDate}${lot.ndviCloudCoveragePct !== undefined && lot.ndviCloudCoveragePct !== null ? ` &bull; nubes ${lot.ndviCloudCoveragePct.toFixed(1)}%` : ''}</p>` : ''}
           <p class="text-[9px] text-sky-300 mt-1 italic">Click para seleccionar lote</p>
          </div>`,
         {
