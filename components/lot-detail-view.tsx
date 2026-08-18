@@ -143,23 +143,27 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     setIsLoadingNdviPreview(true);
     setNdviPreviewError(null);
 
-    const dateTo = String(
-      snapshot?.analyze_payload?.ndvi_date_to ||
-      snapshot?.analyze_payload?.date_to ||
-      new Date().toISOString().slice(0, 10)
-    ).slice(0, 10);
-    const dateFromDate = new Date(`${dateTo}T12:00:00`);
-    dateFromDate.setDate(dateFromDate.getDate() - 30);
-    const dateFrom = dateFromDate.toISOString().slice(0, 10);
+    try {
+      const dateTo = String(
+        snapshot?.analyze_payload?.ndvi_date_to ||
+        snapshot?.analyze_payload?.date_to ||
+        new Date().toISOString().slice(0, 10)
+      ).slice(0, 10);
+      const dateFromDate = new Date(`${dateTo}T12:00:00`);
+      dateFromDate.setDate(dateFromDate.getDate() - 30);
+      const dateFrom = dateFromDate.toISOString().slice(0, 10);
 
-    const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo, 30, lot.ndviSceneId);
-    if (result.ok) {
-      setNdviPreview(result.data);
-    } else {
-      setNdviPreviewError(result.data?.detail || 'No se pudo generar la imagen Sentinel-2 del lote.');
+      const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo, 30, lot.ndviSceneId);
+      if (result.ok) {
+        setNdviPreview(result.data);
+      } else {
+        setNdviPreviewError(result.data?.detail || 'No se pudo generar la imagen Sentinel-2 del lote.');
+      }
+    } catch {
+      setNdviPreviewError('No se pudo generar la imagen Sentinel-2 del lote.');
+    } finally {
+      setIsLoadingNdviPreview(false);
     }
-
-    setIsLoadingNdviPreview(false);
   };
 
   // Status visual styles
@@ -500,7 +504,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             className="inline-flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950"
           >
             <Satellite className="h-4 w-4" />
-            {isLoadingNdviPreview ? 'Generando...' : ndviPreview ? 'Actualizar imagen' : 'Ver imagen Sentinel-2'}
+            {isLoadingNdviPreview ? 'Generando...' : ndviPreview ? 'Actualizar imagen' : 'Ver imagen original'}
           </button>
         </div>
 
@@ -547,7 +551,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               {ndviPreview.sentinel_rgb_preview_data_url && (
                 <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
                   <img
@@ -556,20 +560,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     className="aspect-video w-full object-cover"
                   />
                   <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                    Vista natural Sentinel-2
-                  </figcaption>
-                </figure>
-              )}
-
-              {ndviPreview.ndvi_preview_data_url && (
-                <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
-                  <img
-                    src={ndviPreview.ndvi_preview_data_url}
-                    alt={`Vista NDVI de ${lot.name}`}
-                    className="aspect-video w-full object-cover"
-                  />
-                  <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                    NDVI coloreado calculado para el lote
+                    Imagen original Sentinel-2 en color natural
                   </figcaption>
                 </figure>
               )}

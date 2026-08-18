@@ -1083,7 +1083,8 @@ export async function getNdviPreviewApi(
   dateFrom: string,
   dateTo: string,
   cloudCoverageMaxPct = 30,
-  sceneId?: string | null
+  sceneId?: string | null,
+  includeNdviPreview = false
 ): Promise<{ ok: boolean; status: number; data: NdviPreview | any }> {
   let url =
     `/api/v1/fields/${fieldId}/ndvi-preview?date_from=${dateFrom}&date_to=${dateTo}` +
@@ -1091,6 +1092,27 @@ export async function getNdviPreviewApi(
   if (sceneId) {
     url += `&scene_id=${encodeURIComponent(sceneId)}`;
   }
-  const res = await apiFetch(url);
-  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  if (includeNdviPreview) {
+    url += '&include_ndvi_preview=true';
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await apiFetch(url, { signal: controller.signal });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  } catch (error) {
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    return {
+      ok: false,
+      status: 0,
+      data: {
+        detail: isTimeout
+          ? 'La generación de la imagen tardó demasiado. Probá de nuevo en unos minutos.'
+          : 'No se pudo generar la imagen Sentinel-2 del lote.',
+      },
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
