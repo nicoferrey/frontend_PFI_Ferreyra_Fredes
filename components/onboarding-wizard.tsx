@@ -9,7 +9,7 @@ import {
   Home, Search
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
-import { createFieldApi, updateFieldApi, deleteFieldApi } from '@/lib/api';
+import { createFieldApi, updateFieldApi, deleteFieldApi, refreshFieldAgentSnapshotApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
 interface Lot {
@@ -462,6 +462,7 @@ export default function OnboardingWizard() {
       const existingFieldIds = auth.fields?.map((f) => String(f.id)) || [];
       const currentLotIds = lots.map((l) => String(l.id));
       const deletedFieldIds = existingFieldIds.filter((id) => !currentLotIds.includes(id));
+      const savedFieldIds: Array<string | number> = [];
 
       // 1. Delete fields removed by the user
       for (const idToDelete of deletedFieldIds) {
@@ -503,15 +504,34 @@ export default function OnboardingWizard() {
 
         const isExisting = existingFieldIds.includes(String(lot.id));
         if (isExisting) {
-          // Update existing field
-          await updateFieldApi(lot.id, payload);
+          const result = await updateFieldApi(lot.id, payload);
+          if (result.ok) {
+            savedFieldIds.push(result.data?.id || lot.id);
+          }
         } else {
-          // Create new field
-          await createFieldApi(payload);
+          const result = await createFieldApi(payload);
+          if (result.ok && result.data?.id) {
+            savedFieldIds.push(result.data.id);
+          }
         }
       }
 
-      // Refresh auth profile to update fields globally
+      const refreshedFields = await auth.refreshProfile();
+      const fieldsToRefresh = savedFieldIds.length > 0 ? savedFieldIds : refreshedFields.map((field) => field.id);
+      const dateTo = new Date().toISOString().slice(0, 10);
+      const dateFromDate = new Date();
+      dateFromDate.setDate(dateFromDate.getDate() - 30);
+      const dateFrom = dateFromDate.toISOString().slice(0, 10);
+
+      await Promise.all(
+        fieldsToRefresh.map((fieldId) =>
+          refreshFieldAgentSnapshotApi(fieldId, {
+            force: true,
+            date_from: dateFrom,
+            date_to: dateTo,
+          })
+        )
+      );
       await auth.refreshProfile();
     } catch (err) {
       console.warn('Backend field sync error during onboarding:', err);
