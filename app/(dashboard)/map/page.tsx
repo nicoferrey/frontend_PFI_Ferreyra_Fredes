@@ -212,7 +212,7 @@ export default function DashboardMapPage() {
     ndvi: {
       eyebrow: 'Capa activa: vigor satelital',
       title: 'Delimitación de parcelas por vigor vegetativo',
-      help: 'El color válido es el polígono NDVI. La imagen visual de fondo es Esri y puede no ser de la misma fecha que Sentinel-2.',
+      help: 'El color del lote representa NDVI. El fondo satelital puede verse amarillo aunque el índice calculado sea alto.',
     },
     humedad: {
       eyebrow: 'Capa activa: agua disponible',
@@ -310,7 +310,7 @@ export default function DashboardMapPage() {
             onSelectLot={(id) => setSelectedLotId(id)}
             initialLayer="ndvi"
             onLayerChange={setActiveMapLayer}
-            grayscale={activeMapLayer === 'ndvi'}
+            grayscale={true}
           />
         </div>
 

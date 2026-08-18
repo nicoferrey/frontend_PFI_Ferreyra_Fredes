@@ -1038,6 +1038,8 @@ export interface NdviHistoryItem {
   quality_score: number;
   quality_status: string;
   vegetation_signal: string;
+  sentinel_rgb_preview_data_url?: string | null;
+  ndvi_preview_data_url?: string | null;
   warnings: string[];
   created_at: string;
 }
