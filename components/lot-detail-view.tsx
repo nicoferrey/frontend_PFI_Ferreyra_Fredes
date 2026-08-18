@@ -79,6 +79,7 @@ export interface LotHydricData {
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
   ndviValidPixelCoveragePct?: number | null;
+  ndviSceneId?: string | null;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
   priorityReason: string;
@@ -151,7 +152,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     dateFromDate.setDate(dateFromDate.getDate() - 30);
     const dateFrom = dateFromDate.toISOString().slice(0, 10);
 
-    const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo);
+    const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo, 30, lot.ndviSceneId);
     if (result.ok) {
       setNdviPreview(result.data);
     } else {
@@ -527,6 +528,11 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
                 }`}>
                   Píxeles útiles: {ndviPreview.valid_pixel_coverage_pct.toFixed(1)}%
+                </span>
+              )}
+              {ndviPreview.sentinel_scene_id && (
+                <span className="w-fit rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                  Escena: {ndviPreview.sentinel_scene_id.split('/').pop()}
                 </span>
               )}
             </div>

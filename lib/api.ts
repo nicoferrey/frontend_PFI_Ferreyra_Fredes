@@ -1035,6 +1035,7 @@ export interface NdviHistoryItem {
   ndvi_max: number;
   cloud_coverage_pct: number;
   valid_pixel_coverage_pct?: number | null;
+  sentinel_scene_id?: string | null;
   source: string;
   quality_score: number;
   quality_status: string;
@@ -1050,6 +1051,7 @@ export interface NdviPreview {
   ndvi_mean: number | null;
   cloud_coverage_pct?: number | null;
   valid_pixel_coverage_pct?: number | null;
+  sentinel_scene_id?: string | null;
   quality_score: number;
   quality_status: string;
   warnings: string[];
@@ -1080,11 +1082,15 @@ export async function getNdviPreviewApi(
   fieldId: string | number,
   dateFrom: string,
   dateTo: string,
-  cloudCoverageMaxPct = 30
+  cloudCoverageMaxPct = 30,
+  sceneId?: string | null
 ): Promise<{ ok: boolean; status: number; data: NdviPreview | any }> {
-  const url =
+  let url =
     `/api/v1/fields/${fieldId}/ndvi-preview?date_from=${dateFrom}&date_to=${dateTo}` +
     `&cloud_coverage_max_pct=${cloudCoverageMaxPct}`;
+  if (sceneId) {
+    url += `&scene_id=${encodeURIComponent(sceneId)}`;
+  }
   const res = await apiFetch(url);
   return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }

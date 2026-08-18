@@ -34,6 +34,7 @@ export interface LotHydricData {
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
   ndviValidPixelCoveragePct?: number | null;
+  ndviSceneId?: string | null;
   usesEstimatedAgronomicData?: boolean;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
@@ -91,6 +92,7 @@ export const initialMockLots: LotHydricData[] = [
     ndviObservationDate: '2026-08-08',
     ndviCloudCoveragePct: 4,
     ndviValidPixelCoveragePct: null,
+    ndviSceneId: null,
     kcSatellite: 1.15,
     irrigationPriority: 'Baja',
     priorityReason: 'Confort hídrico adecuado. Sin estrés proyectado en 72 h.',
@@ -128,6 +130,7 @@ export const initialMockLots: LotHydricData[] = [
     ndviObservationDate: '2026-08-08',
     ndviCloudCoveragePct: 5,
     ndviValidPixelCoveragePct: null,
+    ndviSceneId: null,
     kcSatellite: 1.20,
     irrigationPriority: 'Media',
     priorityReason: 'Déficit Dr aproximándose al umbral AFD. Conviene aplicar en 24h.',
@@ -165,6 +168,7 @@ export const initialMockLots: LotHydricData[] = [
     ndviObservationDate: '2026-08-08',
     ndviCloudCoveragePct: 7,
     ndviValidPixelCoveragePct: null,
+    ndviSceneId: null,
     kcSatellite: 0.95,
     irrigationPriority: 'Alta',
     priorityReason: 'Déficit superó el umbral RAW (40 mm). Estrés hídrico inminente.',
@@ -202,6 +206,7 @@ export const initialMockLots: LotHydricData[] = [
     ndviObservationDate: '2026-08-08',
     ndviCloudCoveragePct: 4,
     ndviValidPixelCoveragePct: null,
+    ndviSceneId: null,
     kcSatellite: 1.05,
     irrigationPriority: 'Baja',
     priorityReason: 'Reserva hídrica suficiente. Balance positivo con ETc moderada.',
@@ -344,6 +349,7 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     typeof ndviMetrics.cloud_coverage_pct === 'number' ? ndviMetrics.cloud_coverage_pct : null;
   const ndviValidPixelCoveragePct =
     typeof ndviMetrics.valid_pixel_coverage_pct === 'number' ? ndviMetrics.valid_pixel_coverage_pct : null;
+  const ndviSceneId = typeof ndviMetrics.sentinel_scene_id === 'string' ? ndviMetrics.sentinel_scene_id : null;
   const usesEstimatedAgronomicData =
     !field.soil_type ||
     field.soil_type === 'AUTO' ||
@@ -371,6 +377,7 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     ndviObservationDate,
     ndviCloudCoveragePct,
     ndviValidPixelCoveragePct,
+    ndviSceneId,
     usesEstimatedAgronomicData,
     kcSatellite: kc,
     irrigationPriority: priority,
