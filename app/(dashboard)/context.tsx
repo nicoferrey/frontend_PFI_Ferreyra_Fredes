@@ -31,6 +31,9 @@ export interface LotHydricData {
   et0Today_mm: number;
   ndviCurrent: number;
   ndviDataAvailable?: boolean;
+  ndviObservationDate?: string | null;
+  ndviCloudCoveragePct?: number | null;
+  ndviValidPixelCoveragePct?: number | null;
   usesEstimatedAgronomicData?: boolean;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
@@ -85,6 +88,9 @@ export const initialMockLots: LotHydricData[] = [
     etcToday_mm: 4.8,
     et0Today_mm: 4.2,
     ndviCurrent: 0.82,
+    ndviObservationDate: '2026-08-08',
+    ndviCloudCoveragePct: 4,
+    ndviValidPixelCoveragePct: null,
     kcSatellite: 1.15,
     irrigationPriority: 'Baja',
     priorityReason: 'Confort hídrico adecuado. Sin estrés proyectado en 72 h.',
@@ -119,6 +125,9 @@ export const initialMockLots: LotHydricData[] = [
     etcToday_mm: 5.4,
     et0Today_mm: 4.5,
     ndviCurrent: 0.74,
+    ndviObservationDate: '2026-08-08',
+    ndviCloudCoveragePct: 5,
+    ndviValidPixelCoveragePct: null,
     kcSatellite: 1.20,
     irrigationPriority: 'Media',
     priorityReason: 'Déficit Dr aproximándose al umbral AFD. Conviene aplicar en 24h.',
@@ -153,6 +162,9 @@ export const initialMockLots: LotHydricData[] = [
     etcToday_mm: 3.9,
     et0Today_mm: 4.1,
     ndviCurrent: 0.58,
+    ndviObservationDate: '2026-08-08',
+    ndviCloudCoveragePct: 7,
+    ndviValidPixelCoveragePct: null,
     kcSatellite: 0.95,
     irrigationPriority: 'Alta',
     priorityReason: 'Déficit superó el umbral RAW (40 mm). Estrés hídrico inminente.',
@@ -187,6 +199,9 @@ export const initialMockLots: LotHydricData[] = [
     etcToday_mm: 4.2,
     et0Today_mm: 4.3,
     ndviCurrent: 0.79,
+    ndviObservationDate: '2026-08-08',
+    ndviCloudCoveragePct: 4,
+    ndviValidPixelCoveragePct: null,
     kcSatellite: 1.05,
     irrigationPriority: 'Baja',
     priorityReason: 'Reserva hídrica suficiente. Balance positivo con ETc moderada.',
@@ -324,6 +339,11 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
   const kc = asNumber(kcContext.crop_coefficient, asNumber(metrics.crop_coefficient, 1));
   const hasNdvi = typeof ndviMetrics.ndvi_mean === 'number';
   const ndvi = hasNdvi ? asNumber(ndviMetrics.ndvi_mean, 0) : 0;
+  const ndviObservationDate = typeof ndviMetrics.observation_date === 'string' ? ndviMetrics.observation_date : null;
+  const ndviCloudCoveragePct =
+    typeof ndviMetrics.cloud_coverage_pct === 'number' ? ndviMetrics.cloud_coverage_pct : null;
+  const ndviValidPixelCoveragePct =
+    typeof ndviMetrics.valid_pixel_coverage_pct === 'number' ? ndviMetrics.valid_pixel_coverage_pct : null;
   const usesEstimatedAgronomicData =
     !field.soil_type ||
     field.soil_type === 'AUTO' ||
@@ -348,6 +368,9 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     et0Today_mm: round1(totalEt0 / daysAnalyzed),
     ndviCurrent: ndvi,
     ndviDataAvailable: hasNdvi,
+    ndviObservationDate,
+    ndviCloudCoveragePct,
+    ndviValidPixelCoveragePct,
     usesEstimatedAgronomicData,
     kcSatellite: kc,
     irrigationPriority: priority,

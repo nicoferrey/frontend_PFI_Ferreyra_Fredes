@@ -117,6 +117,9 @@ export default function DashboardHome() {
       deficitDr_mm: l.deficitDr_mm,
       waterAvailableAU_pct: l.waterAvailableAU_pct,
       ndviCurrent: l.ndviDataAvailable ? l.ndviCurrent : undefined,
+      ndviObservationDate: l.ndviObservationDate,
+      ndviCloudCoveragePct: l.ndviCloudCoveragePct,
+      ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 
