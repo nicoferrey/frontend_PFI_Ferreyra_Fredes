@@ -90,6 +90,7 @@ export default function DashboardMapPage() {
       ndviCurrent: l.ndviDataAvailable ? l.ndviCurrent : undefined,
       ndviObservationDate: l.ndviObservationDate,
       ndviCloudCoveragePct: l.ndviCloudCoveragePct,
+      ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 

@@ -1034,14 +1034,27 @@ export interface NdviHistoryItem {
   ndvi_min: number;
   ndvi_max: number;
   cloud_coverage_pct: number;
+  valid_pixel_coverage_pct?: number | null;
   source: string;
   quality_score: number;
   quality_status: string;
   vegetation_signal: string;
-  sentinel_rgb_preview_data_url?: string | null;
-  ndvi_preview_data_url?: string | null;
   warnings: string[];
   created_at: string;
+}
+
+export interface NdviPreview {
+  field_id: number;
+  field_name: string;
+  date: string | null;
+  ndvi_mean: number | null;
+  cloud_coverage_pct?: number | null;
+  valid_pixel_coverage_pct?: number | null;
+  quality_score: number;
+  quality_status: string;
+  warnings: string[];
+  sentinel_rgb_preview_data_url?: string | null;
+  ndvi_preview_data_url?: string | null;
 }
 
 export async function getNdviHistoryApi(
@@ -1061,4 +1074,17 @@ export async function getNdviHistoryApi(
   } catch {
     return [];
   }
+}
+
+export async function getNdviPreviewApi(
+  fieldId: string | number,
+  dateFrom: string,
+  dateTo: string,
+  cloudCoverageMaxPct = 30
+): Promise<{ ok: boolean; status: number; data: NdviPreview | any }> {
+  const url =
+    `/api/v1/fields/${fieldId}/ndvi-preview?date_from=${dateFrom}&date_to=${dateTo}` +
+    `&cloud_coverage_max_pct=${cloudCoverageMaxPct}`;
+  const res = await apiFetch(url);
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -42,7 +42,7 @@ import {
   BrainCircuit,
   MessageSquare
 } from 'lucide-react';
-import { FieldAgentSnapshot } from '@/lib/api';
+import { FieldAgentSnapshot, NdviPreview, getNdviPreviewApi } from '@/lib/api';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -78,8 +78,7 @@ export interface LotHydricData {
   ndviDataAvailable?: boolean;
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
-  sentinelRgbPreviewDataUrl?: string | null;
-  ndviPreviewDataUrl?: string | null;
+  ndviValidPixelCoveragePct?: number | null;
   kcSatellite: number;
   irrigationPriority: 'Alta' | 'Media' | 'Baja';
   priorityReason: string;
@@ -130,6 +129,37 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
   const [formSuccess, setFormSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ndviPreview, setNdviPreview] = useState<NdviPreview | null>(null);
+  const [isLoadingNdviPreview, setIsLoadingNdviPreview] = useState(false);
+  const [ndviPreviewError, setNdviPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNdviPreview(null);
+    setNdviPreviewError(null);
+  }, [lot.id]);
+
+  const loadNdviPreview = async () => {
+    setIsLoadingNdviPreview(true);
+    setNdviPreviewError(null);
+
+    const dateTo = String(
+      snapshot?.analyze_payload?.ndvi_date_to ||
+      snapshot?.analyze_payload?.date_to ||
+      new Date().toISOString().slice(0, 10)
+    ).slice(0, 10);
+    const dateFromDate = new Date(`${dateTo}T12:00:00`);
+    dateFromDate.setDate(dateFromDate.getDate() - 30);
+    const dateFrom = dateFromDate.toISOString().slice(0, 10);
+
+    const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo);
+    if (result.ok) {
+      setNdviPreview(result.data);
+    } else {
+      setNdviPreviewError(result.data?.detail || 'No se pudo generar la imagen Sentinel-2 del lote.');
+    }
+
+    setIsLoadingNdviPreview(false);
+  };
 
   // Status visual styles
   const statusConfig = {
@@ -449,56 +479,98 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
       </div>
 
-      {(lot.sentinelRgbPreviewDataUrl || lot.ndviPreviewDataUrl) && (
-        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-                Sentinel-2
-              </span>
-              <h3 className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">
-                Imagen satelital del lote
-              </h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Última escena disponible para el cálculo de vigor: {formatDate(lot.ndviObservationDate || undefined)}
-              </p>
-            </div>
-            {typeof lot.ndviCloudCoveragePct === 'number' && (
-              <span className="w-fit rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                Nubosidad escena: {lot.ndviCloudCoveragePct.toFixed(1)}%
-              </span>
-            )}
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+              Sentinel-2
+            </span>
+            <h3 className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">
+              Imagen satelital del lote
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Se genera bajo demanda y no se guarda en la base de datos.
+            </p>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {lot.sentinelRgbPreviewDataUrl && (
-              <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
-                <img
-                  src={lot.sentinelRgbPreviewDataUrl}
-                  alt={`Vista Sentinel-2 RGB de ${lot.name}`}
-                  className="aspect-video w-full object-cover"
-                />
-                <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  Vista natural Sentinel-2
-                </figcaption>
-              </figure>
-            )}
-
-            {lot.ndviPreviewDataUrl && (
-              <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
-                <img
-                  src={lot.ndviPreviewDataUrl}
-                  alt={`Vista NDVI de ${lot.name}`}
-                  className="aspect-video w-full object-cover"
-                />
-                <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  NDVI coloreado usado por el agente
-                </figcaption>
-              </figure>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={loadNdviPreview}
+            disabled={isLoadingNdviPreview}
+            className="inline-flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950"
+          >
+            <Satellite className="h-4 w-4" />
+            {isLoadingNdviPreview ? 'Generando...' : ndviPreview ? 'Actualizar imagen' : 'Ver imagen Sentinel-2'}
+          </button>
         </div>
-      )}
+
+        {ndviPreviewError && (
+          <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+            {ndviPreviewError}
+          </p>
+        )}
+
+        {ndviPreview && (
+          <>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span className="w-fit rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                Imagen: {formatDate(ndviPreview.date || undefined)}
+              </span>
+              {typeof ndviPreview.ndvi_mean === 'number' && (
+                <span className="w-fit rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+                  NDVI: {ndviPreview.ndvi_mean.toFixed(2)}
+                </span>
+              )}
+              {typeof ndviPreview.valid_pixel_coverage_pct === 'number' && (
+                <span className={`w-fit rounded-xl border px-3 py-1 text-xs font-bold ${
+                  ndviPreview.valid_pixel_coverage_pct >= 70
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
+                }`}>
+                  Píxeles útiles: {ndviPreview.valid_pixel_coverage_pct.toFixed(1)}%
+                </span>
+              )}
+            </div>
+
+            {ndviPreview.warnings.length > 0 && (
+              <div className="mb-4 space-y-1">
+                {ndviPreview.warnings.map((warning, index) => (
+                  <p key={index} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                    {warning}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {ndviPreview.sentinel_rgb_preview_data_url && (
+                <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
+                  <img
+                    src={ndviPreview.sentinel_rgb_preview_data_url}
+                    alt={`Vista Sentinel-2 RGB de ${lot.name}`}
+                    className="aspect-video w-full object-cover"
+                  />
+                  <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                    Vista natural Sentinel-2
+                  </figcaption>
+                </figure>
+              )}
+
+              {ndviPreview.ndvi_preview_data_url && (
+                <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
+                  <img
+                    src={ndviPreview.ndvi_preview_data_url}
+                    alt={`Vista NDVI de ${lot.name}`}
+                    className="aspect-video w-full object-cover"
+                  />
+                  <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                    NDVI coloreado calculado para el lote
+                  </figcaption>
+                </figure>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* 3. DETAILED FAO-56 TEMPORAL CHART & EVENT MARKERS */}
       <div className="overflow-hidden rounded-[28px] border border-slate-900 bg-slate-950 p-6 text-white shadow-soft">

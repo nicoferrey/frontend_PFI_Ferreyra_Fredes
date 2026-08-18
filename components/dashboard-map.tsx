@@ -17,6 +17,7 @@ export interface MapLotItem {
   ndviCurrent?: number;
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
+  ndviValidPixelCoveragePct?: number | null;
 }
 
 interface DashboardMapProps {
@@ -44,6 +45,7 @@ export default function DashboardMap({
   const leafletRef = useRef<any>(null);
   const polygonLayersRef = useRef<{ [id: string]: any }>({});
   const lastGeometrySignatureRef = useRef('');
+  const lastFocusedLotRef = useRef<string | undefined>(undefined);
   const onSelectLotRef = useRef(onSelectLot);
 
   const [activeLayer, setActiveLayer] = useState<DashboardMapLayer>(initialLayer);
@@ -190,6 +192,7 @@ export default function DashboardMap({
           ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Agua faltante: ${lot.deficitDr_mm} mm &bull; disponible: ${lot.waterAvailableAU_pct}%</p>` : ''}
           ${lot.ndviCurrent !== undefined ? `<p class="text-emerald-300 text-[10px] font-mono">Vigor satelital (NDVI): ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
           ${lot.ndviObservationDate ? `<p class="text-slate-300 text-[10px]">Imagen NDVI: ${lot.ndviObservationDate}${lot.ndviCloudCoveragePct !== undefined && lot.ndviCloudCoveragePct !== null ? ` &bull; nubes ${lot.ndviCloudCoveragePct.toFixed(1)}%` : ''}</p>` : ''}
+          ${lot.ndviValidPixelCoveragePct !== undefined && lot.ndviValidPixelCoveragePct !== null ? `<p class="text-slate-300 text-[10px]">Píxeles útiles: ${lot.ndviValidPixelCoveragePct.toFixed(1)}%</p>` : ''}
           <p class="text-[9px] text-sky-300 mt-1 italic">Click para seleccionar lote</p>
          </div>`,
         {
@@ -268,6 +271,18 @@ export default function DashboardMap({
         polygon.bringToFront();
       }
     });
+
+    if (selectedLotId && selectedLotId !== lastFocusedLotRef.current) {
+      const selectedPolygon = polygonLayersRef.current[selectedLotId];
+      if (selectedPolygon) {
+        mapInstance.flyToBounds(selectedPolygon.getBounds(), {
+          padding: [80, 80],
+          maxZoom: 17,
+          duration: 0.55,
+        });
+        lastFocusedLotRef.current = selectedLotId;
+      }
+    }
   }, [lots, selectedLotId, activeLayer, mapInstance]);
 
   return (
