@@ -336,57 +336,62 @@ export default function DashboardHome() {
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 uppercase font-extrabold text-[10px]">
-                      <th className="py-3 px-2">Lote</th>
-                      <th className="py-3 px-2">Cultivo</th>
-                      <th className="py-3 px-2 text-center">Estado</th>
-                      <th className="py-3 px-2 text-center">Agua faltante</th>
-                      <th className="py-3 px-2 text-center">Agua disponible</th>
-                      <th className="py-3 px-2 text-center">Último Riego</th>
-                      <th className="py-3 px-2 text-right">Acción</th>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
+                    <tr>
+                      <th className="py-2.5 px-3">Lote</th>
+                      <th className="py-2.5 px-3">Cultivo</th>
+                      <th className="py-2.5 px-3 text-center">Estado</th>
+                      <th className="py-2.5 px-3 text-center">Agua Faltante</th>
+                      <th className="py-2.5 px-3 text-center">Agua Disponible</th>
+                      <th className="py-2.5 px-3 text-center">Último Riego</th>
+                      <th className="py-2.5 px-3 text-right">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100/90 text-xs">
                     {lotsData.map((lotItem) => {
                       const statusColor = lotItem.hydricStatus === 'Normal'
-                        ? 'bg-emerald-500/10 text-emerald-600'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/90'
                         : lotItem.hydricStatus === 'Atencion'
-                        ? 'bg-amber-500/10 text-amber-600'
-                        : 'bg-rose-500/10 text-rose-600';
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200/90'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200/90';
 
                       return (
-                        <tr key={lotItem.id} className="hover:bg-slate-50/50">
-                          <td className="py-3.5 px-2 font-bold text-slate-900">
+                        <tr key={lotItem.id} className="hover:bg-slate-50/70 transition-colors duration-150">
+                          <td className="py-2.5 px-3 font-bold text-slate-900">
                             {lotItem.name}
                           </td>
-                          <td className="py-3.5 px-2 text-slate-500">
+                          <td className="py-2.5 px-3 font-medium text-slate-500">
                             {lotItem.crop} ({lotItem.areaHa} ha)
                           </td>
-                          <td className="py-3.5 px-2 text-center">
-                            <span className={`inline-block rounded-md px-2 py-0.5 font-semibold text-[11px] ${statusColor}`}>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`inline-block rounded-lg px-2.5 py-0.5 font-extrabold text-[11px] shadow-2xs ${statusColor}`}>
                               {lotItem.hydricStatus}
                             </span>
                           </td>
-                          <td className="py-3.5 px-2 text-center font-mono font-medium text-slate-800">
-                            {lotItem.deficitDr_mm.toFixed(1)} mm
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-900">
+                            <div className="flex items-baseline justify-center">
+                              <span className="text-xs font-black text-slate-950">{lotItem.deficitDr_mm.toFixed(1)}</span>
+                              <span className="text-[11px] font-bold text-slate-400 ml-0.5">mm</span>
+                            </div>
                           </td>
-                          <td className="py-3.5 px-2 text-center">
-                            <span className="font-mono font-bold text-slate-750">
-                              {lotItem.waterAvailableAU_pct}%
-                            </span>
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-baseline justify-center">
+                              <span className="text-xs font-extrabold text-slate-950">{lotItem.waterAvailableAU_pct}</span>
+                              <span className="text-[11px] font-bold text-slate-400 ml-0.5">%</span>
+                            </div>
                           </td>
-                          <td className="py-3.5 px-2 text-center text-slate-500">
+                          <td className="py-2.5 px-3 text-center font-medium text-slate-500">
                             {lotItem.lastIrrigationDate !== '-' 
                               ? `${lotItem.lastIrrigationAmount_mm} mm (${lotItem.lastIrrigationDate})` 
                               : 'Ninguno'}
                           </td>
-                          <td className="py-3.5 px-2 text-right">
+                          <td className="py-2.5 px-3 text-right">
                             <button
+                              type="button"
                               onClick={() => handleInspectLot(lotItem.id)}
-                              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2 text-[11px] transition shadow-md"
+                              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-extrabold px-3 py-1.5 text-[11px] transition shadow-2xs"
                             >
                               <span>Inspeccionar</span>
                               <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
