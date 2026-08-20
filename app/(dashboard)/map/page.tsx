@@ -93,6 +93,7 @@ export default function DashboardMapPage() {
       ndviObservationDate: l.ndviObservationDate,
       ndviCloudCoveragePct: l.ndviCloudCoveragePct,
       ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
+      ndviSceneId: l.ndviSceneId,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 
@@ -308,7 +309,6 @@ export default function DashboardMapPage() {
             onSelectLot={(id) => setSelectedLotId(id)}
             initialLayer="ndvi"
             onLayerChange={setActiveMapLayer}
-            grayscale={true}
           />
         </div>
 

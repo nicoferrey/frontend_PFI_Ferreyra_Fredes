@@ -123,6 +123,7 @@ export default function DashboardHome() {
       ndviObservationDate: l.ndviObservationDate,
       ndviCloudCoveragePct: l.ndviCloudCoveragePct,
       ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
+      ndviSceneId: l.ndviSceneId,
     }));
   }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
 
@@ -212,7 +213,6 @@ export default function DashboardHome() {
             lots={mapLots}
             selectedLotId={undefined}
             onSelectLot={handleInspectLot}
-            grayscale={true}
           />
         </div>
       </section>

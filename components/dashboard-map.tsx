@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import "leaflet/dist/leaflet.css";
+import { getSentinelMapLayerApi } from '@/lib/api';
 
 export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad';
 
@@ -18,6 +19,7 @@ export interface MapLotItem {
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
   ndviValidPixelCoveragePct?: number | null;
+  ndviSceneId?: string | null;
 }
 
 interface DashboardMapProps {
@@ -43,6 +45,7 @@ export default function DashboardMap({
 }: DashboardMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
+  const sentinelLayerRef = useRef<any>(null);
   const polygonLayersRef = useRef<{ [id: string]: any }>({});
   const lastGeometrySignatureRef = useRef('');
   const lastFocusedLotRef = useRef<string | undefined>(undefined);
@@ -50,6 +53,18 @@ export default function DashboardMap({
 
   const [activeLayer, setActiveLayer] = useState<DashboardMapLayer>(initialLayer);
   const [mapInstance, setMapInstance] = useState<any>(null);
+  const [sentinelLayerStatus, setSentinelLayerStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [sentinelLayerInfo, setSentinelLayerInfo] = useState<{
+    lotName: string;
+    date?: string | null;
+    sceneId?: string | null;
+  } | null>(null);
+  const [sentinelLayerError, setSentinelLayerError] = useState<string | null>(null);
+
+  const sentinelLot = useMemo(() => {
+    const selected = lots.find((lot) => lot.id === selectedLotId && lot.ndviSceneId);
+    return selected || lots.find((lot) => lot.ndviSceneId) || null;
+  }, [lots, selectedLotId]);
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
@@ -78,22 +93,9 @@ export default function DashboardMap({
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       });
 
-      // Esri Satellite Layer
-      const esriSatellite = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 19 }
-      );
-
-      // Labels Overlay
-      const CartoDBLabels = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-        { subdomains: 'abcd', maxZoom: 20 }
-      );
-
       const instance = L.map(container, {
         center: center,
         zoom: 15,
-        layers: [esriSatellite, CartoDBLabels],
         zoomControl: false,
         attributionControl: false,
       });
@@ -116,6 +118,55 @@ export default function DashboardMap({
       }
     };
   }, []);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    if (!L || !mapInstance) return;
+
+    if (sentinelLayerRef.current) {
+      mapInstance.removeLayer(sentinelLayerRef.current);
+      sentinelLayerRef.current = null;
+    }
+
+    if (!sentinelLot?.ndviSceneId) {
+      setSentinelLayerStatus('idle');
+      setSentinelLayerInfo(null);
+      setSentinelLayerError('Sin escena Sentinel-2. Actualizá agentes para cargar la imagen del lote.');
+      return;
+    }
+
+    let cancelled = false;
+    setSentinelLayerStatus('loading');
+    setSentinelLayerInfo({ lotName: sentinelLot.name, date: sentinelLot.ndviObservationDate, sceneId: sentinelLot.ndviSceneId });
+    setSentinelLayerError(null);
+
+    getSentinelMapLayerApi(sentinelLot.id, sentinelLot.ndviSceneId).then((result) => {
+      if (cancelled) return;
+
+      if (result.ok && result.data?.tile_url_template) {
+        const layer = L.tileLayer(result.data.tile_url_template, {
+          maxZoom: 18,
+          opacity: 1,
+          zIndex: 1,
+        }).addTo(mapInstance);
+
+        sentinelLayerRef.current = layer;
+        setSentinelLayerStatus('ready');
+        setSentinelLayerInfo({
+          lotName: sentinelLot.name,
+          date: result.data.date || sentinelLot.ndviObservationDate,
+          sceneId: result.data.sentinel_scene_id || sentinelLot.ndviSceneId,
+        });
+      } else {
+        setSentinelLayerStatus('error');
+        setSentinelLayerError(result.data?.detail || 'No se pudo cargar la imagen Sentinel-2 del lote.');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapInstance, sentinelLot]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -306,7 +357,7 @@ export default function DashboardMap({
           }
         ` : ''}
       `}} />
-      <div ref={containerRef} className="w-full h-full min-h-[480px] lg:min-h-[540px]" />
+      <div ref={containerRef} className="w-full h-full min-h-[480px] lg:min-h-[540px] bg-slate-950" />
       
       {/* Map Floating Legend */}
       <div className="absolute top-4 left-4 z-[400] flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-slate-950/80 p-2 text-xs text-white backdrop-blur-md shadow-lg">
@@ -386,6 +437,21 @@ export default function DashboardMap({
         >
           <span>Agua disponible</span>
         </button>
+      </div>
+
+      <div className="absolute bottom-4 left-4 z-[400] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
+        {sentinelLayerStatus === 'loading' && (
+          <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
+        )}
+        {sentinelLayerStatus === 'ready' && sentinelLayerInfo && (
+          <span className="font-semibold text-slate-200">
+            Sentinel-2: {sentinelLayerInfo.lotName}
+            {sentinelLayerInfo.date ? ` · ${sentinelLayerInfo.date}` : ''}
+          </span>
+        )}
+        {(sentinelLayerStatus === 'idle' || sentinelLayerStatus === 'error') && (
+          <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
+        )}
       </div>
     </div>
   );

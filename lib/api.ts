@@ -1060,6 +1060,15 @@ export interface NdviPreview {
   ndvi_preview_data_url?: string | null;
 }
 
+export interface SentinelMapLayer {
+  field_id: number;
+  field_name: string;
+  date: string | null;
+  cloud_coverage_pct?: number | null;
+  sentinel_scene_id: string;
+  tile_url_template: string;
+}
+
 export async function getNdviHistoryApi(
   fieldId: string | number,
   dateFrom: string,
@@ -1076,6 +1085,27 @@ export async function getNdviHistoryApi(
     return await res.json();
   } catch {
     return [];
+  }
+}
+
+export async function getSentinelMapLayerApi(
+  fieldId: string | number,
+  sceneId?: string | null
+): Promise<{ ok: boolean; status: number; data: SentinelMapLayer | any }> {
+  let url = `/api/v1/fields/${fieldId}/sentinel-map-layer`;
+  if (sceneId) {
+    url += `?scene_id=${encodeURIComponent(sceneId)}`;
+  }
+
+  try {
+    const res = await apiFetch(url);
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      data: { detail: 'No se pudo cargar la capa Sentinel-2 del lote.' },
+    };
   }
 }
 
