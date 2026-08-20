@@ -69,7 +69,7 @@ export default function DashboardAssistantPage() {
         const initials = name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'MB';
         const rawRole = member.role || (idx === 0 ? 'agronomist' : idx === 1 ? 'operator' : 'admin');
         const role = roleLabels[rawRole] || rawRole || (idx === 0 ? 'Asesor Agrónomo' : idx === 1 ? 'Operador de Riego' : 'Dueño / Administrador');
-        const phone = member.phone || `+54 9 11 5555-010${idx + 1}`;
+        const phone = member.phone || member.phone_whatsapp || `+54 9 11 5555-010${idx + 1}`;
         
         const presets = [
           {

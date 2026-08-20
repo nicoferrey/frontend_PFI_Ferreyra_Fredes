@@ -319,6 +319,7 @@ export interface FieldTeamMember {
   name?: string;
   email: string;
   phone_whatsapp?: string;
+  phone?: string;
   role: FieldRole;
   status: 'active' | 'invited' | 'pending';
   joined_at: string;

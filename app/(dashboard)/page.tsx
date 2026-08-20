@@ -12,7 +12,8 @@ import {
   ArrowUpRight,
   TrendingUp,
   Activity,
-  CheckCircle
+  CheckCircle,
+  Eye
 } from 'lucide-react';
 import { useDashboard, defaultDemoPolygons } from './context';
 import { PageHeader } from '@/components/page-header';
@@ -388,14 +389,16 @@ export default function DashboardHome() {
                               : 'Ninguno'}
                           </td>
                           <td className="py-2.5 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleInspectLot(lotItem.id)}
-                              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-extrabold px-3 py-1.5 text-[11px] transition shadow-2xs"
-                            >
-                              <span>Inspeccionar</span>
-                              <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
-                            </button>
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleInspectLot(lotItem.id)}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 transition shadow-2xs"
+                                title="Ver detalle del lote"
+                              >
+                                <Eye className="h-4 w-4 text-slate-700" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
