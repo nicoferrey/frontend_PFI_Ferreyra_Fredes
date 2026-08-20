@@ -158,12 +158,12 @@ export function Topbar({
   const userName = user?.name || (user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : null) || 'Ada Lovelace';
   const userInitials = getInitials(userName);
   const userRole = user?.role === 'admin' 
-    ? 'Administrador' 
+    ? 'Dueño / Administrador' 
     : user?.role === 'agronomist' 
-    ? 'Asesor Agronómico' 
+    ? 'Asesor Agrónomo' 
     : user?.role === 'operator' 
-    ? 'Operario' 
-    : 'Productor';
+    ? 'Operador de Riego' 
+    : 'Dueño / Administrador';
 
   return (
     <header className={`relative z-[1010] w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>

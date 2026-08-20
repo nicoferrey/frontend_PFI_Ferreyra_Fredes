@@ -65,8 +65,8 @@ const roleDetails: Record<
   }
 > = {
   admin: {
-    title: 'Dueño / Administrador General',
-    shortTitle: 'Dueño',
+    title: 'Dueño / Administrador',
+    shortTitle: 'Administrador',
     description: 'Control total de la explotación, gestión de usuarios, costos de bombeo y configuración de lotes.',
     badgeStyle: 'bg-emerald-50 text-emerald-800 border-emerald-200 ring-1 ring-emerald-500/20',
     avatarGradient: 'bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-emerald-500/25',
@@ -75,7 +75,7 @@ const roleDetails: Record<
     color: 'text-emerald-700',
   },
   agronomist: {
-    title: 'Asesor Agronómico',
+    title: 'Asesor Agrónomo',
     shortTitle: 'Asesor',
     description: 'Auditoría del balance hídrico FAO-56, curvas NDVI/Kc y ajuste de prescripciones técnicas.',
     badgeStyle: 'bg-sky-50 text-sky-800 border-sky-200 ring-1 ring-sky-500/20',
@@ -85,8 +85,8 @@ const roleDetails: Record<
     color: 'text-sky-700',
   },
   operator: {
-    title: 'Operario de Campo / Regador',
-    shortTitle: 'Operario',
+    title: 'Operador de Riego',
+    shortTitle: 'Operador',
     description: 'Registro de eventos de riego (CU-05) y recepción de alertas operativas por WhatsApp.',
     badgeStyle: 'bg-amber-50 text-amber-800 border-amber-200 ring-1 ring-amber-500/20',
     avatarGradient: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/25',

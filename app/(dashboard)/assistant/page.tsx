@@ -54,11 +54,21 @@ export default function DashboardAssistantPage() {
 
   // Team WhatsApp members & interaction histories (Derived dynamically from teamMembers context)
   const whatsappMembers = useMemo(() => {
+    const roleLabels: Record<string, string> = {
+      admin: 'Dueño / Administrador',
+      agronomist: 'Asesor Agrónomo',
+      operator: 'Operador de Riego',
+      'Asesor Agrónomo Principal': 'Asesor Agrónomo',
+      'Operador de Pivote Central': 'Operador de Riego',
+      'Encargado de Bombeo y Mantenimiento': 'Operador de Riego',
+    };
+
     if (teamMembers && teamMembers.length > 0) {
       return teamMembers.map((member, idx) => {
         const name = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || `Miembro ${idx + 1}`;
         const initials = name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'MB';
-        const role = member.role || (idx === 0 ? 'Asesor Agrónomo Principal' : idx === 1 ? 'Operador de Pivote Central' : 'Encargado de Bombeo');
+        const rawRole = member.role || (idx === 0 ? 'agronomist' : idx === 1 ? 'operator' : 'admin');
+        const role = roleLabels[rawRole] || rawRole || (idx === 0 ? 'Asesor Agrónomo' : idx === 1 ? 'Operador de Riego' : 'Dueño / Administrador');
         const phone = member.phone || `+54 9 11 5555-010${idx + 1}`;
         
         const presets = [
@@ -154,7 +164,7 @@ export default function DashboardAssistantPage() {
       {
         id: 'cg',
         name: 'Ing. Carlos Gómez',
-        role: 'Asesor Agrónomo Principal',
+        role: 'Asesor Agrónomo',
         phone: '+54 9 11 5555-0192',
         avatar: 'CG',
         avatarBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -195,7 +205,7 @@ export default function DashboardAssistantPage() {
       {
         id: 'mf',
         name: 'Martín Ferreyra',
-        role: 'Operador de Pivote Central',
+        role: 'Operador de Riego',
         phone: '+54 9 341 5555-0211',
         avatar: 'MF',
         avatarBg: 'bg-sky-100 text-sky-800 border-sky-300',
@@ -228,7 +238,7 @@ export default function DashboardAssistantPage() {
       {
         id: 'lg',
         name: 'Luis Gómez',
-        role: 'Encargado de Bombeo y Mantenimiento',
+        role: 'Operador de Riego',
         phone: '+54 9 261 5555-0309',
         avatar: 'LG',
         avatarBg: 'bg-amber-100 text-amber-800 border-amber-300',

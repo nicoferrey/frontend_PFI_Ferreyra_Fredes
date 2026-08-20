@@ -291,7 +291,7 @@ export default function DashboardSettingsPage() {
                     >
                       <option value="admin">Dueño / Administrador</option>
                       <option value="agronomist">Asesor Agrónomo</option>
-                      <option value="operator">Operario / Regador</option>
+                      <option value="operator">Operador de Riego</option>
                     </select>
                   </div>
                 </form>
@@ -331,7 +331,7 @@ export default function DashboardSettingsPage() {
                 <p className="text-xs text-slate-500 font-mono mt-0.5">{user?.email}</p>
                 <div className="mt-2.5">
                   <span className="inline-block rounded-md bg-sky-500/10 text-sky-650 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                    {profileForm.role === 'admin' ? 'Administrador' : profileForm.role === 'agronomist' ? 'Asesor' : 'Operador'}
+                    {profileForm.role === 'admin' ? 'Dueño / Administrador' : profileForm.role === 'agronomist' ? 'Asesor Agrónomo' : 'Operador de Riego'}
                   </span>
                 </div>
               </div>
