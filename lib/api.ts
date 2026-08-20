@@ -1109,6 +1109,36 @@ export async function getSentinelMapLayerApi(
   }
 }
 
+export async function getSentinelMapLayerByCenterApi(
+  latitude: number,
+  longitude: number,
+  radiusM = 6000
+): Promise<{ ok: boolean; status: number; data: SentinelMapLayer | any }> {
+  const url =
+    `/api/v1/sentinel/map-layer?latitude=${encodeURIComponent(latitude)}` +
+    `&longitude=${encodeURIComponent(longitude)}&radius_m=${encodeURIComponent(radiusM)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  try {
+    const res = await apiFetch(url, { signal: controller.signal });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  } catch (error) {
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    return {
+      ok: false,
+      status: 0,
+      data: {
+        detail: isTimeout
+          ? 'La imagen Sentinel-2 tardó demasiado en cargar.'
+          : 'No se pudo cargar la imagen Sentinel-2.',
+      },
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function getNdviPreviewApi(
   fieldId: string | number,
   dateFrom: string,

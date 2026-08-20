@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Compass, Layers, MapPin, Check, RefreshCw } from 'lucide-react';
 import "leaflet/dist/leaflet.css";
+import { getSentinelMapLayerByCenterApi } from '@/lib/api';
 
 interface Lot {
   id: string;
@@ -145,6 +146,7 @@ export default function InteractiveOnboardingMap({
 }: InteractiveOnboardingMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const sentinelLayerRef = useRef<any>(null);
   const centerMarkerRef = useRef<any>(null);
   const currentDrawPolygonRef = useRef<any>(null);
   const currentDrawLineRef = useRef<any>(null);
@@ -164,6 +166,9 @@ export default function InteractiveOnboardingMap({
   const onAddLotRef = useRef(onAddLot);
   const setDrawingVerticesRef = useRef(setDrawingVertices);
   const onUpdateLotPolygonRef = useRef(onUpdateLotPolygon);
+  const [sentinelLayerStatus, setSentinelLayerStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [sentinelLayerDate, setSentinelLayerDate] = useState<string | null>(null);
+  const [sentinelLayerError, setSentinelLayerError] = useState<string | null>(null);
  
   const drawModeRef = useRef(drawMode);
   const circleRadiusRef = useRef(circleRadius);
@@ -225,29 +230,9 @@ export default function InteractiveOnboardingMap({
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       });
 
-      // Esri Satellite Imagery
-      const esriSatellite = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-          maxZoom: 19,
-        }
-      );
-
-      // Labels Overlay
-      const CartoDBLabels = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-        {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd',
-          maxZoom: 20,
-        }
-      );
-
       mapInstance = L.map(container, {
         center: centerRefVal.current,
         zoom: 15,
-        layers: [esriSatellite, CartoDBLabels],
         zoomControl: false,
         attributionControl: false,
       });
@@ -393,6 +378,57 @@ export default function InteractiveOnboardingMap({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !LRef.current) return;
+    const L = LRef.current;
+    const map = mapRef.current;
+    let cancelled = false;
+
+    setSentinelLayerStatus('loading');
+    setSentinelLayerError(null);
+
+    const timeoutId = setTimeout(() => {
+      getSentinelMapLayerByCenterApi(center[0], center[1]).then((result) => {
+        if (cancelled) return;
+
+        if (sentinelLayerRef.current) {
+          map.removeLayer(sentinelLayerRef.current);
+          sentinelLayerRef.current = null;
+        }
+
+        if (result.ok && result.data?.tile_url_template) {
+          const layer = L.tileLayer(result.data.tile_url_template, {
+            maxZoom: 18,
+            opacity: 1,
+            zIndex: 1,
+          }).addTo(map);
+
+          layer.on('tileerror', () => {
+            if (cancelled) return;
+            setSentinelLayerStatus('error');
+            setSentinelLayerError('Earth Engine devolvió la escena, pero no se pudieron cargar los tiles Sentinel-2.');
+          });
+
+          sentinelLayerRef.current = layer;
+          setSentinelLayerDate(result.data.date || null);
+          setSentinelLayerStatus('ready');
+        } else {
+          setSentinelLayerStatus('error');
+          setSentinelLayerError(result.data?.detail || 'No se pudo cargar Sentinel-2 para esta zona.');
+        }
+      }).catch(() => {
+        if (cancelled) return;
+        setSentinelLayerStatus('error');
+        setSentinelLayerError('No se pudo cargar Sentinel-2 para esta zona.');
+      });
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [center]);
 
   // Update Map Center View
   useEffect(() => {
@@ -643,7 +679,21 @@ export default function InteractiveOnboardingMap({
   return (
     <div className="relative w-full h-full min-h-[520px] rounded-[24px] overflow-hidden border border-white/10 shadow-2xl">
       {/* Leaflet container */}
-      <div ref={mapContainerRef} className="w-full h-full min-h-[520px]" />
+      <div ref={mapContainerRef} className="w-full h-full min-h-[520px] bg-slate-950" />
+
+      <div className="absolute bottom-4 left-4 z-[999] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
+        {sentinelLayerStatus === 'loading' && (
+          <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
+        )}
+        {sentinelLayerStatus === 'ready' && (
+          <span className="font-semibold text-slate-200">
+            Sentinel-2 activo{sentinelLayerDate ? ` · ${sentinelLayerDate}` : ''}
+          </span>
+        )}
+        {sentinelLayerStatus === 'error' && (
+          <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
+        )}
+      </div>
 
       {/* Floating map UI info */}
       <div className="absolute top-4 left-4 z-[999] flex flex-col gap-2 max-w-xs">

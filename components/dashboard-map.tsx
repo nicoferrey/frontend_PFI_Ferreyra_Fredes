@@ -150,6 +150,11 @@ export default function DashboardMap({
           zIndex: 1,
         }).addTo(mapInstance);
 
+        layer.on('tileerror', () => {
+          if (cancelled) return;
+          setSentinelLayerStatus('error');
+          setSentinelLayerError('Earth Engine devolvió la escena, pero no se pudieron cargar los tiles Sentinel-2.');
+        });
         sentinelLayerRef.current = layer;
         setSentinelLayerStatus('ready');
         setSentinelLayerInfo({
@@ -161,6 +166,10 @@ export default function DashboardMap({
         setSentinelLayerStatus('error');
         setSentinelLayerError(result.data?.detail || 'No se pudo cargar la imagen Sentinel-2 del lote.');
       }
+    }).catch(() => {
+      if (cancelled) return;
+      setSentinelLayerStatus('error');
+      setSentinelLayerError('No se pudo cargar la imagen Sentinel-2 del lote.');
     });
 
     return () => {
