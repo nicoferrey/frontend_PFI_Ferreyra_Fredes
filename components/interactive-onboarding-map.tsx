@@ -5,6 +5,9 @@ import { Compass, Layers, MapPin, Check, RefreshCw } from 'lucide-react';
 import "leaflet/dist/leaflet.css";
 import { getSentinelMapLayerByCenterApi } from '@/lib/api';
 
+const ESRI_WORLD_IMAGERY_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
 interface Lot {
   id: string;
   name: string;
@@ -146,6 +149,7 @@ export default function InteractiveOnboardingMap({
 }: InteractiveOnboardingMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const baseLayerRef = useRef<any>(null);
   const sentinelLayerRef = useRef<any>(null);
   const centerMarkerRef = useRef<any>(null);
   const currentDrawPolygonRef = useRef<any>(null);
@@ -166,7 +170,8 @@ export default function InteractiveOnboardingMap({
   const onAddLotRef = useRef(onAddLot);
   const setDrawingVerticesRef = useRef(setDrawingVertices);
   const onUpdateLotPolygonRef = useRef(onUpdateLotPolygon);
-  const [sentinelLayerStatus, setSentinelLayerStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [useCurrentImage, setUseCurrentImage] = useState(false);
+  const [sentinelLayerStatus, setSentinelLayerStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [sentinelLayerDate, setSentinelLayerDate] = useState<string | null>(null);
   const [sentinelLayerError, setSentinelLayerError] = useState<string | null>(null);
  
@@ -241,6 +246,11 @@ export default function InteractiveOnboardingMap({
       L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
 
       mapRef.current = mapInstance;
+
+      baseLayerRef.current = L.tileLayer(ESRI_WORLD_IMAGERY_URL, {
+        maxZoom: 19,
+        zIndex: 0,
+      }).addTo(mapInstance);
 
       // Map Click Event handling using references to prevent stale closures
       mapInstance.on('click', (e: any) => {
@@ -385,6 +395,17 @@ export default function InteractiveOnboardingMap({
     const map = mapRef.current;
     let cancelled = false;
 
+    if (!useCurrentImage) {
+      if (sentinelLayerRef.current) {
+        map.removeLayer(sentinelLayerRef.current);
+        sentinelLayerRef.current = null;
+      }
+      setSentinelLayerStatus('idle');
+      setSentinelLayerDate(null);
+      setSentinelLayerError(null);
+      return;
+    }
+
     setSentinelLayerStatus('loading');
     setSentinelLayerError(null);
 
@@ -428,7 +449,7 @@ export default function InteractiveOnboardingMap({
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [center]);
+  }, [center, useCurrentImage]);
 
   // Update Map Center View
   useEffect(() => {
@@ -681,18 +702,40 @@ export default function InteractiveOnboardingMap({
       {/* Leaflet container */}
       <div ref={mapContainerRef} className="w-full h-full min-h-[520px] bg-slate-950" />
 
-      <div className="absolute bottom-4 left-4 z-[999] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
-        {sentinelLayerStatus === 'loading' && (
-          <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
-        )}
-        {sentinelLayerStatus === 'ready' && (
-          <span className="font-semibold text-slate-200">
-            Sentinel-2 activo{sentinelLayerDate ? ` · ${sentinelLayerDate}` : ''}
-          </span>
-        )}
-        {sentinelLayerStatus === 'error' && (
-          <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
-        )}
+      <div className="absolute top-4 right-4 z-[999] rounded-2xl border border-white/20 bg-slate-950/80 p-1.5 text-xs text-white shadow-lg backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => setUseCurrentImage((value) => !value)}
+          className={`rounded-xl px-3 py-1.5 font-bold transition ${
+            useCurrentImage ? 'bg-crop-600 text-white' : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          {useCurrentImage ? 'Imagen actual activa' : 'Usar imagen actual'}
+        </button>
+      </div>
+
+      {useCurrentImage && (
+        <div className="absolute bottom-4 left-4 z-[999] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
+          {sentinelLayerStatus === 'loading' && (
+            <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
+          )}
+          {sentinelLayerStatus === 'ready' && (
+            <span className="font-semibold text-slate-200">
+              Sentinel-2 activo{sentinelLayerDate ? ` · ${sentinelLayerDate}` : ''}
+            </span>
+          )}
+          {sentinelLayerStatus === 'error' && (
+            <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
+          )}
+        </div>
+      )}
+
+      <div className="absolute bottom-4 right-16 z-[999] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur-md">
+        {useCurrentImage
+          ? sentinelLayerDate
+            ? `Imagen reciente · ${sentinelLayerDate}`
+            : 'Imagen reciente Sentinel-2'
+          : 'Imagen guía HD · no actual'}
       </div>
 
       {/* Floating map UI info */}

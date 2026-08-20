@@ -216,12 +216,17 @@ export default function DashboardMapPage() {
     ndvi: {
       eyebrow: 'Capa activa: vigor satelital',
       title: 'Delimitación de parcelas por vigor vegetativo',
-      help: 'El color del lote representa NDVI. El fondo satelital puede verse amarillo aunque el índice calculado sea alto.',
+      help: 'El color del lote representa NDVI calculado. La imagen base es una referencia visual de alta definición y no necesariamente es la última del lote.',
     },
     humedad: {
       eyebrow: 'Capa activa: agua disponible',
       title: 'Delimitación de parcelas por agua disponible',
       help: 'El color del lote representa el agua que todavía puede usar el cultivo.',
+    },
+    estadoActual: {
+      eyebrow: 'Capa activa: última imagen satelital',
+      title: 'Estado actual del lote',
+      help: 'Muestra la última escena Sentinel-2 disponible para contrastar visualmente el lote con el cálculo de vigor.',
     },
   }[activeMapLayer];
 
@@ -296,8 +301,14 @@ export default function DashboardMapPage() {
             <p className="mt-1 text-xs text-slate-400">{activeLayerCopy.help}</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Resolución: 10m</span>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Órbita: Sentinel-2A</span>
+            {activeMapLayer === 'estadoActual' ? (
+              <>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Resolución: 10m</span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Fuente: Sentinel-2</span>
+              </>
+            ) : (
+              <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Imagen guía HD · no actual</span>
+            )}
           </div>
         </div>
 

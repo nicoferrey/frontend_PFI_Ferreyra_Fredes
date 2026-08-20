@@ -4,7 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import "leaflet/dist/leaflet.css";
 import { getSentinelMapLayerApi, getSentinelMapLayerByCenterApi } from '@/lib/api';
 
-export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad';
+export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad' | 'estadoActual';
+
+const ESRI_WORLD_IMAGERY_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+type CachedSentinelLayer = {
+  tileUrlTemplate: string;
+  date?: string | null;
+  sceneId?: string | null;
+};
+
+const sentinelLayerCache = new Map<string, CachedSentinelLayer>();
 
 export interface MapLotItem {
   id: string;
@@ -45,6 +56,7 @@ export default function DashboardMap({
 }: DashboardMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
+  const baseLayerRef = useRef<any>(null);
   const sentinelLayerRef = useRef<any>(null);
   const polygonLayersRef = useRef<{ [id: string]: any }>({});
   const lastGeometrySignatureRef = useRef('');
@@ -65,6 +77,10 @@ export default function DashboardMap({
     const selected = lots.find((lot) => lot.id === selectedLotId);
     return selected || lots.find((lot) => lot.ndviSceneId) || lots[0] || null;
   }, [lots, selectedLotId]);
+
+  const sentinelCacheKey = sentinelLot?.ndviSceneId
+    ? `scene:${sentinelLot.ndviSceneId}`
+    : `center:${center[0].toFixed(5)},${center[1].toFixed(5)}`;
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
@@ -106,6 +122,12 @@ export default function DashboardMap({
       }, 100);
 
       L.control.zoom({ position: 'bottomright' }).addTo(instance);
+
+      baseLayerRef.current = L.tileLayer(ESRI_WORLD_IMAGERY_URL, {
+        maxZoom: 19,
+        zIndex: 0,
+      }).addTo(instance);
+
       setMapInstance(instance);
     };
 
@@ -128,6 +150,12 @@ export default function DashboardMap({
       sentinelLayerRef.current = null;
     }
 
+    if (activeLayer !== 'estadoActual') {
+      setSentinelLayerStatus('idle');
+      setSentinelLayerError(null);
+      return;
+    }
+
     let cancelled = false;
     setSentinelLayerStatus('loading');
     setSentinelLayerInfo(
@@ -137,6 +165,36 @@ export default function DashboardMap({
     );
     setSentinelLayerError(null);
 
+    const mountSentinelLayer = (layerData: CachedSentinelLayer) => {
+      const layer = L.tileLayer(layerData.tileUrlTemplate, {
+        maxZoom: 18,
+        opacity: 1,
+        zIndex: 1,
+      }).addTo(mapInstance);
+
+      layer.on('tileerror', () => {
+        if (cancelled) return;
+        setSentinelLayerStatus('error');
+        setSentinelLayerError('Earth Engine devolvió la escena, pero no se pudieron cargar los tiles Sentinel-2.');
+      });
+
+      sentinelLayerRef.current = layer;
+      setSentinelLayerStatus('ready');
+      setSentinelLayerInfo({
+        lotName: sentinelLot?.name || 'Campo',
+        date: layerData.date || sentinelLot?.ndviObservationDate || null,
+        sceneId: layerData.sceneId || sentinelLot?.ndviSceneId || null,
+      });
+    };
+
+    const cachedLayer = sentinelLayerCache.get(sentinelCacheKey);
+    if (cachedLayer) {
+      mountSentinelLayer(cachedLayer);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const sentinelRequest = sentinelLot?.ndviSceneId
       ? getSentinelMapLayerApi(sentinelLot.id, sentinelLot.ndviSceneId)
       : getSentinelMapLayerByCenterApi(center[0], center[1], 9000);
@@ -145,24 +203,13 @@ export default function DashboardMap({
       if (cancelled) return;
 
       if (result.ok && result.data?.tile_url_template) {
-        const layer = L.tileLayer(result.data.tile_url_template, {
-          maxZoom: 18,
-          opacity: 1,
-          zIndex: 1,
-        }).addTo(mapInstance);
-
-        layer.on('tileerror', () => {
-          if (cancelled) return;
-          setSentinelLayerStatus('error');
-          setSentinelLayerError('Earth Engine devolvió la escena, pero no se pudieron cargar los tiles Sentinel-2.');
-        });
-        sentinelLayerRef.current = layer;
-        setSentinelLayerStatus('ready');
-        setSentinelLayerInfo({
-          lotName: sentinelLot?.name || 'Campo',
+        const layerData = {
+          tileUrlTemplate: result.data.tile_url_template,
           date: result.data.date || sentinelLot?.ndviObservationDate || null,
           sceneId: result.data.sentinel_scene_id || sentinelLot?.ndviSceneId || null,
-        });
+        };
+        sentinelLayerCache.set(sentinelCacheKey, layerData);
+        mountSentinelLayer(layerData);
       } else {
         setSentinelLayerStatus('error');
         setSentinelLayerError(result.data?.detail || 'No se pudo cargar la imagen Sentinel-2 del lote.');
@@ -176,7 +223,7 @@ export default function DashboardMap({
     return () => {
       cancelled = true;
     };
-  }, [center, mapInstance, sentinelLot]);
+  }, [activeLayer, center, mapInstance, sentinelCacheKey, sentinelLot]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -199,7 +246,9 @@ export default function DashboardMap({
 
       let colorMap = { border: '#10b981', fill: '#34d399', badge: 'bg-emerald-500 text-white', label: 'Normal' };
       
-      if (activeLayer === 'alertas') {
+      if (activeLayer === 'estadoActual') {
+        colorMap = { border: '#e0f2fe', fill: '#0f172a', badge: 'bg-slate-700 text-white', label: 'Imagen actual' };
+      } else if (activeLayer === 'alertas') {
         const status = lot.hydricStatus || 'Normal';
         colorMap = {
           Normal: { border: '#10b981', fill: '#34d399', badge: 'bg-emerald-500 text-white', label: 'Normal' },
@@ -233,8 +282,8 @@ export default function DashboardMap({
       const polygon = L.polygon(lot.polygon, {
         color: colorMap.border,
         fillColor: colorMap.fill,
-        fillOpacity: 0.32,
-        weight: 2.5,
+        fillOpacity: activeLayer === 'estadoActual' ? 0.05 : 0.32,
+        weight: activeLayer === 'estadoActual' ? 3 : 2.5,
       }).addTo(mapInstance);
 
       polygon.on('click', () => {
@@ -289,7 +338,9 @@ export default function DashboardMap({
       
       let colorMap = { border: '#10b981', fill: '#34d399' };
       
-      if (activeLayer === 'alertas') {
+      if (activeLayer === 'estadoActual') {
+        colorMap = { border: '#e0f2fe', fill: '#0f172a' };
+      } else if (activeLayer === 'alertas') {
         const status = lot.hydricStatus || 'Normal';
         colorMap = {
           Normal: { border: '#10b981', fill: '#34d399' },
@@ -323,8 +374,8 @@ export default function DashboardMap({
       polygon.setStyle({
         color: isSelected ? '#e0f2fe' : colorMap.border,
         fillColor: colorMap.fill,
-        fillOpacity: isSelected ? 0.5 : 0.24,
-        weight: isSelected ? 5 : 2.5,
+        fillOpacity: activeLayer === 'estadoActual' ? (isSelected ? 0.08 : 0.03) : (isSelected ? 0.5 : 0.24),
+        weight: isSelected ? 5 : activeLayer === 'estadoActual' ? 3 : 2.5,
         opacity: isSelected ? 1 : 0.78,
       });
 
@@ -372,8 +423,24 @@ export default function DashboardMap({
       {/* Map Floating Legend */}
       <div className="absolute top-4 left-4 z-[400] flex flex-wrap items-center gap-2 rounded-2xl border border-white/20 bg-slate-950/80 p-2 text-xs text-white backdrop-blur-md shadow-lg">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pl-1">
-          {activeLayer === 'alertas' ? 'Estado:' : activeLayer === 'ndvi' ? 'Vigor satelital:' : 'Agua disponible:'}
+          {activeLayer === 'alertas'
+            ? 'Estado:'
+            : activeLayer === 'ndvi'
+              ? 'Vigor satelital:'
+              : activeLayer === 'estadoActual'
+                ? 'Última imagen satelital:'
+                : 'Agua disponible:'}
         </span>
+        {activeLayer === 'estadoActual' && (
+          <>
+            <span className="flex items-center gap-1 text-[11px] rounded-lg bg-sky-500/20 px-2 py-0.5 text-sky-200 border border-sky-500/30">
+              Sentinel-2 · 10 m/píxel
+            </span>
+            <span className="flex items-center gap-1 text-[11px] rounded-lg bg-slate-700/70 px-2 py-0.5 text-slate-200 border border-white/10">
+              Contorno del lote
+            </span>
+          </>
+        )}
         {activeLayer === 'alertas' && (
           <>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-emerald-500/20 px-2 py-0.5 text-emerald-300 border border-emerald-500/30">
@@ -447,21 +514,39 @@ export default function DashboardMap({
         >
           <span>Agua disponible</span>
         </button>
+        <button
+          onClick={() => setActiveLayer('estadoActual')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all text-xs ${
+            activeLayer === 'estadoActual' ? 'bg-crop-600 text-white shadow-sm font-extrabold' : 'text-slate-300 hover:text-white'
+          }`}
+        >
+          <span>Estado actual del lote</span>
+        </button>
       </div>
 
-      <div className="absolute bottom-4 left-4 z-[400] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
-        {sentinelLayerStatus === 'loading' && (
+      {activeLayer === 'estadoActual' && (
+        <div className="absolute bottom-4 left-4 z-[400] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
+          {sentinelLayerStatus === 'loading' && (
           <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
-        )}
-        {sentinelLayerStatus === 'ready' && sentinelLayerInfo && (
+          )}
+          {sentinelLayerStatus === 'ready' && sentinelLayerInfo && (
           <span className="font-semibold text-slate-200">
             Sentinel-2: {sentinelLayerInfo.lotName}
             {sentinelLayerInfo.date ? ` · ${sentinelLayerInfo.date}` : ''}
           </span>
-        )}
-        {(sentinelLayerStatus === 'idle' || sentinelLayerStatus === 'error') && (
+          )}
+          {sentinelLayerStatus === 'error' && (
           <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
-        )}
+          )}
+        </div>
+      )}
+
+      <div className="absolute bottom-4 right-16 z-[400] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur-md">
+        {activeLayer === 'estadoActual'
+          ? sentinelLayerInfo?.date
+            ? `Imagen reciente · ${sentinelLayerInfo.date}`
+            : 'Imagen reciente Sentinel-2'
+          : 'Imagen guía HD · no actual'}
       </div>
     </div>
   );
