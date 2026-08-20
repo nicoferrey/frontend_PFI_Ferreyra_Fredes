@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import "leaflet/dist/leaflet.css";
-import { getSentinelMapLayerApi } from '@/lib/api';
+import { getSentinelMapLayerApi, getSentinelMapLayerByCenterApi } from '@/lib/api';
 
 export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad';
 
@@ -62,8 +62,8 @@ export default function DashboardMap({
   const [sentinelLayerError, setSentinelLayerError] = useState<string | null>(null);
 
   const sentinelLot = useMemo(() => {
-    const selected = lots.find((lot) => lot.id === selectedLotId && lot.ndviSceneId);
-    return selected || lots.find((lot) => lot.ndviSceneId) || null;
+    const selected = lots.find((lot) => lot.id === selectedLotId);
+    return selected || lots.find((lot) => lot.ndviSceneId) || lots[0] || null;
   }, [lots, selectedLotId]);
 
   useEffect(() => {
@@ -128,19 +128,20 @@ export default function DashboardMap({
       sentinelLayerRef.current = null;
     }
 
-    if (!sentinelLot?.ndviSceneId) {
-      setSentinelLayerStatus('idle');
-      setSentinelLayerInfo(null);
-      setSentinelLayerError('Sin escena Sentinel-2. Actualizá agentes para cargar la imagen del lote.');
-      return;
-    }
-
     let cancelled = false;
     setSentinelLayerStatus('loading');
-    setSentinelLayerInfo({ lotName: sentinelLot.name, date: sentinelLot.ndviObservationDate, sceneId: sentinelLot.ndviSceneId });
+    setSentinelLayerInfo(
+      sentinelLot
+        ? { lotName: sentinelLot.name, date: sentinelLot.ndviObservationDate, sceneId: sentinelLot.ndviSceneId }
+        : { lotName: 'Campo', date: null, sceneId: null }
+    );
     setSentinelLayerError(null);
 
-    getSentinelMapLayerApi(sentinelLot.id, sentinelLot.ndviSceneId).then((result) => {
+    const sentinelRequest = sentinelLot?.ndviSceneId
+      ? getSentinelMapLayerApi(sentinelLot.id, sentinelLot.ndviSceneId)
+      : getSentinelMapLayerByCenterApi(center[0], center[1], 9000);
+
+    sentinelRequest.then((result) => {
       if (cancelled) return;
 
       if (result.ok && result.data?.tile_url_template) {
@@ -158,9 +159,9 @@ export default function DashboardMap({
         sentinelLayerRef.current = layer;
         setSentinelLayerStatus('ready');
         setSentinelLayerInfo({
-          lotName: sentinelLot.name,
-          date: result.data.date || sentinelLot.ndviObservationDate,
-          sceneId: result.data.sentinel_scene_id || sentinelLot.ndviSceneId,
+          lotName: sentinelLot?.name || 'Campo',
+          date: result.data.date || sentinelLot?.ndviObservationDate || null,
+          sceneId: result.data.sentinel_scene_id || sentinelLot?.ndviSceneId || null,
         });
       } else {
         setSentinelLayerStatus('error');
@@ -175,7 +176,7 @@ export default function DashboardMap({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, sentinelLot]);
+  }, [center, mapInstance, sentinelLot]);
 
   useEffect(() => {
     const L = leafletRef.current;
