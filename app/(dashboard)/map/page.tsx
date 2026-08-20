@@ -6,6 +6,8 @@ import { Sparkles } from 'lucide-react';
 import { useDashboard, formatDate, defaultDemoPolygons } from '../context';
 import { LotDetailView } from '@/components/lot-detail-view';
 import { DashboardMapLayer } from '@/components/dashboard-map';
+import { PageHeader } from '@/components/page-header';
+import { HeaderButton } from '@/components/header-button';
 import {
   createIrrigationEventApi,
   refreshFieldAgentSnapshotApi,
@@ -244,48 +246,43 @@ export default function DashboardMapPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      
-      {/* Page Subheader */}
-      <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Mapeo Satelital & Balance</p>
-            <h2 className="text-2xl font-bold text-slate-950">Mapa de Lotes y Fichas de Balance Hídrico</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Haz clic en cualquier lote en el mapa o en las tarjetas inferiores para inspeccionar sus parámetros en tiempo real.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
-              <span className="font-semibold text-slate-700">Lote activo:</span>
-              <span className="rounded-md bg-crop-50 px-2 py-0.5 font-bold text-crop-800 border border-crop-200">
-                {selectedLot?.name || 'N/A'}
-              </span>
-            </div>
+      {/* Page Subheader - PageHeader Component */}
+      <PageHeader
+        badge="Mapeo Satelital & Balance"
+        title="Mapa de Lotes y Fichas de"
+        titleAccent="Balance Hídrico"
+        action={
+          <div className="flex items-center gap-3">
             {selectedField && (
-              <button
-                onClick={handleRefreshSelectedAgents}
+              <HeaderButton
+                variant="primary"
+                icon={<Sparkles className="h-3.5 w-3.5" />}
                 disabled={isRefreshingAgents}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleRefreshSelectedAgents}
               >
-                <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
                 {isRefreshingAgents ? 'Actualizando...' : selectedSnapshot ? 'Actualizar agentes' : 'Cargar agentes'}
-              </button>
+              </HeaderButton>
             )}
-            {selectedSnapshot && (
-              <span className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-                Snapshot: {formatDate(selectedSnapshot.generated_at)}
+
+            {/* Compact 2-line mini badge card (Exact h-10 matching button height) */}
+            <div className="flex h-10 flex-col justify-center rounded-2xl border border-slate-200/90 bg-white/90 px-3.5 shadow-2xs backdrop-blur-sm text-right leading-tight">
+              <span className="text-xs font-extrabold text-slate-950">
+                {selectedLot?.name || 'Lote N/A'}
               </span>
-            )}
+              {selectedSnapshot && (
+                <span className="text-[10px] font-semibold text-emerald-700 font-mono">
+                  Snapshot: {formatDate(selectedSnapshot.generated_at)}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        }
+      />
         {agentRefreshError && (
           <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
             {agentRefreshError}
           </p>
         )}
-      </div>
 
       {/* Interactive Satellite Map Container */}
       <div className="overflow-hidden rounded-[30px] border border-slate-900 bg-slate-950 p-6 text-white shadow-soft">

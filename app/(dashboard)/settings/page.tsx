@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { FarmSettingsView } from '@/components/farm-settings-view';
+import { PageHeader } from '@/components/page-header';
 import { 
   User, 
   Settings, 
@@ -23,9 +24,15 @@ import { updateUserProfileApi, changePasswordApi, FieldRole } from '@/lib/api';
 export default function DashboardSettingsPage() {
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, logout, setUserRole } = auth;
 
-  const [activeTab, setActiveTab] = useState<'farm' | 'profile'>('farm');
+  const tabQuery = searchParams.get('tab');
+  const activeTab = tabQuery === 'profile' ? 'profile' : 'farm';
+
+  const handleTabChange = (tab: 'farm' | 'profile') => {
+    router.push(`/settings?tab=${tab}`, { scroll: false });
+  };
 
   // Helper to extract first and last name from user
   const getUserNameParts = (u: typeof user) => {
@@ -160,13 +167,13 @@ export default function DashboardSettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">
       
-      {/* Settings Navigation Bar - Inspired by grey tab strip UI with rounded corners */}
+      {/* Settings Navigation Bar - Tab selector at top */}
       <div className="rounded-[24px] border border-slate-200/90 bg-[#ebf0f5] p-1.5 shadow-sm overflow-hidden">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {/* Tab 1: Configuración del Campo (FIRST) */}
           <button
             type="button"
-            onClick={() => setActiveTab('farm')}
+            onClick={() => handleTabChange('farm')}
             className={`relative flex items-center gap-2.5 px-6 py-3 text-xs font-bold transition-all duration-150 rounded-xl ${
               activeTab === 'farm'
                 ? 'bg-white text-slate-950 shadow-md border-b-2 border-crop-600'
@@ -180,7 +187,7 @@ export default function DashboardSettingsPage() {
           {/* Tab 2: Mi Cuenta (SECOND) */}
           <button
             type="button"
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleTabChange('profile')}
             className={`relative flex items-center gap-2.5 px-6 py-3 text-xs font-bold transition-all duration-150 rounded-xl ${
               activeTab === 'profile'
                 ? 'bg-white text-slate-950 shadow-md border-b-2 border-water-600'
@@ -193,6 +200,13 @@ export default function DashboardSettingsPage() {
         </div>
       </div>
 
+      {/* Page Header Box - Positioned below tab selector */}
+      <PageHeader
+        badge="Configuración"
+        title={activeTab === 'farm' ? 'Configuración del' : 'Perfil de'}
+        titleAccent={activeTab === 'farm' ? 'Campo' : 'Mi Cuenta'}
+      />
+
       {activeTab === 'profile' && (
         <div className="grid gap-6 md:grid-cols-3 items-stretch">
           
@@ -200,8 +214,7 @@ export default function DashboardSettingsPage() {
           <div className="md:col-span-2 flex flex-col h-full">
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mb-5">
-                  <UserCheck className="h-5 w-5 text-sky-500" />
+                <div className="border-b border-slate-100 pb-4 mb-5">
                   <h3 className="text-base font-bold text-slate-950">Datos Personales</h3>
                 </div>
 

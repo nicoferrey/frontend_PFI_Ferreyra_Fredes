@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -30,11 +30,15 @@ import {
   Sparkles,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import { useDashboard } from '../context';
 import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
+import { PageHeader } from '@/components/page-header';
+import { HeaderButton } from '@/components/header-button';
 import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
@@ -90,6 +94,20 @@ export default function DashboardHistoryPage() {
   const [ndviHistory, setNdviHistory] = useState<NdviHistoryItem[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Export report dropdown state & ref
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setIsExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Unified event registration modal state (Riego / Lluvia)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -586,22 +604,18 @@ export default function DashboardHistoryPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header card with selection and export actions */}
-      <div className="relative z-30 rounded-[28px] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-water-100 text-water-700">
-              <History className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-950">Historial y Reportes del Campo</h2>
-              <p className="text-xs text-slate-500">Registro histórico de balances hídricos, precipitaciones y eventos de riego por lote.</p>
-            </div>
-          </div>
-
-          {/* Actions buttons */}
+      {/* Header card with selection and export actions - PageHeader Component */}
+      <PageHeader
+        className="z-30"
+        badge="Historial & Reportes"
+        title="Historial y Reportes del"
+        titleAccent="Campo"
+        action={
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
+            <HeaderButton
+              variant="crop"
+              icon={<Plus className="h-3.5 w-3.5" />}
+              disabled={!selectedField}
               onClick={() => {
                 setEventForm({
                   type: 'riego',
@@ -613,35 +627,73 @@ export default function DashboardHistoryPage() {
                 });
                 setIsEventModalOpen(true);
               }}
-              disabled={!selectedField}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-150 disabled:opacity-50"
             >
-              <Plus className="h-4 w-4" />
               Registrar Evento (Riego / Lluvia)
-            </button>
+            </HeaderButton>
 
-            <button
-              onClick={() => handleExportReport('xlsx')}
-              disabled={!selectedField || isLoadingReports}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition disabled:opacity-50"
-            >
-              <Download className="h-4 w-4 text-emerald-600" />
-              Exportar Reporte (Excel)
-            </button>
+            {/* Unified Export Report Dropdown Button */}
+            <div className="relative z-50" ref={exportDropdownRef}>
+              <HeaderButton
+                variant="primary"
+                icon={<Download className="h-3.5 w-3.5" />}
+                trailingIcon={
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                      isExportDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                }
+                disabled={!selectedField || isLoadingReports}
+                onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+              >
+                Exportar Reporte
+              </HeaderButton>
 
-            <button
-              onClick={handleExportOperationalSummary}
-              disabled={lotsData.length === 0}
-              className="inline-flex items-center gap-2 rounded-2xl border border-crop-200 bg-crop-50 hover:bg-crop-100 px-4 py-2.5 text-xs font-semibold text-crop-800 shadow-sm transition disabled:opacity-50"
-            >
-              <Download className="h-4 w-4 text-crop-700" />
-              Resumen operativo (CSV)
-            </button>
+              {isExportDropdownOpen && (
+                <div className="absolute right-0 mt-2.5 w-72 rounded-2xl border border-slate-200/90 bg-white/95 p-2 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 z-50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportReport('xlsx');
+                      setIsExportDropdownOpen(false);
+                    }}
+                    disabled={!selectedField || isLoadingReports}
+                    className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <FileSpreadsheet className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Reporte Detallado del Lote</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Formato Excel (.xlsx) con balances y eventos</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportOperationalSummary();
+                      setIsExportDropdownOpen(false);
+                    }}
+                    disabled={lotsData.length === 0}
+                    className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition hover:bg-slate-50 disabled:opacity-50 border-t border-slate-100 mt-1 pt-3"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 border border-sky-100">
+                      <FileText className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Resumen Operativo del Campo</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Formato CSV (.csv) con superficies y métricas</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
+        }
+      >
         {/* Modernized Filter bar */}
-        <div className="mt-6 border-t border-slate-200/80 pt-5">
+        <div>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
               <SlidersHorizontal className="h-4 w-4 text-crop-600" />
@@ -717,7 +769,7 @@ export default function DashboardHistoryPage() {
             </div>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Reports Summary KPI Cards */}
       <div className="grid gap-4 md:grid-cols-4">

@@ -15,6 +15,8 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useDashboard, defaultDemoPolygons } from './context';
+import { PageHeader } from '@/components/page-header';
+import { HeaderButton } from '@/components/header-button';
 
 const DashboardMap = dynamic(
   () => import('@/components/dashboard-map'),
@@ -151,24 +153,21 @@ export default function DashboardHome() {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Subheader Title */}
-      <div className="rounded-[28px] border border-white/70 bg-white/75 px-5 py-4 shadow-soft backdrop-blur md:px-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Tablero general</p>
-            <h2 className="text-2xl font-semibold text-slate-950 md:text-3xl">Monitoreo agroclimático y balance de lotes</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/map"
-              className="flex items-center gap-2 rounded-2xl bg-slate-950 text-white hover:bg-slate-800 px-4 py-2.5 text-xs font-bold shadow-md transition"
-            >
-              <Map className="h-4 w-4 text-emerald-400" />
-              Ver Visor Detallado
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* Subheader Title Banner - PageHeader Component */}
+      <PageHeader
+        badge="Tablero General"
+        title="Monitoreo Agroclimático &"
+        titleAccent="Balance de Lotes"
+        action={
+          <HeaderButton
+            href="/map"
+            icon={<Map className="h-3.5 w-3.5" />}
+            trailingIcon={<ArrowUpRight className="h-3.5 w-3.5" />}
+          >
+            Ver Visor Detallado
+          </HeaderButton>
+        }
+      />
 
       {estimatedLots.length > 0 && (
         <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-soft">

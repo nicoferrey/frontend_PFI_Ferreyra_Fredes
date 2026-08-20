@@ -17,6 +17,7 @@ import {
   Layers
 } from 'lucide-react';
 import { useDashboard } from '@/app/(dashboard)/context';
+import { PageHeader } from '@/components/page-header';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -88,31 +89,20 @@ export default function DashboardAssistantPage() {
   return (
     <div className="space-y-6 animate-fade-in text-slate-900 dark:text-slate-100">
       
-      {/* HEADER HERO BANNER */}
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-600 to-water-600 text-white shadow-md">
-              <Bot className="h-7 w-7" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-950 dark:text-white">
-                Asistente Inteligente MAS (Multi-Agent System)
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Interacciones autónomas con sensores, satélites, meteorología y canales de comunicación.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800">
+      {/* HEADER HERO BANNER - PageHeader Component */}
+      <PageHeader
+        badge="Multi-Agent System"
+        title="Asistente Inteligente"
+        titleAccent="MAS"
+        action={
+          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
             <span className={`h-2 w-2 rounded-full ${isRefreshingAgents ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-            {isRefreshingAgents ? 'Consultando agentes...' : 'Sistema MAS en línea'}
+            <span>{isRefreshingAgents ? 'Consultando agentes...' : 'Sistema MAS en línea'}</span>
           </div>
-        </div>
-
-        {/* Dynamic Lot Selector Cards (Matching User Image Layout) */}
-        <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-5">
+        }
+      >
+        {/* Dynamic Lot Selector Cards */}
+        <div>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
             Seleccionar lote para inspeccionar diagnóstico:
           </p>
@@ -142,7 +132,7 @@ export default function DashboardAssistantPage() {
             })}
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       {/* THREE ACTIVE AGENTS CARDS (Alternating dark and light) */}
       <div className="grid gap-4 md:grid-cols-3">
