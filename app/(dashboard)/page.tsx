@@ -239,27 +239,27 @@ export default function DashboardHome() {
       {/* Two Columns: IA Agent Priority Warnings & Consolidated List */}
       <div className="grid gap-6 lg:grid-cols-12">
         
-        {/* IA Priority Alerts Panel (Left Column - Redesigned to match Asistente IA style) */}
+        {/* IA Priority Alerts Panel (Left Column - Compact & Emerald/Water Palette) */}
         <section className="lg:col-span-5 flex flex-col h-full">
-          <div className="rounded-[30px] border border-slate-200/90 bg-white p-6 shadow-soft flex-1 flex flex-col justify-between text-slate-900">
+          <div className="rounded-[28px] border border-slate-200/90 bg-white p-5 shadow-soft flex-1 flex flex-col justify-between text-slate-900">
             <div>
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-crop-50 text-crop-700 border border-crop-200/80 shadow-2xs">
-                    <BrainCircuit className="h-5 w-5" />
+                  <div className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-crop-50 text-crop-700 border border-crop-200/80 shadow-2xs">
+                    <BrainCircuit className="h-4.5 w-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-950">Alertas Prioritarias de Agentes</h3>
-                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Recomendaciones operativas proactivas de MAS</p>
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-950">Alertas Prioritarias de Agentes</h3>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Recomendaciones operativas de MAS</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 space-y-4">
+              <div className="mt-3.5 space-y-3">
                 {priorityAlerts.length === 0 ? (
-                  <div className="py-10 px-4 text-center rounded-2xl bg-emerald-50/50 border border-dashed border-emerald-200">
-                    <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500 mb-3" />
+                  <div className="py-8 px-4 text-center rounded-2xl bg-emerald-50/50 border border-dashed border-emerald-200">
+                    <CheckCircle2 className="h-9 w-9 mx-auto text-emerald-500 mb-2" />
                     <h4 className="text-sm font-bold text-emerald-950">¡Estabilidad Hídrica Lograda!</h4>
                     <p className="text-xs text-emerald-700 mt-1 max-w-[280px] mx-auto leading-relaxed">
                       Ningún lote se encuentra bajo estrés crítico. Los agentes no recomiendan intervención inmediata.
@@ -271,64 +271,64 @@ export default function DashboardHome() {
                     return (
                       <div
                         key={alert.id}
-                        className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xs space-y-4"
+                        className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3"
                       >
-                        {/* Status Banner */}
-                        <div className={`flex items-center justify-between gap-3 rounded-2xl p-4 border shadow-2xs ${
+                        {/* Status Banner (Green & Blue Tones) */}
+                        <div className={`flex items-center justify-between gap-2.5 rounded-xl p-3 border shadow-2xs ${
                           isHigh
-                            ? 'bg-gradient-to-r from-rose-50 via-rose-50/60 to-white border-rose-200/90'
-                            : 'bg-gradient-to-r from-amber-50 via-amber-50/60 to-white border-amber-200/90'
+                            ? 'bg-gradient-to-r from-sky-50 via-water-50/50 to-white border-sky-200/90'
+                            : 'bg-gradient-to-r from-emerald-50 via-crop-50/50 to-white border-emerald-200/90'
                         }`}>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
-                              isHigh ? 'bg-rose-500 text-white' : 'bg-amber-500 text-slate-950'
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-2xs ${
+                              isHigh ? 'bg-water-600 text-white' : 'bg-emerald-600 text-white'
                             }`}>
                               {isHigh ? (
-                                <AlertTriangle className="h-5 w-5" />
+                                <AlertTriangle className="h-4.5 w-4.5" />
                               ) : (
-                                <Sparkles className="h-5 w-5" />
+                                <Sparkles className="h-4.5 w-4.5" />
                               )}
                             </div>
                             <div className="min-w-0">
-                              <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block">Lote</span>
-                              <h4 className="text-sm font-black text-slate-950 truncate">
+                              <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-400 block">Lote</span>
+                              <h4 className="text-xs sm:text-sm font-black text-slate-950 truncate">
                                 {alert.name} <span className="text-xs font-semibold text-slate-500">({alert.crop})</span>
                               </h4>
                             </div>
                           </div>
 
-                          <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold shadow-2xs border ${
+                          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold border ${
                             isHigh
-                              ? 'bg-rose-100 text-rose-800 border-rose-200'
-                              : 'bg-amber-100 text-amber-800 border-amber-200'
+                              ? 'bg-sky-100 text-sky-800 border-sky-200'
+                              : 'bg-emerald-100 text-emerald-800 border-emerald-200'
                           }`}>
                             Prioridad: {alert.priority}
                           </span>
                         </div>
 
-                        {/* Justification Box */}
-                        <div className="rounded-2xl bg-slate-50/90 p-4 border border-slate-200/80 border-l-4 border-l-crop-600">
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">
+                        {/* Justification Box (Compact with Green Left Border Accent) */}
+                        <div className="rounded-xl bg-slate-50/90 p-3 border border-slate-200/80 border-l-4 border-l-crop-600">
+                          <p className="text-[9px] text-slate-400 uppercase tracking-wider font-extrabold">
                             Diagnóstico y Recomendación Agronómica:
                           </p>
-                          <p className="mt-1.5 text-xs font-medium text-slate-800 leading-relaxed">
+                          <p className="mt-1 text-xs font-medium text-slate-800 leading-relaxed">
                             "{alert.reason}"
                           </p>
                         </div>
 
-                        {/* Footer & Action Button */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 border-t border-slate-100">
+                        {/* Footer & Compact Action Button */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-0.5">
                           <div className="text-xs">
-                            <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Ventana sugerida:</span>
-                            <span className="font-extrabold font-mono text-slate-900">{alert.window}</span>
+                            <span className="text-slate-400 block text-[9px] font-bold uppercase tracking-wider">Ventana sugerida:</span>
+                            <span className="font-extrabold font-mono text-slate-900 text-xs">{alert.window}</span>
                           </div>
 
                           <button
                             onClick={() => handleInspectLot(alert.id)}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-extrabold px-4 py-2.5 text-xs transition shadow-sm"
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-extrabold px-3.5 py-2 text-xs transition shadow-2xs"
                           >
                             <span>Inspeccionar</span>
-                            <ArrowUpRight className="h-4 w-4 text-emerald-400" />
+                            <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
                           </button>
                         </div>
                       </div>
@@ -339,11 +339,11 @@ export default function DashboardHome() {
             </div>
 
             {priorityAlerts.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
-                <span className="flex items-center gap-1.5 font-semibold text-slate-600">
-                  <Sparkles className="h-4 w-4 text-amber-500" /> Optimización energética activa
+              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Optimización energética activa
                 </span>
-                <span className="font-bold text-slate-700">{priorityAlerts.length} alerta{priorityAlerts.length > 1 ? 's' : ''}</span>
+                <span className="font-extrabold text-slate-700 text-xs">{priorityAlerts.length} alerta{priorityAlerts.length > 1 ? 's' : ''}</span>
               </div>
             )}
           </div>
