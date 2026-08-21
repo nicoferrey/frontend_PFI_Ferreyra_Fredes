@@ -322,7 +322,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             </p>
           </div>
 
-          {/* Action Buttons: Registrar Riego (CU-05) & Exportar */}
+          {/* Action Buttons: Registrar Riego & Exportar */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => setIsRegisterModalOpen(true)}

@@ -89,16 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 })}
               </nav>
 
-              {/* Wizard Link */}
-              <div className="mt-6 pt-4 border-t border-slate-200/80 space-y-2">
-                <Link 
-                  href="/onboarding" 
-                  className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white rounded-2xl py-3 px-4 text-xs font-bold shadow-md hover:shadow-lg transition duration-200"
-                >
-                  <MapPinned className="h-4 w-4" />
-                  Configurar Campo (Wizard)
-                </Link>
-              </div>
+
             </div>
 
             {/* System Status */}

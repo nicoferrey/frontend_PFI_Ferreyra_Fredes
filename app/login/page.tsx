@@ -96,7 +96,7 @@ export default function LoginPage() {
         <div className="relative z-10 border-t border-white/10 pt-4 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>Infraestructura Segura &bull; Tesis de Grado PFI</span>
+            <span>Infraestructura Segura &bull; Cloud AgroMAS</span>
           </div>
           <span>AgroMAS &copy; 2026</span>
         </div>

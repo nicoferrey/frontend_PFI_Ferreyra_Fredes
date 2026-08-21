@@ -34,6 +34,8 @@ import {
   Eye,
   RefreshCw,
   UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   FieldItem,
@@ -87,7 +89,7 @@ const roleDetails: Record<
   operator: {
     title: 'Operador de Riego',
     shortTitle: 'Operador',
-    description: 'Registro de eventos de riego (CU-05) y recepción de alertas operativas por WhatsApp.',
+    description: 'Registro de eventos de riego y recepción de alertas operativas por WhatsApp.',
     badgeStyle: 'bg-amber-50 text-amber-800 border-amber-200 ring-1 ring-amber-500/20',
     avatarGradient: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-amber-500/25',
     ringColor: 'ring-amber-100',
@@ -104,6 +106,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | FieldRole>('all');
+  const [isPermissionsExpanded, setIsPermissionsExpanded] = useState(false);
 
   // Add User Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -240,70 +243,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* 1. TOP HERO HEADER & ROLE TOGGLE */}
-      <div className="rounded-[28px] border border-white/80 bg-white/90 p-6 md:p-8 shadow-soft backdrop-blur-md">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4 md:gap-5">
-            <div className="flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-600 to-water-600 text-white shadow-xl shadow-crop-600/25 shrink-0">
-              <Settings className="h-7 w-7 md:h-8 md:w-8" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">Panel de Control</span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold border ${roleDetails[activeUserRole].badgeStyle}`}>
-                  {React.createElement(roleDetails[activeUserRole].icon, { className: 'h-3.5 w-3.5' })}
-                  {roleDetails[activeUserRole].title}
-                </span>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-1.5 tracking-tight">
-                Configuración del Campo y Equipo
-              </h2>
-              <p className="text-xs md:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-                Administra los miembros con acceso a las parcelas, asigna roles agronómicos y configura parámetros de riego y alertas de WhatsApp.
-              </p>
-            </div>
-          </div>
 
-          {/* Quick Role Tester / Switcher Pill */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-2 rounded-2xl bg-slate-100/90 border border-slate-200 shadow-inner">
-            <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-              <Eye className="h-3.5 w-3.5 text-slate-500" />
-              <span>Simular Rol:</span>
-            </div>
-            <div className="flex gap-1">
-              {(['admin', 'agronomist', 'operator'] as FieldRole[]).map((r) => {
-                const isActive = activeUserRole === r;
-                return (
-                  <button
-                    key={r}
-                    onClick={() => setUserRole(r)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-slate-900 text-white shadow-md ring-1 ring-slate-800'
-                        : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                    }`}
-                  >
-                    {roleDetails[r].shortTitle}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Informative alert if the user is NOT the owner */}
-        {!currentUserIsDueño && (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/90 p-4.5 flex items-start gap-3.5 text-amber-900 text-xs">
-            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold text-amber-950 text-sm">Modo Colaborador ({roleDetails[activeUserRole].shortTitle})</p>
-              <p className="mt-0.5 text-amber-800 leading-relaxed">
-                Estás visualizando la configuración como <span className="font-semibold">{roleDetails[activeUserRole].title}</span>. La invitación y desvinculación de usuarios está reservada exclusivamente para el <span className="font-bold">Dueño / Administrador</span> del establecimiento.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* 2. SECTION: GESTIÓN DE USUARIOS Y ROLES DEL CAMPO */}
       <div className="rounded-[28px] border border-white/80 bg-white/90 p-6 md:p-8 shadow-soft backdrop-blur-md">
@@ -516,70 +456,88 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
           )}
         </div>
 
-        {/* 3. ROLES PERMISSIONS MATRIX */}
-        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 md:p-6">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="p-2 rounded-xl bg-crop-100 text-crop-800">
-              <ShieldCheck className="h-5 w-5" />
+        {/* 3. ROLES PERMISSIONS MATRIX (Collapsible Toggle) */}
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 md:p-6 transition-all duration-200">
+          <div 
+            onClick={() => setIsPermissionsExpanded((prev) => !prev)}
+            className="flex items-center justify-between cursor-pointer select-none"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-crop-100 text-crop-800">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm md:text-base font-bold text-slate-900">Matriz de Permisos y Accesos por Rol</h4>
+                <p className="text-xs text-slate-500">Esquema de seguridad y autorización en AgroMAS.</p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm md:text-base font-bold text-slate-900">Matriz de Permisos y Accesos por Rol</h4>
-              <p className="text-xs text-slate-500">Esquema de seguridad y autorización en AgroMAS.</p>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-slate-700 border border-slate-200 shadow-2xs hover:bg-slate-50 transition"
+            >
+              <span>{isPermissionsExpanded ? 'Ocultar Matriz' : 'Ver Matriz de Permisos'}</span>
+              {isPermissionsExpanded ? (
+                <ChevronUp className="h-4 w-4 text-slate-500" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-slate-500" />
+              )}
+            </button>
+          </div>
+
+          {isPermissionsExpanded && (
+            <div className="mt-4 border-t border-slate-200/80 pt-4 overflow-x-auto animate-fade-in">
+              <table className="w-full text-left text-xs md:text-sm">
+                <thead className="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-2.5 pr-4">Funcionalidad del Sistema</th>
+                    <th className="py-2.5 px-4 text-center text-emerald-800">Dueño / Admin</th>
+                    <th className="py-2.5 px-4 text-center text-sky-800">Asesor Agronómico</th>
+                    <th className="py-2.5 px-4 text-center text-amber-800">Operario de Campo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/70 text-slate-700 text-xs">
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Control total del campo y facturación</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Total</td>
+                    <td className="py-3 px-4 text-center text-slate-400">—</td>
+                    <td className="py-3 px-4 text-center text-slate-400">—</td>
+                  </tr>
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Agregar / Modificar usuarios y asignar roles</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-slate-400">Solo lectura</td>
+                    <td className="py-3 px-4 text-center text-slate-400">Solo lectura</td>
+                  </tr>
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Delimitar lotes satelitales y suelos (Wizard)</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-slate-400">—</td>
+                  </tr>
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Auditar balance hídrico FAO-56 y curvas NDVI</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-slate-400">Básico</td>
+                  </tr>
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Registrar eventos de riego</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-amber-600 font-bold">✓ Sí (Móvil)</td>
+                  </tr>
+                  <tr className="hover:bg-white/60 transition">
+                    <td className="py-3 pr-4 font-medium">Alertas automáticas de bombeo por WhatsApp</td>
+                    <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
+                    <td className="py-3 px-4 text-center text-amber-600 font-bold">✓ Sí</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs md:text-sm">
-              <thead className="border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <tr>
-                  <th className="py-2.5 pr-4">Funcionalidad del Sistema</th>
-                  <th className="py-2.5 px-4 text-center text-emerald-800">Dueño / Admin</th>
-                  <th className="py-2.5 px-4 text-center text-sky-800">Asesor Agronómico</th>
-                  <th className="py-2.5 px-4 text-center text-amber-800">Operario de Campo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/70 text-slate-700 text-xs">
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Control total del campo y facturación</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Total</td>
-                  <td className="py-3 px-4 text-center text-slate-400">—</td>
-                  <td className="py-3 px-4 text-center text-slate-400">—</td>
-                </tr>
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Agregar / Modificar usuarios y asignar roles</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-slate-400">Solo lectura</td>
-                  <td className="py-3 px-4 text-center text-slate-400">Solo lectura</td>
-                </tr>
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Delimitar lotes satelitales y suelos (Wizard)</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-slate-400">—</td>
-                </tr>
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Auditar balance hídrico FAO-56 y curvas NDVI</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-slate-400">Básico</td>
-                </tr>
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Registrar eventos de riego (CU-05)</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-amber-600 font-bold">✓ Sí (Móvil)</td>
-                </tr>
-                <tr className="hover:bg-white/60 transition">
-                  <td className="py-3 pr-4 font-medium">Alertas automáticas de bombeo por WhatsApp</td>
-                  <td className="py-3 px-4 text-center text-emerald-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-sky-600 font-bold">✓ Sí</td>
-                  <td className="py-3 px-4 text-center text-amber-600 font-bold">✓ Sí</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          )}
         </div>
       </div>
-
       {/* 4. SECTION: FICHA DEL ESTABLECIMIENTO & PARCELAS */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-[28px] border border-white/80 bg-white/90 p-6 md:p-8 shadow-soft backdrop-blur-md flex flex-col justify-between">
@@ -730,6 +688,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
           </div>
         </div>
       </div>
+
 
       {/* 6. MODAL: AGREGAR USUARIO AL CAMPO */}
       {isAddModalOpen && (
