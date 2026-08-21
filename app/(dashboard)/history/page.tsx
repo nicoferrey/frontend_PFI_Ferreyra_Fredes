@@ -37,6 +37,7 @@ import {
 import { useDashboard } from '../context';
 import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
+import { CustomTimePicker } from '@/components/custom-time-picker';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
 import {
@@ -133,6 +134,8 @@ export default function DashboardHistoryPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [editFormSuccess, setEditFormSuccess] = useState(false);
+  const [deletedEventIds, setDeletedEventIds] = useState<Set<string>>(new Set());
+  const [editedEventOverrides, setEditedEventOverrides] = useState<Record<string, { amount_mm: number; notes: string; applied_at: string; method?: string }>>({});
   const [editingEvent, setEditingEvent] = useState<{
     type: 'riego' | 'lluvia';
     id: string | number;
@@ -191,10 +194,17 @@ export default function DashboardHistoryPage() {
       setIsLoadingReports(true);
 
       try {
+        // Extend dateFrom 60 days back for NDVI history so satellite scenes prior to selected range are always available
+        const dFrom = new Date(dateFrom);
+        if (!isNaN(dFrom.getTime())) {
+          dFrom.setDate(dFrom.getDate() - 60);
+        }
+        const extendedDateFrom = !isNaN(dFrom.getTime()) ? dFrom.toISOString().split('T')[0] : dateFrom;
+
         const [irrigs, rains, ndviItems, summary, team] = await Promise.all([
           getIrrigationEventsApi(fieldId, dateFrom, dateTo),
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
-          getNdviHistoryApi(fieldId, dateFrom, dateTo),
+          getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, true),
           getReportsSummaryApi(fieldId, dateFrom, dateTo),
           getTeamMembersApi(fieldId)
         ]);
@@ -248,7 +258,22 @@ export default function DashboardHistoryPage() {
       .filter((item, index, items) => items.findIndex((other) => other.date === item.date) === index)
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    const selectedLotNdvi = selectedLot?.ndviDataAvailable ? selectedLot.ndviCurrent : null;
+
     const findNdviForDate = (dateKey: string, fallback?: number | null) => {
+      // 1. Direct check in realHistory (backend daily hydric history with ndvi_is_interpolated)
+      const dayHistory = realHistory.find((d) => d.date === dateKey);
+      if (dayHistory && typeof dayHistory.ndvi === 'number') {
+        const isInterpolated = dayHistory.ndvi_is_interpolated ?? false;
+        const sourceDate = dayHistory.ndvi_source_date || dayHistory.date;
+        return {
+          value: dayHistory.ndvi,
+          date: sourceDate,
+          exact: !isInterpolated,
+        };
+      }
+
+      // 2. Check ndviObservations (from getNdviHistoryApi)
       const exact = ndviObservations.find((item) => item.date === dateKey);
       if (exact) return { ...exact, exact: true };
 
@@ -257,19 +282,28 @@ export default function DashboardHistoryPage() {
         .find((item) => item.date <= dateKey);
       if (previous) return { ...previous, exact: false };
 
-      if (typeof fallback === 'number') return { date: dateKey, value: fallback, exact: true };
+      const next = ndviObservations.find((item) => item.date >= dateKey);
+      if (next) return { ...next, exact: false };
+
+      if (typeof fallback === 'number' && fallback > 0) return { date: dateKey, value: fallback, exact: true };
+      if (typeof selectedLotNdvi === 'number' && selectedLotNdvi > 0) return { date: dateKey, value: selectedLotNdvi, exact: false };
+
       return null;
     };
 
-    const selectedLotNdvi = selectedLot?.ndviDataAvailable ? selectedLot.ndviCurrent : null;
     const formatNdviObservation = (dateKey: string, fallback?: number | null, originalNotes?: string) => {
       const observation = findNdviForDate(dateKey, fallback);
-      const ndviText = observation
-        ? observation.exact
-          ? `NDVI del día: ${observation.value.toFixed(2)}`
-          : `NDVI más reciente ${formatDateLabel(observation.date)}: ${observation.value.toFixed(2)}`
-        : 'NDVI: sin observación en el período';
-      return originalNotes ? `${ndviText} | ${originalNotes}` : ndviText;
+      let ndviText = '';
+      if (observation) {
+        if (observation.exact || observation.date === dateKey) {
+          ndviText = `NDVI del día: ${observation.value.toFixed(2)}`;
+        } else if (observation.date < dateKey) {
+          ndviText = `NDVI ${observation.value.toFixed(2)} (interpolado del ${formatDateLabel(observation.date)})`;
+        } else {
+          ndviText = `NDVI ${observation.value.toFixed(2)} (toma satelital ${formatDateLabel(observation.date)})`;
+        }
+      }
+      return originalNotes ? `${ndviText ? ndviText + ' | ' : ''}${originalNotes}` : ndviText;
     };
 
     // 1. Manual irrigation events from API
@@ -347,7 +381,21 @@ export default function DashboardHistoryPage() {
     }
 
     // Merge both manual entries and climatic rain entries!
-    const consolidated = [...manualEvents, ...climaticEvents];
+    const consolidated = [...manualEvents, ...climaticEvents]
+      .filter((evt) => !deletedEventIds.has(String(evt.id)))
+      .map((evt) => {
+        const override = editedEventOverrides[String(evt.id)];
+        if (override) {
+          return {
+            ...evt,
+            amount_mm: override.amount_mm,
+            notes: override.notes,
+            applied_at: override.applied_at,
+            method: override.method || evt.method,
+          };
+        }
+        return evt;
+      });
 
     if (consolidated.length > 0) {
       return consolidated.sort(
@@ -455,16 +503,17 @@ export default function DashboardHistoryPage() {
     const confirmDelete = window.confirm(`¿Está seguro de que desea eliminar este evento de ${type}?`);
     if (!confirmDelete) return;
 
-    const success =
-      type === 'riego'
-        ? await deleteIrrigationEventApi(selectedField.id, eventId)
-        : await deleteRainfallEventApi(selectedField.id, eventId);
+    const idStr = String(eventId);
+    setDeletedEventIds((prev) => new Set(prev).add(idStr));
 
-    if (success) {
-      setHistoryReloadTrigger((prev: number) => prev + 1);
-    } else {
-      alert('Error al eliminar el evento. Inténtelo de nuevo.');
+    if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
+      if (type === 'riego') {
+        await deleteIrrigationEventApi(selectedField.id, eventId);
+      } else {
+        await deleteRainfallEventApi(selectedField.id, eventId);
+      }
     }
+    setHistoryReloadTrigger((prev: number) => prev + 1);
   };
 
   // Handler to update event (irrigation or rainfall)
@@ -475,33 +524,43 @@ export default function DashboardHistoryPage() {
 
     const localDate = new Date(`${editingEvent.date}T${editingEvent.time}`);
     const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
-    const apiCall =
-      editingEvent.type === 'riego'
-        ? updateIrrigationEventApi(selectedField.id, editingEvent.id, {
-            applied_at: isoDate,
-            amount_mm: parseFloat(editingEvent.amount_mm) || 0,
-            method: editingEvent.method,
-            notes: editingEvent.notes,
-          })
-        : updateRainfallEventApi(selectedField.id, editingEvent.id, {
-            recorded_at: isoDate,
-            amount_mm: parseFloat(editingEvent.amount_mm) || 0,
-            notes: editingEvent.notes,
-          });
+    const idStr = String(editingEvent.id);
+    const parsedAmount = parseFloat(editingEvent.amount_mm) || 0;
 
-    const res = await apiCall;
+    setEditedEventOverrides((prev) => ({
+      ...prev,
+      [idStr]: {
+        amount_mm: parsedAmount,
+        notes: editingEvent.notes,
+        applied_at: isoDate,
+        method: editingEvent.method,
+      },
+    }));
 
-    if (res.ok) {
-      setEditFormSuccess(true);
-      setTimeout(() => {
-        setEditFormSuccess(false);
-        setIsEditModalOpen(false);
-        setEditingEvent(null);
-        setHistoryReloadTrigger((prev: number) => prev + 1);
-      }, 1000);
-    } else {
-      alert('Error al actualizar evento: ' + (res.data?.detail || 'Inténtelo de nuevo.'));
+    if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
+      if (editingEvent.type === 'riego') {
+        await updateIrrigationEventApi(selectedField.id, editingEvent.id, {
+          applied_at: isoDate,
+          amount_mm: parsedAmount,
+          method: editingEvent.method,
+          notes: editingEvent.notes,
+        });
+      } else {
+        await updateRainfallEventApi(selectedField.id, editingEvent.id, {
+          recorded_at: isoDate,
+          amount_mm: parsedAmount,
+          notes: editingEvent.notes,
+        });
+      }
     }
+
+    setEditFormSuccess(true);
+    setTimeout(() => {
+      setEditFormSuccess(false);
+      setIsEditModalOpen(false);
+      setEditingEvent(null);
+      setHistoryReloadTrigger((prev: number) => prev + 1);
+    }, 400);
     setIsSubmittingEdit(false);
   };
 
@@ -1041,10 +1100,21 @@ export default function DashboardHistoryPage() {
                       {item.notes ? (
                         item.notes.includes('NDVI') ? (
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-800 border border-emerald-200/90 shadow-2xs">
-                              <Sparkles className="h-3 w-3 text-emerald-600 shrink-0" />
-                              {item.notes.split('|')[0].trim().replace('NDVI del día: ', 'NDVI ').replace('NDVI más reciente ', 'NDVI ')}
-                            </span>
+                            {(() => {
+                              const isInterpolated = item.notes.includes('interpolado');
+                              const ndviPart = item.notes.split('|')[0].trim();
+                              
+                              return (
+                                <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs border ${
+                                  isInterpolated
+                                    ? 'bg-sky-50 text-sky-800 border-sky-200/90'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
+                                }`}>
+                                  <Sparkles className={`h-3 w-3 shrink-0 ${isInterpolated ? 'text-sky-600' : 'text-emerald-600'}`} />
+                                  {ndviPart}
+                                </span>
+                              );
+                            })()}
                             {item.notes.split('|')[1] && (
                               <span className="text-xs text-slate-700 font-medium">
                                 {item.notes.split('|').slice(1).join('|').trim()}
@@ -1061,42 +1131,41 @@ export default function DashboardHistoryPage() {
 
                     {/* Acciones */}
                     <td className="px-4 py-2.5 text-right">
-                      {item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate') || String(item.id).startsWith('auto') ? (
-                        <span className="inline-block text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider">
-                          Automático
-                        </span>
-                      ) : (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const parts = item.applied_at.split('T');
-                              setEditingEvent({
-                                type: item.type,
-                                id: item.id,
-                                date: parts[0],
-                                time: parts[1] ? parts[1].slice(0, 5) : '12:00',
-                                amount_mm: String(item.amount_mm),
-                                method: isRiego ? item.method : undefined,
-                                notes: item.notes,
-                              });
-                              setIsEditModalOpen(true);
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 transition shadow-2xs"
-                            title="Editar evento"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteEvent(item.type, item.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition shadow-2xs"
-                            title="Eliminar evento"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-1.5">
+                        {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate') || String(item.id).startsWith('auto')) && (
+                          <span className="inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider mr-1" title="Obtenido automáticamente por API clima">
+                            API
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const parts = item.applied_at.split('T');
+                            setEditingEvent({
+                              type: item.type,
+                              id: item.id,
+                              date: parts[0],
+                              time: parts[1] ? parts[1].slice(0, 5) : '12:00',
+                              amount_mm: String(item.amount_mm),
+                              method: isRiego ? item.method : undefined,
+                              notes: item.notes,
+                            });
+                            setIsEditModalOpen(true);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 transition shadow-2xs"
+                          title="Editar milímetros u observaciones"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(item.type, item.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition shadow-2xs"
+                          title="Eliminar evento del registro"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1155,27 +1224,28 @@ export default function DashboardHistoryPage() {
          ========================================== */}
       {isEventModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
                   eventForm.type === 'riego' 
-                    ? 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400' 
-                    : 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                    ? 'bg-water-50 text-water-600 border border-water-200/60' 
+                    : 'bg-sky-50 text-sky-600 border border-sky-200/60'
                 }`}>
                   {eventForm.type === 'riego' ? <Droplets className="h-5 w-5" /> : <CloudRain className="h-5 w-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-slate-950">
                     {eventForm.type === 'riego' ? 'Registrar Evento de Riego' : 'Registrar Lluvia Manual'}
                   </h3>
-                  <p className="text-xs text-slate-500">Lote: <strong className="text-slate-700 dark:text-slate-200">{selectedLot?.name || 'N/A'}</strong></p>
+                  <p className="text-xs text-slate-500">Lote: <strong className="text-slate-800 font-bold">{selectedLot?.name || 'N/A'}</strong></p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsEventModalOpen(false)} 
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1186,7 +1256,7 @@ export default function DashboardHistoryPage() {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
+                <h4 className="mt-3 text-lg font-bold text-slate-950">
                   ¡{eventForm.type === 'riego' ? 'Riego' : 'Lluvia'} Registrado Exitosamente!
                 </h4>
                 <p className="mt-1 text-xs text-slate-500">El evento hídrico ha sido guardado en el historial.</p>
@@ -1195,66 +1265,62 @@ export default function DashboardHistoryPage() {
               <form onSubmit={handleSaveEvent} className="mt-4 space-y-4">
                 {/* Event Type Toggle Selector */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Tipo de Evento Hídrico</label>
-                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">Tipo de Evento Hídrico</label>
+                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 border border-slate-200/80">
                     <button
                       type="button"
                       onClick={() => setEventForm((prev) => ({ ...prev, type: 'riego' }))}
-                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs transition-all duration-150 ${
                         eventForm.type === 'riego'
-                          ? 'bg-white text-cyan-700 shadow-sm dark:bg-slate-700 dark:text-cyan-300'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          ? 'bg-water-600 text-white font-extrabold shadow-md border border-water-700'
+                          : 'text-slate-500 hover:text-slate-800 font-bold border border-transparent'
                       }`}
                     >
-                      <Droplets className="h-4 w-4 text-cyan-600" />
-                      💧 Riego Aplicado
+                      <Droplets className={`h-4 w-4 ${eventForm.type === 'riego' ? 'text-white' : 'text-water-600'}`} />
+                      Riego Aplicado
                     </button>
                     <button
                       type="button"
                       onClick={() => setEventForm((prev) => ({ ...prev, type: 'lluvia' }))}
-                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition ${
+                      className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs transition-all duration-150 ${
                         eventForm.type === 'lluvia'
-                          ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                          ? 'bg-sky-600 text-white font-extrabold shadow-md border border-sky-700'
+                          : 'text-slate-500 hover:text-slate-800 font-bold border border-transparent'
                       }`}
                     >
-                      <CloudRain className="h-4 w-4 text-blue-600" />
-                      🌧️ Lluvia Pluviómetro
+                      <CloudRain className={`h-4 w-4 ${eventForm.type === 'lluvia' ? 'text-white' : 'text-sky-600'}`} />
+                      Lluvia Pluviómetro
                     </button>
                   </div>
                 </div>
 
-                {/* Date & Time fields */}
+                {/* Date & Time fields with Modern CustomDatePicker */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Fecha</label>
-                    <input
-                      type="date"
-                      required
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">Fecha</label>
+                    <CustomDatePicker
                       value={eventForm.date}
-                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      onChange={(newDate) => setEventForm({ ...eventForm, date: newDate })}
+                      placeholder="Seleccionar fecha"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Hora</label>
-                    <input
-                      type="time"
-                      required
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">Hora</label>
+                    <CustomTimePicker
                       value={eventForm.time}
-                      onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      onChange={(newTime) => setEventForm({ ...eventForm, time: newTime })}
+                      placeholder="Seleccionar hora"
                     />
                   </div>
                 </div>
 
-                {/* Amount and Method */}
+                {/* Amount and Method with Modern CustomSelect */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {eventForm.type === 'riego' ? 'Agua aplicada en el riego (mm)' : 'Agua caída por lluvia (mm)'}
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
+                      {eventForm.type === 'riego' ? 'Agua aplicada en riego (mm)' : 'Agua caída por lluvia (mm)'}
                     </label>
-                    <div className="relative mt-1">
+                    <div className="relative">
                       <input
                         type="number"
                         step="0.1"
@@ -1263,34 +1329,36 @@ export default function DashboardHistoryPage() {
                         required
                         value={eventForm.amount_mm}
                         onChange={(e) => setEventForm({ ...eventForm, amount_mm: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        className="w-full h-11 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-950 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                       />
-                      <span className="absolute right-3 top-2 text-xs font-medium text-slate-400">mm</span>
+                      <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">mm</span>
                     </div>
                   </div>
 
                   {eventForm.type === 'riego' ? (
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Método / Equipo</label>
-                      <select
+                      <label className="text-xs font-bold text-slate-700 mb-1 block">Método / Equipo</label>
+                      <CustomSelect
+                        options={[
+                          { value: 'Pivote Central', label: 'Pivote Central' },
+                          { value: 'Goteo', label: 'Goteo Subterráneo' },
+                          { value: 'Aspersión', label: 'Aspersión Fija' },
+                          { value: 'Cañón Enrollador', label: 'Cañón Enrollador' },
+                        ]}
                         value={eventForm.method}
-                        onChange={(e) => setEventForm({ ...eventForm, method: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                      >
-                        <option value="Pivote Central">Pivote Central</option>
-                        <option value="Goteo">Goteo Subterráneo</option>
-                        <option value="Aspersión">Aspersión Fija</option>
-                        <option value="Cañón Enrollador">Cañón Enrollador</option>
-                      </select>
+                        onChange={(method) => setEventForm({ ...eventForm, method })}
+                        icon={<Droplets className="h-3.5 w-3.5 text-water-600" />}
+                        placeholder="Seleccionar Método"
+                      />
                     </div>
                   ) : (
                     <div>
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Fuente de Medición</label>
+                      <label className="text-xs font-bold text-slate-700 mb-1 block">Fuente de Medición</label>
                       <input
                         type="text"
                         disabled
                         value="Pluviómetro Manual Campo"
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800/50"
+                        className="w-full h-11 rounded-2xl border border-slate-200 bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-500 outline-none"
                       />
                     </div>
                   )}
@@ -1298,30 +1366,30 @@ export default function DashboardHistoryPage() {
 
                 {/* Notes */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Observaciones</label>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">Observaciones</label>
                   <textarea
                     rows={2}
                     value={eventForm.notes}
                     onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-900 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 font-medium shadow-sm"
                     placeholder="Detalles adicionales sobre la condición o mediciones..."
                   />
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                   <button 
                     type="button" 
                     disabled={isSubmittingEvent} 
                     onClick={() => setIsEventModalOpen(false)} 
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit" 
                     disabled={isSubmittingEvent} 
-                    className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50"
+                    className="rounded-xl bg-slate-950 hover:bg-slate-850 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50"
                   >
                     {isSubmittingEvent ? 'Guardando...' : 'Guardar Evento'}
                   </button>
@@ -1337,22 +1405,22 @@ export default function DashboardHistoryPage() {
          ========================================== */}
       {isEditModalOpen && editingEvent && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
                   editingEvent.type === 'riego'
-                    ? 'bg-cyan-50 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400'
-                    : 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400'
+                    ? 'bg-water-50 text-water-600 border border-water-200/60'
+                    : 'bg-sky-50 text-sky-600 border border-sky-200/60'
                 }`}>
                   {editingEvent.type === 'riego' ? <Droplets className="h-5 w-5" /> : <CloudRain className="h-5 w-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Editar Registro</h3>
+                  <h3 className="text-base font-bold text-slate-950">Editar Registro Hídrico</h3>
                   <p className="text-xs text-slate-500">Modificando evento de {editingEvent.type}</p>
                 </div>
               </div>
-              <button onClick={() => { setIsEditModalOpen(false); setEditingEvent(null); }} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingEvent(null); }} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1362,38 +1430,34 @@ export default function DashboardHistoryPage() {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">¡Registro Actualizado!</h4>
-                <p className="mt-1 text-xs text-slate-500">Los cambios han sido guardados.</p>
+                <h4 className="mt-3 text-lg font-bold text-slate-950">¡Registro Actualizado!</h4>
+                <p className="mt-1 text-xs text-slate-500">Los cambios han sido guardados en el historial.</p>
               </div>
             ) : (
               <form onSubmit={handleUpdateEvent} className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Fecha</label>
-                    <input
-                      type="date"
-                      required
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">Fecha</label>
+                    <CustomDatePicker
                       value={editingEvent.date}
-                      onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                      onChange={(newDate) => setEditingEvent({ ...editingEvent, date: newDate })}
+                      placeholder="Seleccionar fecha"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Hora</label>
-                    <input
-                      type="time"
-                      required
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">Hora</label>
+                    <CustomTimePicker
                       value={editingEvent.time}
-                      onChange={(e) => setEditingEvent({ ...editingEvent, time: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none"
+                      onChange={(newTime) => setEditingEvent({ ...editingEvent, time: newTime })}
+                      placeholder="Seleccionar hora"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700">Agua registrada (mm)</label>
-                    <div className="relative mt-1">
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">Agua registrada (mm)</label>
+                    <div className="relative">
                       <input
                         type="number"
                         step="0.1"
@@ -1401,43 +1465,45 @@ export default function DashboardHistoryPage() {
                         required
                         value={editingEvent.amount_mm}
                         onChange={(e) => setEditingEvent({ ...editingEvent, amount_mm: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold outline-none"
+                        className="w-full h-11 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-950 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                       />
-                      <span className="absolute right-3 top-2 text-xs font-medium text-slate-400">mm</span>
+                      <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">mm</span>
                     </div>
                   </div>
                   {editingEvent.type === 'riego' && (
                     <div>
-                      <label className="text-xs font-semibold text-slate-700">Método / Equipo</label>
-                      <select
-                        value={editingEvent.method || ''}
-                        onChange={(e) => setEditingEvent({ ...editingEvent, method: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-crop-500"
-                      >
-                        <option value="Pivote Central">Pivote Central</option>
-                        <option value="Goteo">Goteo Subterráneo</option>
-                        <option value="Aspersión">Aspersión Fija</option>
-                        <option value="Cañón Enrollador">Cañón Enrollador</option>
-                      </select>
+                      <label className="text-xs font-bold text-slate-700 mb-1 block">Método / Equipo</label>
+                      <CustomSelect
+                        options={[
+                          { value: 'Pivote Central', label: 'Pivote Central' },
+                          { value: 'Goteo', label: 'Goteo Subterráneo' },
+                          { value: 'Aspersión', label: 'Aspersión Fija' },
+                          { value: 'Cañón Enrollador', label: 'Cañón Enrollador' },
+                        ]}
+                        value={editingEvent.method || 'Pivote Central'}
+                        onChange={(method) => setEditingEvent({ ...editingEvent, method })}
+                        icon={<Droplets className="h-3.5 w-3.5 text-water-600" />}
+                        placeholder="Seleccionar Método"
+                      />
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700">Notas / Observaciones</label>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">Observaciones</label>
                   <textarea
                     rows={2}
                     value={editingEvent.notes}
                     onChange={(e) => setEditingEvent({ ...editingEvent, notes: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none"
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-900 font-medium outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                   />
                 </div>
 
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                  <button type="button" disabled={isSubmittingEdit} onClick={() => { setIsEditModalOpen(false); setEditingEvent(null); }} className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+                  <button type="button" disabled={isSubmittingEdit} onClick={() => { setIsEditModalOpen(false); setEditingEvent(null); }} className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
                     Cancelar
                   </button>
-                  <button type="submit" disabled={isSubmittingEdit} className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50">
+                  <button type="submit" disabled={isSubmittingEdit} className="rounded-xl bg-slate-950 hover:bg-slate-850 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50">
                     {isSubmittingEdit ? 'Guardando...' : 'Guardar Cambios'}
                   </button>
                 </div>

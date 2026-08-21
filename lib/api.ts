@@ -837,6 +837,8 @@ export interface HydricHistoryDay {
   irrigation_mm: number;
   deep_percolation_mm?: number;
   ndvi?: number;
+  ndvi_is_interpolated?: boolean;
+  ndvi_source_date?: string | null;
   kc?: number;
   kc_source?: string;
   under_stress?: boolean;
@@ -1073,12 +1075,16 @@ export async function getNdviHistoryApi(
   fieldId: string | number,
   dateFrom: string,
   dateTo: string,
-  source?: string
+  source?: string,
+  refresh?: boolean
 ): Promise<NdviHistoryItem[]> {
   try {
     let url = `/api/v1/fields/${fieldId}/ndvi-history?date_from=${dateFrom}&date_to=${dateTo}`;
     if (source) {
       url += `&source=${source}`;
+    }
+    if (refresh) {
+      url += `&refresh=true`;
     }
     const res = await apiFetch(url);
     if (!res.ok) return [];

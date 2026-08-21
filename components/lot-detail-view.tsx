@@ -43,6 +43,9 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { FieldAgentSnapshot, NdviPreview, getNdviPreviewApi } from '@/lib/api';
+import { CustomDatePicker } from '@/components/custom-date-picker';
+import { CustomSelect } from '@/components/custom-select';
+import { CustomTimePicker } from '@/components/custom-time-picker';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -133,6 +136,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
   const [ndviPreview, setNdviPreview] = useState<NdviPreview | null>(null);
   const [isLoadingNdviPreview, setIsLoadingNdviPreview] = useState(false);
   const [ndviPreviewError, setNdviPreviewError] = useState<string | null>(null);
+  const [eventFilter, setEventFilter] = useState<'all' | 'riego' | 'rain'>('all');
 
   useEffect(() => {
     setNdviPreview(null);
@@ -446,7 +450,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <span>Ventana bombeo</span>
               <Clock className="h-3.5 w-3.5 text-sky-600" />
             </div>
-            <p className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
               {lot.pumpingWindow}
             </p>
             <span className="text-[10px] text-water-600 font-medium">Tarifa eléctrica valle</span>
@@ -458,10 +462,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <span>Último riego</span>
               <Droplets className="h-3.5 w-3.5 text-water-600" />
             </div>
-            <p className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
               {lot.lastIrrigationDate}
             </p>
-            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+            <span className="text-[10px] text-slate-400 font-medium">
               {lot.lastIrrigationAmount_mm} mm aplicados
             </span>
           </div>
@@ -472,101 +476,16 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <span>Aporte reciente por lluvia</span>
               <CloudRain className="h-3.5 w-3.5 text-sky-500" />
             </div>
-            <p className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white">
+            <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
               {lot.lastRainDate}
             </p>
-            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+            <span className="text-[10px] text-slate-400 font-medium">
               {lot.lastRainAmount_mm} mm registrados
             </span>
           </div>
 
         </div>
 
-      </div>
-
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-              Sentinel-2
-            </span>
-            <h3 className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">
-              Imagen satelital del lote
-            </h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Se genera bajo demanda y no se guarda en la base de datos.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={loadNdviPreview}
-            disabled={isLoadingNdviPreview}
-            className="inline-flex w-fit items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950"
-          >
-            <Satellite className="h-4 w-4" />
-            {isLoadingNdviPreview ? 'Generando...' : ndviPreview ? 'Actualizar imagen' : 'Ver imagen original'}
-          </button>
-        </div>
-
-        {ndviPreviewError && (
-          <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
-            {ndviPreviewError}
-          </p>
-        )}
-
-        {ndviPreview && (
-          <>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <span className="w-fit rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                Imagen: {formatDate(ndviPreview.date || undefined)}
-              </span>
-              {typeof ndviPreview.ndvi_mean === 'number' && (
-                <span className="w-fit rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-                  NDVI: {ndviPreview.ndvi_mean.toFixed(2)}
-                </span>
-              )}
-              {typeof ndviPreview.valid_pixel_coverage_pct === 'number' && (
-                <span className={`w-fit rounded-xl border px-3 py-1 text-xs font-bold ${
-                  ndviPreview.valid_pixel_coverage_pct >= 70
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300'
-                    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
-                }`}>
-                  Píxeles útiles: {ndviPreview.valid_pixel_coverage_pct.toFixed(1)}%
-                </span>
-              )}
-              {ndviPreview.sentinel_scene_id && (
-                <span className="w-fit rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                  Escena: {ndviPreview.sentinel_scene_id.split('/').pop()}
-                </span>
-              )}
-            </div>
-
-            {ndviPreview.warnings.length > 0 && (
-              <div className="mb-4 space-y-1">
-                {ndviPreview.warnings.map((warning, index) => (
-                  <p key={index} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            <div className="grid gap-4">
-              {ndviPreview.sentinel_rgb_preview_data_url && (
-                <figure className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-950">
-                  <img
-                    src={ndviPreview.sentinel_rgb_preview_data_url}
-                    alt={`Vista Sentinel-2 RGB de ${lot.name}`}
-                    className="aspect-video w-full object-cover"
-                  />
-                  <figcaption className="border-t border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                    Imagen original Sentinel-2 en color natural
-                  </figcaption>
-                </figure>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       {/* 3. DETAILED FAO-56 TEMPORAL CHART & EVENT MARKERS */}
@@ -583,9 +502,6 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             <h3 className="mt-1 text-xl font-bold text-white">
               Evolución de agua disponible, agua faltante y umbral antes de estrés
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Los puntos marcados indican eventos de aplicación de riego (💧) y precipitaciones efectivas (🌧️).
-            </p>
           </div>
 
           {/* Scale Buttons (7d, 14d, 30d) */}
@@ -738,67 +654,125 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
           </div>
 
           {/* Event markers & MAS agronomic advice */}
-          <div className="flex flex-col justify-between gap-4 rounded-[24px] border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-col justify-between gap-4 rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
             
             <div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-emerald-400" />
-                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-300">
-                  Marcadores de Eventos Registrados
-                </h4>
-              </div>
-
-              <div className="mt-3 space-y-2 max-h-[160px] overflow-y-auto pr-1">
-                {displayedTimeline
-                  .filter((t) => t.irrigation_mm || t.rain_mm)
-                  .map((evt, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between rounded-xl bg-black/30 border border-white/5 px-3 py-2 text-xs"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-base">
-                          {evt.irrigation_mm ? '💧' : '🌧️'}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-white">
-                            {evt.irrigation_mm ? `Riego programado (+${evt.irrigation_mm} mm)` : `Lluvia (+${evt.rain_mm} mm)`}
-                          </p>
-                          <p className="text-[10px] text-slate-400">{evt.date}</p>
-                        </div>
-                      </div>
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-mono text-slate-200">
-                        {evt.irrigation_mm ? 'Riego' : 'Lluvia'}
-                      </span>
-                    </div>
-                  ))}
-                {displayedTimeline.filter((t) => t.irrigation_mm || t.rain_mm).length === 0 && (
-                  <p className="text-xs text-slate-400 py-3 text-center">
-                    No hay eventos de riego o lluvia en este rango seleccionado.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* MAS Decision Support Banner */}
-            <div className="rounded-2xl border border-crop-500/30 bg-gradient-to-br from-crop-950/60 to-slate-900 p-4">
-              <div className="flex items-start gap-2.5">
-                <Info className="h-4 w-4 text-crop-400 shrink-0 mt-0.5" />
-                <div>
-                  <h5 className="text-xs font-bold text-crop-300 uppercase">
-                    Diagnóstico del Agente de Riego
-                  </h5>
-                  <p className="mt-1 text-xs text-slate-200 leading-relaxed">
-                    {snapshot?.analyze_response?.final_recommendation ||
-                     snapshot?.analyze_response?.explanation?.user_explanation ||
-                     (lot.hydricStatus === 'Normal'
-                      ? `El lote se encuentra dentro del rango de confort hídrico. Se proyecta esperar sin intervención por las próximas 48 h.`
-                      : lot.hydricStatus === 'Atencion'
-                      ? `El agua faltante (${lot.deficitDr_mm} mm) se aproxima al umbral de estrés. Se sugiere revisar el riego y, si corresponde, aplicar ${suggestedWaterMm} mm en la ventana nocturna.`
-                      : `Estado crítico: el agua faltante superó el umbral de estrés. Aplicar aproximadamente ${suggestedWaterMm} mm en forma urgente.`)}
-                  </p>
+              {/* Header with Title and Filter Tabs */}
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-400" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                    Eventos Registrados
+                  </h4>
                 </div>
+
+                {/* Filter Pills */}
+                {(() => {
+                  const allEvents = displayedTimeline.filter((t) => t.irrigation_mm || t.rain_mm);
+                  const riegoCount = allEvents.filter((t) => t.irrigation_mm).length;
+                  const rainCount = allEvents.filter((t) => t.rain_mm).length;
+
+                  return (
+                    <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setEventFilter('all')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition ${
+                          eventFilter === 'all'
+                            ? 'bg-white/20 text-white shadow-2xs'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Todos ({allEvents.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEventFilter('riego')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition ${
+                          eventFilter === 'riego'
+                            ? 'bg-water-500/30 text-water-300 shadow-2xs'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Riegos ({riegoCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEventFilter('rain')}
+                        className={`px-2 py-0.5 rounded-lg font-bold transition ${
+                          eventFilter === 'rain'
+                            ? 'bg-sky-500/30 text-sky-300 shadow-2xs'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Lluvias ({rainCount})
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
+
+              {/* Scrollable Event Markers List with Custom Sleek Scrollbar */}
+              {(() => {
+                const allEvents = displayedTimeline.filter((t) => t.irrigation_mm || t.rain_mm);
+                const filteredEvents = allEvents.filter((evt) => {
+                  if (eventFilter === 'riego') return !!evt.irrigation_mm;
+                  if (eventFilter === 'rain') return !!evt.rain_mm;
+                  return true;
+                });
+
+                return (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 text-xs select-none scrollbar-thin [scrollbar-width:thin] [scrollbar-color:#334155_transparent]">
+                    {filteredEvents.map((evt, idx) => {
+                      const isRiego = !!evt.irrigation_mm;
+                      const amount = isRiego ? evt.irrigation_mm : evt.rain_mm;
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-xl bg-slate-950/70 border border-slate-800/80 px-3.5 py-2.5 transition hover:border-slate-700 hover:bg-slate-950"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Date pill */}
+                            <span className="rounded-lg bg-slate-800/90 border border-slate-700/60 px-2 py-1 text-[11px] font-normal text-slate-300 font-sans">
+                              {evt.date}
+                            </span>
+
+                            {/* Icon & Label */}
+                            <div className="flex items-center gap-2">
+                              {isRiego ? (
+                                <Droplet className="h-4 w-4 text-water-400 shrink-0" />
+                              ) : (
+                                <CloudRain className="h-4 w-4 text-sky-400 shrink-0" />
+                              )}
+                              <span className="font-extrabold text-white text-xs">
+                                {isRiego ? 'Riego Aplicado' : 'Precipitación Efectiva'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* High impact mm Value (Same font-sans as date) */}
+                          <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold font-sans ${
+                            isRiego
+                              ? 'bg-water-500/15 text-water-300 border border-water-500/25'
+                              : 'bg-sky-500/15 text-sky-300 border border-sky-500/25'
+                          }`}>
+                            +{amount?.toFixed(1)} mm
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {filteredEvents.length === 0 && (
+                      <div className="py-8 text-center text-xs text-slate-400 rounded-xl border border-dashed border-white/10 bg-black/20">
+                        {allEvents.length === 0
+                          ? 'No hay eventos de riego o lluvia en este rango seleccionado.'
+                          : 'No se encontraron eventos para el filtro seleccionado.'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
           </div>
@@ -812,26 +786,27 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
       {/* 4. MODAL: REGISTRAR RIEGO */}
       {isRegisterModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-water-50 text-water-600 dark:bg-water-950 dark:text-water-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-water-50 text-water-600 border border-water-200/60">
                   <Droplet className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-slate-950">
                     Registrar Riego
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Lote: <strong className="text-slate-700 dark:text-slate-200">{lot.name}</strong> ({lot.crop})
+                  <p className="text-xs text-slate-500">
+                    Lote: <strong className="text-slate-800 font-bold">{lot.name}</strong> ({lot.crop})
                   </p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsRegisterModalOpen(false)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -839,13 +814,13 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
             {formSuccess ? (
               <div className="py-10 text-center animate-fade-in">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
+                <h4 className="mt-3 text-lg font-bold text-slate-950">
                   ¡Riego Registrado Exitosamente!
                 </h4>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-xs text-slate-500">
                   El balance hídrico del lote ha sido actualizado en tiempo real.
                 </p>
               </div>
@@ -854,38 +829,34 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
                       Fecha de aplicación
                     </label>
-                    <input
-                      type="date"
-                      required
+                    <CustomDatePicker
                       value={irrigationForm.date}
-                      onChange={(e) => setIrrigationForm({ ...irrigationForm, date: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      onChange={(newDate) => setIrrigationForm({ ...irrigationForm, date: newDate })}
+                      placeholder="Seleccionar fecha"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
                       Hora de inicio
                     </label>
-                    <input
-                      type="time"
-                      required
+                    <CustomTimePicker
                       value={irrigationForm.time}
-                      onChange={(e) => setIrrigationForm({ ...irrigationForm, time: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      onChange={(newTime) => setIrrigationForm({ ...irrigationForm, time: newTime })}
+                      placeholder="Seleccionar hora"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
                       Agua aplicada en el riego (mm)
                     </label>
-                    <div className="relative mt-1">
+                    <div className="relative">
                       <input
                         type="number"
                         step="0.5"
@@ -894,56 +865,58 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                         required
                         value={irrigationForm.amount_mm}
                         onChange={(e) => setIrrigationForm({ ...irrigationForm, amount_mm: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        className="w-full h-11 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-950 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                       />
-                      <span className="absolute right-3 top-2 text-xs font-medium text-slate-400">mm</span>
+                      <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">mm</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-slate-700 mb-1 block">
                       Método / Equipo
                     </label>
-                    <select
+                    <CustomSelect
+                      options={[
+                        { value: 'Pivote Central', label: 'Pivote Central' },
+                        { value: 'Goteo', label: 'Goteo Subterráneo' },
+                        { value: 'Aspersión', label: 'Aspersión Fija' },
+                        { value: 'Cañón Enrollador', label: 'Cañón Enrollador' },
+                        { value: 'Surco', label: 'Riego por Gravedad / Surco' },
+                      ]}
                       value={irrigationForm.method}
-                      onChange={(e) => setIrrigationForm({ ...irrigationForm, method: e.target.value })}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    >
-                      <option value="Pivote Central">Pivote Central</option>
-                      <option value="Goteo">Goteo Subterráneo</option>
-                      <option value="Aspersión">Aspersión Fija</option>
-                      <option value="Cañón Enrollador">Cañón Enrollador</option>
-                      <option value="Surco">Riego por Gravedad / Surco</option>
-                    </select>
+                      onChange={(method) => setIrrigationForm({ ...irrigationForm, method })}
+                      icon={<Droplets className="h-3.5 w-3.5 text-water-600" />}
+                      placeholder="Seleccionar Método"
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">
                     Notas y Observaciones
                   </label>
                   <textarea
                     rows={2}
                     value={irrigationForm.notes}
                     onChange={(e) => setIrrigationForm({ ...irrigationForm, notes: e.target.value })}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-900 outline-none focus:border-crop-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-900 font-medium outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                     placeholder="Detalles sobre presión, pluviometría o anomalías..."
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                   <button
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => setIsRegisterModalOpen(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 disabled:opacity-50"
+                    className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-70"
+                    className="rounded-xl bg-slate-950 hover:bg-slate-850 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-70"
                   >
                     {isSubmitting ? 'Guardando...' : 'Guardar Registro'}
                   </button>
