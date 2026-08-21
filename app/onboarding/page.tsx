@@ -9,7 +9,7 @@ const OnboardingWizard = dynamic(
 
 export default function OnboardingPage() {
   return (
-    <main className="min-h-screen bg-slate-950">
+    <main className="min-h-screen bg-slate-100">
       <OnboardingWizard />
     </main>
   );

@@ -95,7 +95,7 @@ const CROPS = [
   { id: 'Avena', name: 'Avena', icon: Sparkles, color: 'text-lime-400 bg-lime-500/10 border-lime-500/20' },
   { id: 'Sorgo', name: 'Sorgo', icon: Layers3, color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
   { id: 'Arroz', name: 'Arroz', icon: Droplet, color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
-  { id: 'Algodón', name: 'Algodón', icon: Sprout, color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' },
+  { id: 'Algodón', name: 'Algodón', icon: Sprout, color: 'text-slate-600 bg-slate-100 border-slate-200' },
   { id: 'Maní', name: 'Maní', icon: Sprout, color: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
   { id: 'Caña de Azúcar', name: 'Caña de azúcar', icon: Layers3, color: 'text-green-400 bg-green-500/10 border-green-500/20' },
   { id: 'Alfalfa', name: 'Alfalfa', icon: Sprout, color: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
@@ -160,20 +160,20 @@ function SearchableSelector({
 
   return (
     <div className="space-y-2">
-      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">{label}</label>
-      <div className="rounded-2xl border border-white/10 bg-slate-950 p-2">
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900 px-3 py-2">
-          <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">{label}</label>
+      <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-xs">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={selected ? selected.name : placeholder}
-            className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-200 outline-none placeholder:text-slate-500"
+            className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400"
           />
         </div>
         <div className="mt-2 max-h-[252px] overflow-y-auto pr-1">
           {filtered.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/10 p-3 text-xs text-slate-500">
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
               Sin resultados para la búsqueda.
             </div>
           ) : (
@@ -190,19 +190,19 @@ function SearchableSelector({
                   }}
                   className={`mb-1.5 flex min-h-[44px] w-full items-center gap-2 rounded-xl border p-2.5 text-left text-xs transition last:mb-0 ${
                     isSelected
-                      ? 'border-cyan-400 bg-cyan-500/10 text-white ring-1 ring-cyan-400/30'
-                      : 'border-white/5 bg-slate-900/70 text-slate-400 hover:bg-slate-800/60'
+                      ? 'border-emerald-300 bg-emerald-50 text-slate-950 ring-1 ring-emerald-200'
+                      : 'border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
                   }`}
                 >
                   {Icon && (
-                    <div className={`rounded-lg p-1.5 ${option.color || 'text-slate-300 bg-slate-500/10 border-slate-500/20'}`}>
+                    <div className={`rounded-lg p-1.5 ${option.color || 'text-slate-600 bg-slate-100 border-slate-200'}`}>
                       <Icon className="h-3.5 w-3.5" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-bold text-slate-200">{option.name}</span>
-                      {option.meta && <span className="shrink-0 font-mono text-[10px] text-cyan-400">{option.meta}</span>}
+                      <span className="truncate font-bold text-slate-800">{option.name}</span>
+                      {option.meta && <span className="shrink-0 font-mono text-[10px] text-emerald-700">{option.meta}</span>}
                     </div>
                     {option.desc && <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-slate-500">{option.desc}</p>}
                   </div>
@@ -546,44 +546,44 @@ export default function OnboardingWizard() {
   const currentSelectedLot = lots.find((l) => l.id === selectedLotId);
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    <div className="flex min-h-screen flex-col overflow-hidden bg-slate-100 text-slate-950 font-sans lg:flex-row">
       
       {/* Dynamic Splash Screen on finish */}
       {isFinishing && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-          <div className="relative flex items-center justify-center h-24 w-24 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 mb-6">
-            <CheckCircle className="h-12 w-12 text-emerald-400 animate-bounce" />
-            <div className="absolute inset-0 rounded-full border border-emerald-500/40 animate-ping" />
+        <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="relative flex items-center justify-center h-24 w-24 rounded-full bg-emerald-50 border-2 border-emerald-200 mb-6">
+            <CheckCircle className="h-12 w-12 text-emerald-600 animate-bounce" />
+            <div className="absolute inset-0 rounded-full border border-emerald-300 animate-ping" />
           </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-crop-700 via-emerald-600 to-water-700 bg-clip-text text-transparent">
             ¡Configuración Completada Exitosamente!
           </h2>
-          <p className="text-slate-400 mt-3 max-w-md leading-relaxed text-sm">
+          <p className="text-slate-500 mt-3 max-w-md leading-relaxed text-sm">
             El Agente de Riego AgroMAS está procesando tus lotes con el modelo FAO-56. Cargando interfaz de monitoreo satelital...
           </p>
         </div>
       )}
 
       {/* Control Sidebar Panel */}
-      <aside className="w-full lg:w-[450px] shrink-0 border-b lg:border-b-0 lg:border-r border-white/10 bg-slate-900/90 backdrop-blur-md p-6 flex flex-col justify-between shadow-2xl relative z-10">
+      <aside className="relative z-10 flex w-full shrink-0 flex-col justify-between border-b border-slate-200 bg-white/90 p-5 shadow-soft backdrop-blur-md lg:w-[460px] lg:border-b-0 lg:border-r lg:p-6">
         <div className="flex flex-col h-full justify-start">
           
           {/* Header */}
-          <header className="border-b border-white/10 pb-5">
+          <header className="rounded-[28px] border border-white/80 bg-gradient-to-r from-white via-white to-emerald-50/60 p-5 shadow-soft">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-600 via-emerald-600 to-water-600 text-white font-bold shadow-md">
                   <Sprout className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Onboarding</p>
-                  <h1 className="text-lg font-bold text-white">Configuración del Campo</h1>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-crop-800">Onboarding</p>
+                  <h1 className="text-lg font-extrabold text-slate-950">Configuración del Campo</h1>
                 </div>
               </div>
 
               <Link
                 href="/"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 transition shadow-xs"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Volver</span>
@@ -591,9 +591,9 @@ export default function OnboardingWizard() {
             </div>
 
             {auth.fields && auth.fields.length > 0 && (
-              <div className="mt-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-300">
+              <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between text-xs text-emerald-800">
                 <span>Ya cuentas con {auth.fields.length} lotes activos</span>
-                <Link href="/" className="font-bold underline hover:text-emerald-200">
+                <Link href="/" className="font-bold underline hover:text-emerald-900">
                   Ir al Tablero &rarr;
                 </Link>
               </div>
@@ -613,10 +613,10 @@ export default function OnboardingWizard() {
                   <div key={s.stepNum} className="flex flex-col items-center">
                     <div 
                       className={`h-1.5 w-full rounded-full transition-all duration-300 ${
-                        isActive ? 'bg-gradient-to-r from-emerald-500 to-cyan-400' : 'bg-slate-800'
-                      } ${isCurrent ? 'ring-2 ring-emerald-500/30' : ''}`}
+                        isActive ? 'bg-gradient-to-r from-crop-600 via-emerald-500 to-water-600' : 'bg-slate-200'
+                      } ${isCurrent ? 'ring-2 ring-emerald-200' : ''}`}
                     />
-                    <span className={`text-[10px] mt-1.5 font-medium ${isCurrent ? 'text-emerald-400 font-bold' : isActive ? 'text-slate-300' : 'text-slate-500'}`}>
+                    <span className={`text-[10px] mt-1.5 font-medium ${isCurrent ? 'text-emerald-700 font-bold' : isActive ? 'text-slate-700' : 'text-slate-400'}`}>
                       {s.label}
                     </span>
                   </div>
@@ -626,24 +626,24 @@ export default function OnboardingWizard() {
           </header>
 
           {/* Steps Content Area */}
-          <main className="py-6 flex-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+          <main className="py-5 flex-1 overflow-y-auto max-h-[calc(100vh-300px)] pr-1">
             
             {/* STEP 1: Ubicación */}
             {step === 1 && (
               <section className="space-y-5 animate-slide-in">
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-sky-400" />
+                    <MapPin className="h-5 w-5 text-sky-600" />
                     1. Centro del Establecimiento
                   </h2>
-                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
                     Localiza el casco o el centro geométrico de tu campo. Puedes usar las regiones productivas sugeridas o mover directamente el mapa.
                   </p>
                 </div>
 
                 {/* Preset List */}
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                  <label className="text-xs uppercase tracking-wider text-slate-500 font-bold">
                     Regiones Agropecuarias de Prueba
                   </label>
                   <div className="grid gap-2">
@@ -655,15 +655,15 @@ export default function OnboardingWizard() {
                           onClick={() => handlePresetSelect(preset)}
                           className={`text-left p-3 rounded-2xl border transition duration-200 ${
                             isSelected 
-                              ? 'bg-sky-500/10 border-sky-400 text-white shadow-lg shadow-sky-500/5' 
-                              : 'bg-slate-900/40 border-white/5 text-slate-300 hover:bg-slate-800/50 hover:border-white/10'
+                              ? 'bg-sky-50 border-sky-300 text-slate-950 shadow-xs ring-1 ring-sky-100'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                           }`}
                         >
                           <div className="flex justify-between items-center">
                             <span className="font-semibold text-sm">{preset.name}</span>
-                            {isSelected && <span className="h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]" />}
+                            {isSelected && <span className="h-2 w-2 rounded-full bg-sky-500" />}
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5">{preset.desc}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{preset.desc}</p>
                         </button>
                       );
                     })}
@@ -672,7 +672,7 @@ export default function OnboardingWizard() {
 
                 {/* Inputs */}
                 <div className="space-y-3 pt-2">
-                  <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold block">
+                  <label className="text-xs uppercase tracking-wider text-slate-500 font-bold block">
                     Coordenadas Geográficas Manuales
                   </label>
                   <div className="grid grid-cols-2 gap-3">
@@ -682,7 +682,7 @@ export default function OnboardingWizard() {
                         type="number"
                         value={center[0]}
                         onChange={(e) => setCenter([parseFloat(e.target.value) || 0, center[1]])}
-                        className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-400 transition"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 shadow-xs focus:outline-none focus:border-sky-400 transition"
                         step="0.00001"
                       />
                     </div>
@@ -692,7 +692,7 @@ export default function OnboardingWizard() {
                         type="number"
                         value={center[1]}
                         onChange={(e) => setCenter([center[0], parseFloat(e.target.value) || 0])}
-                        className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-400 transition"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 shadow-xs focus:outline-none focus:border-sky-400 transition"
                         step="0.00001"
                       />
                     </div>
@@ -706,17 +706,17 @@ export default function OnboardingWizard() {
               <section className="space-y-5 animate-slide-in">
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Compass className="h-5 w-5 text-emerald-400" />
+                    <Compass className="h-5 w-5 text-emerald-600" />
                     2. Dibujar Lotes Productivos
                   </h2>
-                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
                     Elige una herramienta de trazado y haz clic sobre el mapa. Puedes trazar libremente o colocar formas de círculos o rectángulos.
                   </p>
                 </div>
 
                 {/* Drawing Tools Selector */}
                 <div className="space-y-2">
-                  <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                  <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
                     Herramienta de Trazado
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -732,8 +732,8 @@ export default function OnboardingWizard() {
                           onClick={() => setDrawMode(mode.id as any)}
                           className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition ${
                             isSelected 
-                              ? 'bg-emerald-500/10 border-emerald-400 text-emerald-400 shadow-md shadow-emerald-500/5' 
-                              : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs ring-1 ring-emerald-100'
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                           }`}
                         >
                           <span className="font-bold text-xs block">{mode.name}</span>
@@ -746,10 +746,10 @@ export default function OnboardingWizard() {
 
                 {/* Circles Parameter Slider */}
                 {drawMode === 'circle' && (
-                  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Radio del Círculo</span>
-                      <span className="font-bold font-mono text-emerald-400">{circleRadius} metros</span>
+                      <span className="text-slate-500">Radio del Círculo</span>
+                      <span className="font-bold font-mono text-emerald-700">{circleRadius} metros</span>
                     </div>
                     <input
                       type="range"
@@ -758,15 +758,15 @@ export default function OnboardingWizard() {
                       step="25"
                       value={circleRadius}
                       onChange={(e) => setCircleRadius(parseInt(e.target.value))}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                      className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                     />
                     <div className="flex justify-between text-[9px] text-slate-500">
                       <span>100m (~3.1 ha)</span>
                       <span>1000m (~314.1 ha)</span>
                     </div>
-                    <div className="bg-black/40 border border-white/5 rounded-xl p-2.5 text-center text-xs">
-                      <span className="text-slate-400">Superficie estimada: </span>
-                      <span className="font-bold font-mono text-white">
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center text-xs">
+                      <span className="text-slate-500">Superficie estimada: </span>
+                      <span className="font-bold font-mono text-slate-950">
                         {((Math.PI * circleRadius * circleRadius) / 10000).toFixed(1)} hectáreas
                       </span>
                     </div>
@@ -775,11 +775,11 @@ export default function OnboardingWizard() {
 
                 {/* Rectangles Parameter Sliders */}
                 {drawMode === 'rectangle' && (
-                  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-xs">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Ancho (Este-Oeste)</span>
-                        <span className="font-bold font-mono text-emerald-400">{rectWidth} metros</span>
+                        <span className="text-slate-500">Ancho (Este-Oeste)</span>
+                        <span className="font-bold font-mono text-emerald-700">{rectWidth} metros</span>
                       </div>
                       <input
                         type="range"
@@ -788,14 +788,14 @@ export default function OnboardingWizard() {
                         step="50"
                         value={rectWidth}
                         onChange={(e) => setRectWidth(parseInt(e.target.value))}
-                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                        className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                       />
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Alto (Norte-Sur)</span>
-                        <span className="font-bold font-mono text-emerald-400">{rectHeight} metros</span>
+                        <span className="text-slate-500">Alto (Norte-Sur)</span>
+                        <span className="font-bold font-mono text-emerald-700">{rectHeight} metros</span>
                       </div>
                       <input
                         type="range"
@@ -804,13 +804,13 @@ export default function OnboardingWizard() {
                         step="50"
                         value={rectHeight}
                         onChange={(e) => setRectHeight(parseInt(e.target.value))}
-                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                        className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                       />
                     </div>
 
-                    <div className="bg-black/40 border border-white/5 rounded-xl p-2.5 text-center text-xs">
-                      <span className="text-slate-400">Superficie estimada: </span>
-                      <span className="font-bold font-mono text-white">
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center text-xs">
+                      <span className="text-slate-500">Superficie estimada: </span>
+                      <span className="font-bold font-mono text-slate-950">
                         {((rectWidth * rectHeight) / 10000).toFixed(1)} hectáreas
                       </span>
                     </div>
@@ -820,21 +820,21 @@ export default function OnboardingWizard() {
                 {/* List of current lots */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                    <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">
                       Lotes Creados ({lots.length})
                     </span>
                     {lots.length > 0 && (
-                      <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-emerald-50 border border-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
                         {lots.reduce((acc, curr) => acc + curr.area, 0).toFixed(1)} ha Totales
                       </span>
                     )}
                   </div>
 
                   {lots.length === 0 ? (
-                    <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center text-slate-500 bg-slate-900/20">
-                      <Layers3 className="h-8 w-8 mx-auto text-slate-600 mb-2" />
+                    <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-500 bg-white">
+                      <Layers3 className="h-8 w-8 mx-auto text-slate-400 mb-2" />
                       <p className="text-xs">No has delimitado ningún lote aún.</p>
-                      <p className="text-[10px] text-slate-600 mt-1">Haz clic en el mapa satelital a la derecha para empezar.</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Haz clic en el mapa satelital a la derecha para empezar.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -844,14 +844,14 @@ export default function OnboardingWizard() {
                           onClick={() => handleSelectLot(lot.id)}
                           className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition ${
                             selectedLotId === lot.id
-                              ? 'bg-emerald-500/10 border-emerald-500/40 text-white'
-                              : 'bg-slate-900/40 border-white/5 hover:border-white/10'
+                              ? 'bg-emerald-50 border-emerald-300 text-slate-950 ring-1 ring-emerald-100'
+                              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                           }`}
                         >
                           <div>
-                            <span className="font-semibold text-xs text-slate-400 uppercase tracking-widest block">Lote #{idx + 1}</span>
-                            <span className="font-bold text-sm text-white block mt-0.5">{lot.name}</span>
-                            <span className="text-[11px] text-emerald-400 font-mono mt-0.5 block">{lot.area.toFixed(2)} ha calculadas</span>
+                            <span className="font-semibold text-xs text-slate-500 uppercase tracking-widest block">Lote #{idx + 1}</span>
+                            <span className="font-bold text-sm text-slate-950 block mt-0.5">{lot.name}</span>
+                            <span className="text-[11px] text-emerald-700 font-mono mt-0.5 block">{lot.area.toFixed(2)} ha calculadas</span>
                           </div>
                           
                           <button
@@ -876,10 +876,10 @@ export default function OnboardingWizard() {
               <section className="space-y-5 animate-slide-in">
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Settings2 className="h-5 w-5 text-cyan-400" />
+                    <Settings2 className="h-5 w-5 text-cyan-700" />
                     3. Parámetros del Cultivo y Suelo
                   </h2>
-                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
                     Selecciona un lote del mapa o de la lista inferior y completa su información agronómica crítica para configurar el balance hídrico diario FAO-56.
                   </p>
                 </div>
@@ -892,8 +892,8 @@ export default function OnboardingWizard() {
                       onClick={() => handleSelectLot(lot.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 transition border ${
                         selectedLotId === lot.id
-                          ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                          : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'
+                          ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                       }`}
                     >
                       {lot.name || `Lote ${idx + 1}`}
@@ -904,16 +904,16 @@ export default function OnboardingWizard() {
                 {currentSelectedLot ? (() => {
                   const activeSoil = SOIL_TYPES.find((s) => s.id === (currentSelectedLot.soil || lotSoil)) || SOIL_TYPES[0];
                   return (
-                  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-xs">
                     
                     {/* Input Lote Name */}
                     <div className="space-y-1">
-                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Nombre del Lote</label>
+                      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Nombre del Lote</label>
                       <input
                         type="text"
                         value={lotName}
                         onChange={(e) => updateLotField('name', e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                       />
                     </div>
 
@@ -947,7 +947,7 @@ export default function OnboardingWizard() {
 
                     {/* Initial water state */}
                     <div className="space-y-2">
-                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
                         Estado hídrico inicial
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -966,11 +966,11 @@ export default function OnboardingWizard() {
                               }}
                               className={`text-left rounded-xl border p-2.5 text-xs transition ${
                                 isSelected
-                                  ? 'bg-cyan-500/10 border-cyan-400 text-white'
-                                  : 'bg-slate-950 border-white/5 text-slate-400 hover:bg-slate-800/30'
+                                  ? 'bg-cyan-50 border-cyan-300 text-slate-950 ring-1 ring-cyan-100'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                               }`}
                             >
-                              <span className="block font-bold text-slate-200">{option.label}</span>
+                              <span className="block font-bold text-slate-800">{option.label}</span>
                               <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">{option.desc}</span>
                             </button>
                           );
@@ -978,7 +978,7 @@ export default function OnboardingWizard() {
                       </div>
                       {(currentSelectedLot.initialWaterSource || lotInitialWaterSource) === 'MEASURED' && (
                         <div className="space-y-1.5">
-                          <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">
                             Agua disponible inicial medida (mm)
                           </label>
                           <input
@@ -995,7 +995,7 @@ export default function OnboardingWizard() {
                                 initialWaterSource: 'MEASURED',
                               });
                             }}
-                            className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                           />
                         </div>
                       )}
@@ -1004,7 +1004,7 @@ export default function OnboardingWizard() {
                     {/* Crop timing and stage */}
                     <div className="grid gap-2 md:grid-cols-2">
                       <div className="space-y-1.5">
-                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Fecha de siembra</label>
+                        <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Fecha de siembra</label>
                         <input
                           type="date"
                           value={currentSelectedLot.sowingDate || lotSowingDate}
@@ -1012,11 +1012,11 @@ export default function OnboardingWizard() {
                             setLotSowingDate(e.target.value);
                             updateSelectedLotAgronomicDetails({ sowingDate: e.target.value || null });
                           }}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Fecha de emergencia / brote</label>
+                        <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Fecha de emergencia / brote</label>
                         <input
                           type="date"
                           value={currentSelectedLot.emergenceDate || lotEmergenceDate}
@@ -1024,14 +1024,14 @@ export default function OnboardingWizard() {
                             setLotEmergenceDate(e.target.value);
                             updateSelectedLotAgronomicDetails({ emergenceDate: e.target.value || null });
                           }}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                         />
                         <p className="text-[10px] leading-relaxed text-slate-500">
                           Día en que el cultivo aparece sobre la superficie; ayuda a estimar la etapa real del ciclo.
                         </p>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Cosecha estimada</label>
+                        <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Cosecha estimada</label>
                         <input
                           type="date"
                           value={currentSelectedLot.expectedHarvestDate || lotExpectedHarvestDate}
@@ -1039,18 +1039,18 @@ export default function OnboardingWizard() {
                             setLotExpectedHarvestDate(e.target.value);
                             updateSelectedLotAgronomicDetails({ expectedHarvestDate: e.target.value || null });
                           }}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Etapa fenológica</label>
+                        <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Etapa fenológica</label>
                         <select
                           value={currentSelectedLot.phenologicalStage || lotPhenologicalStage}
                           onChange={(e) => {
                             setLotPhenologicalStage(e.target.value);
                             updateSelectedLotAgronomicDetails({ phenologicalStage: e.target.value || null });
                           }}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                         >
                           {PHENOLOGICAL_STAGES.map((stage) => (
                             <option key={stage.id || 'auto'} value={stage.id}>
@@ -1063,11 +1063,11 @@ export default function OnboardingWizard() {
 
                     {/* Irrigation System selector */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Sistema de Riego Instalado</label>
+                      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Sistema de Riego Instalado</label>
                       <select
                         value={currentSelectedLot.irrigation || lotIrrigation}
                         onChange={(e) => updateLotField('irrigation', e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                       >
                         {IRRIGATION_SYSTEMS.map((sys) => (
                           <option key={sys.id} value={sys.id}>
@@ -1078,9 +1078,9 @@ export default function OnboardingWizard() {
                     </div>
 
                     {/* Dynamic Agronomic Estimates display (FAO-56 parameters) */}
-                    <div className="bg-black/50 border border-white/5 rounded-xl p-3 space-y-2 text-[11px]">
-                      <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                        <p className="font-bold text-slate-300 uppercase tracking-widest text-[9px]">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-[11px]">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                        <p className="font-bold text-slate-600 uppercase tracking-widest text-[9px]">
                           Valores Agronómicos Estimados (FAO-56)
                         </p>
                         <span className="text-[9px] text-slate-500 font-mono">
@@ -1088,17 +1088,17 @@ export default function OnboardingWizard() {
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
+                        <div className="bg-white p-2 rounded-lg border border-slate-100">
                           <span className="text-slate-500 block text-[10px]">Cap. Campo (FC)</span>
-                          <span className="text-sm font-semibold text-white font-mono">{activeSoil.fc ?? '-'}{activeSoil.fc === null ? '' : '%'}</span>
+                          <span className="text-sm font-semibold text-slate-950 font-mono">{activeSoil.fc ?? '-'}{activeSoil.fc === null ? '' : '%'}</span>
                         </div>
-                        <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
+                        <div className="bg-white p-2 rounded-lg border border-slate-100">
                           <span className="text-slate-500 block text-[10px]">Pto. Marchitez (WP)</span>
-                          <span className="text-sm font-semibold text-amber-300 font-mono">{activeSoil.wp ?? '-'}{activeSoil.wp === null ? '' : '%'}</span>
+                          <span className="text-sm font-semibold text-amber-700 font-mono">{activeSoil.wp ?? '-'}{activeSoil.wp === null ? '' : '%'}</span>
                         </div>
-                        <div className="bg-slate-950 p-2 rounded-lg border border-white/5">
+                        <div className="bg-white p-2 rounded-lg border border-slate-100">
                           <span className="text-slate-500 block text-[10px]">Agua Útil (TAW)</span>
-                          <span className="text-sm font-semibold text-sky-300 font-mono">{activeSoil.taw === null ? 'Auto' : `${activeSoil.taw} mm/m`}</span>
+                          <span className="text-sm font-semibold text-sky-700 font-mono">{activeSoil.taw === null ? 'Auto' : `${activeSoil.taw} mm/m`}</span>
                         </div>
                       </div>
                     </div>
@@ -1106,9 +1106,9 @@ export default function OnboardingWizard() {
                   </div>
                   );
                 })() : (
-                  <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center text-slate-500 bg-slate-900/20">
+                  <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-500 bg-white">
                     <p className="text-xs">No hay lotes para parametrizar.</p>
-                    <p className="text-[10px] text-slate-600 mt-1">Retrocede al Paso 2 para delimitar tus parcelas.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Retrocede al Paso 2 para delimitar tus parcelas.</p>
                   </div>
                 )}
               </section>
@@ -1119,55 +1119,55 @@ export default function OnboardingWizard() {
               <section className="space-y-5 animate-slide-in">
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-amber-400" />
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
                     4. Resumen de la Estructura
                   </h2>
-                  <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+                  <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
                     Confirma que la delimitación espacial y los cultivos asignados coincidan con la realidad operativa del campo antes de iniciar el monitoreo diario.
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 space-y-3">
-                    <p className="text-xs uppercase tracking-wider text-slate-400 font-bold border-b border-white/5 pb-2">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
+                    <p className="text-xs uppercase tracking-wider text-slate-500 font-bold border-b border-slate-100 pb-2">
                       Ficha de Establecimiento
                     </p>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Coordenadas del Centro</span>
-                      <span className="font-mono text-white text-right">
+                      <span className="text-slate-500">Coordenadas del Centro</span>
+                      <span className="font-mono text-slate-950 text-right">
                         {center[0].toFixed(4)}, {center[1].toFixed(4)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Cantidad de Lotes</span>
-                      <span className="font-bold text-white">{lots.length} lotes</span>
+                      <span className="text-slate-500">Cantidad de Lotes</span>
+                      <span className="font-bold text-slate-950">{lots.length} lotes</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Superficie Total Delimitada</span>
-                      <span className="font-bold text-emerald-400 font-mono">
+                      <span className="text-slate-500">Superficie Total Delimitada</span>
+                      <span className="font-bold text-emerald-700 font-mono">
                         {lots.reduce((acc, curr) => acc + curr.area, 0).toFixed(1)} ha
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <span className="text-xs uppercase tracking-wider text-slate-400 font-bold block">
+                    <span className="text-xs uppercase tracking-wider text-slate-500 font-bold block">
                       Detalle de Lotes a Monitorear
                     </span>
 
                     {lots.map((lot, idx) => (
-                      <div key={lot.id} className="bg-slate-900/40 border border-white/5 rounded-2xl p-3.5 flex justify-between items-center text-xs">
+                      <div key={lot.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 flex justify-between items-center text-xs shadow-xs">
                         <div className="space-y-0.5">
-                          <span className="font-semibold text-slate-400 text-[10px]">LOTE #{idx + 1}</span>
-                          <p className="font-bold text-sm text-white">{lot.name}</p>
-                          <div className="flex gap-2 items-center text-[10px] text-slate-400 mt-1">
-                            <span className="bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{lot.crop}</span>
-                            <span className="bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{lot.soil}</span>
-                            <span className="bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{lot.irrigation}</span>
+                          <span className="font-semibold text-slate-500 text-[10px]">LOTE #{idx + 1}</span>
+                          <p className="font-bold text-sm text-slate-950">{lot.name}</p>
+                          <div className="flex gap-2 items-center text-[10px] text-slate-600 mt-1">
+                            <span className="bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">{lot.crop}</span>
+                            <span className="bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">{lot.soil}</span>
+                            <span className="bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">{lot.irrigation}</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-sm text-emerald-400 font-mono">{lot.area.toFixed(1)} ha</span>
+                          <span className="font-bold text-sm text-emerald-700 font-mono">{lot.area.toFixed(1)} ha</span>
                           <span className="text-[10px] text-slate-500 block mt-0.5">TAW: {lot.taw} mm</span>
                         </div>
                       </div>
@@ -1181,11 +1181,11 @@ export default function OnboardingWizard() {
         </div>
 
         {/* Footer Actions Panel */}
-        <footer className="border-t border-white/10 pt-4 flex gap-3">
+        <footer className="border-t border-slate-200 pt-4 flex gap-3">
           {step > 1 && (
             <button
               onClick={handleBack}
-              className="flex items-center justify-center gap-1.5 border border-white/15 bg-white/5 hover:bg-white/10 text-white rounded-2xl px-4 py-3 text-sm font-semibold transition"
+              className="flex items-center justify-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl px-4 py-3 text-sm font-bold transition shadow-xs"
             >
               <ChevronLeft className="h-4 w-4" /> Atrás
             </button>
@@ -1194,23 +1194,23 @@ export default function OnboardingWizard() {
           {step < 4 ? (
             <button
               onClick={handleNext}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 rounded-2xl py-3 text-sm font-bold shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 hover:scale-[1.01] transition duration-200"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 text-white rounded-2xl py-3 text-sm font-bold shadow-md shadow-slate-900/15 hover:scale-[1.01] transition duration-200"
             >
-              Siguiente <ChevronRight className="h-4 w-4 text-slate-950" />
+              Siguiente <ChevronRight className="h-4 w-4 text-white" />
             </button>
           ) : (
             <button
               onClick={handleFinish}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 rounded-2xl py-3 text-sm font-bold shadow-lg shadow-emerald-400/20 hover:scale-[1.01] transition duration-200"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 text-white rounded-2xl py-3 text-sm font-bold shadow-md shadow-crop-900/15 hover:scale-[1.01] transition duration-200"
             >
-              Comenzar a Monitorear <CheckCircle className="h-4 w-4 text-slate-950" />
+              Comenzar a Monitorear <CheckCircle className="h-4 w-4 text-white" />
             </button>
           )}
         </footer>
       </aside>
 
       {/* Map Content Pane */}
-      <section className="flex-1 p-4 lg:p-6 bg-slate-950 flex flex-col justify-between min-h-[500px] lg:h-screen relative">
+      <section className="flex-1 p-4 lg:p-6 bg-slate-100 flex flex-col justify-between min-h-[500px] lg:h-screen relative">
         <InteractiveOnboardingMap
           step={step}
           center={center}

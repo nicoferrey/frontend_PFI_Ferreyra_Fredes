@@ -698,16 +698,16 @@ export default function InteractiveOnboardingMap({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[520px] rounded-[24px] overflow-hidden border border-white/10 shadow-2xl">
+    <div className="relative w-full h-full min-h-[520px] rounded-[28px] overflow-hidden border border-white/80 shadow-soft">
       {/* Leaflet container */}
-      <div ref={mapContainerRef} className="w-full h-full min-h-[520px] bg-slate-950" />
+      <div ref={mapContainerRef} className="w-full h-full min-h-[520px] bg-slate-200" />
 
-      <div className="absolute top-4 right-4 z-[999] rounded-2xl border border-white/20 bg-slate-950/80 p-1.5 text-xs text-white shadow-lg backdrop-blur-md">
+      <div className="absolute top-4 right-4 z-[999] rounded-2xl border border-white/80 bg-white/90 p-1.5 text-xs text-slate-800 shadow-soft backdrop-blur-md">
         <button
           type="button"
           onClick={() => setUseCurrentImage((value) => !value)}
           className={`rounded-xl px-3 py-1.5 font-bold transition ${
-            useCurrentImage ? 'bg-crop-600 text-white' : 'text-slate-300 hover:text-white'
+            useCurrentImage ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
           }`}
         >
           {useCurrentImage ? 'Imagen actual activa' : 'Usar imagen actual'}
@@ -715,22 +715,22 @@ export default function InteractiveOnboardingMap({
       </div>
 
       {useCurrentImage && (
-        <div className="absolute bottom-4 left-4 z-[999] max-w-[calc(100%-2rem)] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-md">
+        <div className="absolute bottom-4 left-4 z-[999] max-w-[calc(100%-2rem)] rounded-2xl border border-white/80 bg-white/90 px-3 py-2 text-xs text-slate-800 shadow-soft backdrop-blur-md">
           {sentinelLayerStatus === 'loading' && (
-            <span className="font-semibold text-slate-200">Cargando imagen Sentinel-2...</span>
+            <span className="font-semibold text-slate-700">Cargando imagen Sentinel-2...</span>
           )}
           {sentinelLayerStatus === 'ready' && (
-            <span className="font-semibold text-slate-200">
+            <span className="font-semibold text-slate-700">
               Sentinel-2 activo{sentinelLayerDate ? ` · ${sentinelLayerDate}` : ''}
             </span>
           )}
           {sentinelLayerStatus === 'error' && (
-            <span className="font-semibold text-amber-200">{sentinelLayerError}</span>
+            <span className="font-semibold text-amber-700">{sentinelLayerError}</span>
           )}
         </div>
       )}
 
-      <div className="absolute bottom-4 right-16 z-[999] rounded-2xl border border-white/20 bg-slate-950/80 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur-md">
+      <div className="absolute bottom-4 right-16 z-[999] rounded-2xl border border-white/80 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-soft backdrop-blur-md">
         {useCurrentImage
           ? sentinelLayerDate
             ? `Imagen reciente · ${sentinelLayerDate}`
@@ -741,15 +741,15 @@ export default function InteractiveOnboardingMap({
       {/* Floating map UI info */}
       <div className="absolute top-4 left-4 z-[999] flex flex-col gap-2 max-w-xs">
         {step === 1 && (
-          <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg text-white">
+          <div className="bg-white/90 backdrop-blur-md border border-white/80 rounded-2xl p-4 shadow-soft text-slate-900">
             <div className="flex items-center gap-2 text-sky-400 font-semibold text-sm">
               <MapPin className="h-4 w-4" />
               <span>Establecimiento</span>
             </div>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
               Haz clic en el mapa o arrastra el marcador rojo para fijar el centro de tu campo productivo.
             </p>
-            <div className="mt-2.5 text-[11px] text-slate-400 bg-black/40 px-2 py-1.5 rounded-lg border border-white/5 font-mono">
+            <div className="mt-2.5 text-[11px] text-slate-600 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 font-mono">
               Lat: {center[0].toFixed(5)}<br />
               Lng: {center[1].toFixed(5)}
             </div>
@@ -757,27 +757,27 @@ export default function InteractiveOnboardingMap({
         )}
 
         {step === 2 && (
-          <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg text-white">
+          <div className="bg-white/90 backdrop-blur-md border border-white/80 rounded-2xl p-4 shadow-soft text-slate-900">
             <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
               <Compass className="h-4 w-4" />
               <span>Trazado de Polígonos</span>
             </div>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Haz clics sucesivos para delimitar las parcelas. Haz clic en el **primer punto verde** para cerrar y calcular las hectáreas del lote.
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Haz clics sucesivos para delimitar las parcelas. Haz clic en el primer punto verde para cerrar y calcular las hectáreas del lote.
             </p>
             
             {drawingVertices.length > 0 && (
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={handleResetDrawing}
-                  className="flex-1 flex items-center justify-center gap-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 py-1.5 px-2 rounded-xl text-xs font-semibold transition"
+                  className="flex-1 flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 py-1.5 px-2 rounded-xl text-xs font-semibold transition"
                 >
                   <RefreshCw className="h-3 w-3" /> Reiniciar
                 </button>
                 {drawingVertices.length >= 3 && (
                   <button
                     onClick={handleCloseLot}
-                    className="flex-1 flex items-center justify-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-1.5 px-2 rounded-xl text-xs font-bold transition"
+                    className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 px-2 rounded-xl text-xs font-bold transition"
                   >
                     <Check className="h-3 w-3" /> Cerrar Lote
                   </button>
@@ -785,7 +785,7 @@ export default function InteractiveOnboardingMap({
               </div>
             )}
             
-            <div className="mt-2.5 text-[11px] text-slate-400 bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/5 flex justify-between">
+            <div className="mt-2.5 text-[11px] text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 flex justify-between">
               <span>Vértices marcados:</span>
               <span className="font-mono text-cyan-400 font-bold">{drawingVertices.length}</span>
             </div>
@@ -793,27 +793,27 @@ export default function InteractiveOnboardingMap({
         )}
 
         {step === 3 && (
-          <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg text-white">
+          <div className="bg-white/90 backdrop-blur-md border border-white/80 rounded-2xl p-4 shadow-soft text-slate-900">
             <div className="flex items-center gap-2 text-cyan-400 font-semibold text-sm">
               <Layers className="h-4 w-4" />
               <span>Parámetros del Lote</span>
             </div>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
               Haz clic sobre cualquiera de los polígonos dibujados (se verán destacados en verde) para editar sus parámetros agronómicos.
             </p>
-            <div className="mt-2.5 text-[11px] text-slate-400 bg-black/40 px-2 py-1.5 rounded-lg border border-white/5">
-              Lotes totales: <span className="text-white font-semibold font-mono">{lots.length}</span>
+            <div className="mt-2.5 text-[11px] text-slate-600 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200">
+              Lotes totales: <span className="text-slate-950 font-semibold font-mono">{lots.length}</span>
             </div>
           </div>
         )}
 
         {step === 4 && (
-          <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg text-white">
+          <div className="bg-white/90 backdrop-blur-md border border-white/80 rounded-2xl p-4 shadow-soft text-slate-900">
             <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
               <Check className="h-4 w-4" />
               <span>Vista Consolidada</span>
             </div>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
               Tus lotes han sido creados y listados. Haz clic en "Comenzar a Monitorear" en el panel derecho para guardar y finalizar.
             </p>
           </div>
