@@ -41,6 +41,7 @@ import { CustomTimePicker } from '@/components/custom-time-picker';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
 import { KpiCard } from '@/components/kpi-card';
+import { ModalPortal } from '@/components/modal-portal';
 import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
@@ -1199,9 +1200,8 @@ export default function DashboardHistoryPage() {
       {/* ==========================================
          UNIFIED MODAL: REGISTRAR EVENTO HÍDRICO (RIEGO / LLUVIA)
          ========================================== */}
-      {isEventModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
+      <ModalPortal isOpen={isEventModalOpen} onClose={() => setIsEventModalOpen(false)}>
+        <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
@@ -1374,15 +1374,14 @@ export default function DashboardHistoryPage() {
               </form>
             )}
           </div>
-        </div>
-      )}
+        </ModalPortal>
 
       {/* ==========================================
          MODAL 3: EDITAR EVENTO (RIEGO O LLUVIA)
          ========================================== */}
-      {isEditModalOpen && editingEvent && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
+      <ModalPortal isOpen={isEditModalOpen && Boolean(editingEvent)} onClose={() => { setIsEditModalOpen(false); setEditingEvent(null); }}>
+        {editingEvent && (
+          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
@@ -1487,8 +1486,8 @@ export default function DashboardHistoryPage() {
               </form>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

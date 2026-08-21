@@ -47,6 +47,7 @@ import {
   removeTeamMemberApi,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { ModalPortal } from '@/components/modal-portal';
 
 interface FarmSettingsViewProps {
   fields: FieldItem[];
@@ -689,173 +690,168 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
         </div>
       </div>
 
-
       {/* 6. MODAL: AGREGAR USUARIO AL CAMPO */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg rounded-[28px] border border-white/20 bg-white p-6 md:p-8 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-crop-100 text-crop-700 shadow-sm">
-                  <UserPlus className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Agregar Usuario al Campo</h3>
-                  <p className="text-xs text-slate-500">Asigna permisos y datos de contacto para el canal WhatsApp.</p>
-                </div>
+      <ModalPortal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
+        <div className="w-full max-w-lg rounded-[28px] border border-white/20 bg-white p-6 md:p-8 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto text-slate-900">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-crop-100 text-crop-700 shadow-sm">
+                <UserPlus className="h-6 w-6" />
               </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Agregar Usuario al Campo</h3>
+                <p className="text-xs text-slate-500">Asigna permisos y datos de contacto para el canal WhatsApp.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAddModalOpen(false)}
+              className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Error or Success alerts */}
+          {formError && (
+            <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+          {formSuccess && (
+            <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{formSuccess}</span>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleAddMember} className="mt-5 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Lucas"
+                  value={newFirstName}
+                  onChange={(e) => setNewFirstName(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Fredes"
+                  value={newLastName}
+                  onChange={(e) => setNewLastName(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
+                />
+              </div>
             </div>
 
-            {/* Error or Success alerts */}
-            {formError && (
-              <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>{formError}</span>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                Correo Electrónico
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="email"
+                  required
+                  placeholder="usuario@campo.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
+                />
               </div>
-            )}
-            {formSuccess && (
-              <div className="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>{formSuccess}</span>
-              </div>
-            )}
+            </div>
 
-            {/* Form */}
-            <form onSubmit={handleAddMember} className="mt-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Lucas"
-                    value={newFirstName}
-                    onChange={(e) => setNewFirstName(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-crop-500/20 focus:border-crop-500 transition"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Apellido
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Fredes"
-                    value={newLastName}
-                    onChange={(e) => setNewLastName(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs md:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-crop-500/20 focus:border-crop-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
                 <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Correo Electrónico
+                  Número de WhatsApp
                 </label>
-                <div className="relative flex items-center">
-                  <Mail className="absolute left-3.5 h-4 w-4 text-slate-400" />
-                  <input
-                    type="email"
-                    placeholder="usuario@campo.com"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-3 text-xs md:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-crop-500/20 focus:border-crop-500 transition"
-                  />
-                </div>
+                <span className="text-[10px] text-crop-600 font-bold uppercase tracking-wider">Requerido para alertas</span>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block flex items-center justify-between">
-                  <span>Número de WhatsApp</span>
-                  <span className="text-[10px] text-emerald-600 font-normal">Requerido para alertas</span>
-                </label>
-                <div className="relative flex items-center">
-                  <Phone className="absolute left-3.5 h-4 w-4 text-slate-400" />
-                  <input
-                    type="tel"
-                    placeholder="+54 9 2477 123456"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-10 pr-3 text-xs md:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-crop-500/20 focus:border-crop-500 transition"
-                  />
-                </div>
+              <div className="relative">
+                <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="tel"
+                  placeholder="+54 9 2477 123456"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
+                />
               </div>
+            </div>
 
-              {/* Role Selection Cards */}
-              <div className="space-y-2 pt-1">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Rol Asignado para este Campo
-                </label>
-                <div className="space-y-2.5">
-                  {(['admin', 'agronomist', 'operator'] as FieldRole[]).map((r) => {
-                    const isSelected = newRole === r;
-                    const meta = roleDetails[r];
-                    const Icon = meta.icon;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setNewRole(r)}
-                        className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3.5 ${
-                          isSelected
-                            ? 'bg-crop-50/80 border-crop-500 shadow-sm ring-2 ring-crop-500/20'
-                            : 'bg-slate-50/80 border-slate-200 hover:bg-slate-100/70'
-                        }`}
-                      >
-                        <div className={`p-2.5 rounded-xl mt-0.5 ${isSelected ? 'bg-crop-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600'}`}>
-                          <Icon className="h-4 w-4" />
+            <div className="space-y-2 pt-1">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                Rol asignado para este campo
+              </label>
+              <div className="space-y-2">
+                {(['admin', 'agronomist', 'operator'] as FieldRole[]).map((r) => {
+                  const isSelected = newRole === r;
+                  const details = roleDetails[r];
+                  const Icon = details.icon;
+                  return (
+                    <div
+                      key={r}
+                      onClick={() => setNewRole(r)}
+                      className={`flex items-start gap-3 rounded-2xl border p-3.5 cursor-pointer transition ${
+                        isSelected
+                          ? 'border-crop-500 bg-crop-50/60 shadow-xs ring-1 ring-crop-500/20'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/70'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-xl shrink-0 ${isSelected ? 'bg-crop-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-xs text-slate-900">{details.title}</span>
+                          {isSelected && <span className="h-2 w-2 rounded-full bg-crop-600"></span>}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs md:text-sm font-bold text-slate-900">{meta.title}</p>
-                            {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-crop-600" />}
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{meta.description}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{details.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs md:text-sm font-semibold text-slate-700 hover:bg-slate-100 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingUser}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white px-4 py-2.5 text-xs md:text-sm font-bold shadow-md transition disabled:opacity-50"
-                >
-                  {isSubmittingUser ? 'Guardando...' : 'Guardar y Vincular al Campo'}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="flex gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingUser}
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white px-4 py-2.5 text-xs md:text-sm font-bold shadow-md transition disabled:opacity-50"
+              >
+                {isSubmittingUser ? 'Guardando...' : 'Guardar y Vincular al Campo'}
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </ModalPortal>
 
       {/* 7. MODAL: EDITAR ROL DE MIEMBRO */}
-      {editingMember && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md rounded-[28px] border border-white/20 bg-white p-6 md:p-8 shadow-2xl animate-scale-in">
+      <ModalPortal isOpen={Boolean(editingMember)} onClose={() => setEditingMember(null)}>
+        {editingMember && (
+          <div className="w-full max-w-md rounded-[28px] border border-white/20 bg-white p-6 md:p-8 shadow-2xl animate-scale-in text-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
@@ -912,8 +908,8 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
     </div>
   );
 }

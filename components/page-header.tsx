@@ -24,7 +24,7 @@ export function PageHeader({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Top Header Card with Organic Green Background Waves */}
-      <div className="relative z-40 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-6 shadow-soft backdrop-blur-md">
+      <div className="relative z-10 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-6 shadow-soft backdrop-blur-md">
         {/* Organic Layered Wave Curves in Background (Isolated overflow-hidden) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px] select-none">
           <div className="absolute inset-y-0 right-0 w-full md:w-3/4 lg:w-3/5">

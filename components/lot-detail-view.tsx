@@ -43,6 +43,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { FieldAgentSnapshot, NdviPreview, getNdviPreviewApi } from '@/lib/api';
+import { ModalPortal } from '@/components/modal-portal';
 import { CustomDatePicker } from '@/components/custom-date-picker';
 import { CustomSelect } from '@/components/custom-select';
 import { CustomTimePicker } from '@/components/custom-time-picker';
@@ -785,150 +786,148 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
 
       {/* 4. MODAL: REGISTRAR RIEGO */}
-      {isRegisterModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-water-50 text-water-600 border border-water-200/60">
-                  <Droplet className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-950">
-                    Registrar Riego
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Lote: <strong className="text-slate-800 font-bold">{lot.name}</strong> ({lot.crop})
-                  </p>
-                </div>
+      <ModalPortal isOpen={isRegisterModalOpen} onClose={() => setIsRegisterModalOpen(false)}>
+        <div className="relative w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
+          
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-water-50 text-water-600 border border-water-200/60">
+                <Droplet className="h-5 w-5" />
               </div>
-
-              <button
-                type="button"
-                onClick={() => setIsRegisterModalOpen(false)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {formSuccess ? (
-              <div className="py-10 text-center animate-fade-in">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 className="h-8 w-8" />
-                </div>
-                <h4 className="mt-3 text-lg font-bold text-slate-950">
-                  ¡Riego Registrado Exitosamente!
-                </h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  El balance hídrico del lote ha sido actualizado en tiempo real.
+              <div>
+                <h3 className="text-base font-bold text-slate-950">
+                  Registrar Riego
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Lote: <strong className="text-slate-800 font-bold">{lot.name}</strong> ({lot.crop})
                 </p>
               </div>
-            ) : (
-              <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 mb-1 block">
-                      Fecha de aplicación
-                    </label>
-                    <CustomDatePicker
-                      value={irrigationForm.date}
-                      onChange={(newDate) => setIrrigationForm({ ...irrigationForm, date: newDate })}
-                      placeholder="Seleccionar fecha"
-                    />
-                  </div>
+            </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 mb-1 block">
-                      Hora de inicio
-                    </label>
-                    <CustomTimePicker
-                      value={irrigationForm.time}
-                      onChange={(newTime) => setIrrigationForm({ ...irrigationForm, time: newTime })}
-                      placeholder="Seleccionar hora"
-                    />
-                  </div>
+            <button
+              type="button"
+              onClick={() => setIsRegisterModalOpen(false)}
+              className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {formSuccess ? (
+            <div className="py-10 text-center animate-fade-in">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
+              <h4 className="mt-3 text-lg font-bold text-slate-950">
+                ¡Riego Registrado Exitosamente!
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                El balance hídrico del lote ha sido actualizado en tiempo real.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">
+                    Fecha de aplicación
+                  </label>
+                  <CustomDatePicker
+                    value={irrigationForm.date}
+                    onChange={(newDate) => setIrrigationForm({ ...irrigationForm, date: newDate })}
+                    placeholder="Seleccionar fecha"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 mb-1 block">
-                      Agua aplicada en el riego (mm)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="1"
-                        max="100"
-                        required
-                        value={irrigationForm.amount_mm}
-                        onChange={(e) => setIrrigationForm({ ...irrigationForm, amount_mm: e.target.value })}
-                        className="w-full h-11 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-950 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
-                      />
-                      <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">mm</span>
-                    </div>
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">
+                    Hora de inicio
+                  </label>
+                  <CustomTimePicker
+                    value={irrigationForm.time}
+                    onChange={(newTime) => setIrrigationForm({ ...irrigationForm, time: newTime })}
+                    placeholder="Seleccionar hora"
+                  />
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 mb-1 block">
-                      Método / Equipo
-                    </label>
-                    <CustomSelect
-                      options={[
-                        { value: 'Pivote Central', label: 'Pivote Central' },
-                        { value: 'Goteo', label: 'Goteo Subterráneo' },
-                        { value: 'Aspersión', label: 'Aspersión Fija' },
-                        { value: 'Cañón Enrollador', label: 'Cañón Enrollador' },
-                        { value: 'Surco', label: 'Riego por Gravedad / Surco' },
-                      ]}
-                      value={irrigationForm.method}
-                      onChange={(method) => setIrrigationForm({ ...irrigationForm, method })}
-                      icon={<Droplets className="h-3.5 w-3.5 text-water-600" />}
-                      placeholder="Seleccionar Método"
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 mb-1 block">
+                    Agua aplicada en el riego (mm)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="1"
+                      max="100"
+                      required
+                      value={irrigationForm.amount_mm}
+                      onChange={(e) => setIrrigationForm({ ...irrigationForm, amount_mm: e.target.value })}
+                      className="w-full h-11 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-950 outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
                     />
+                    <span className="absolute right-3.5 top-3 text-xs font-bold text-slate-400">mm</span>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 mb-1 block">
-                    Notas y Observaciones
+                    Método / Equipo
                   </label>
-                  <textarea
-                    rows={2}
-                    value={irrigationForm.notes}
-                    onChange={(e) => setIrrigationForm({ ...irrigationForm, notes: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-900 font-medium outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
-                    placeholder="Detalles sobre presión, pluviometría o anomalías..."
+                  <CustomSelect
+                    options={[
+                      { value: 'Pivote Central', label: 'Pivote Central' },
+                      { value: 'Goteo', label: 'Goteo Subterráneo' },
+                      { value: 'Aspersión', label: 'Aspersión Fija' },
+                      { value: 'Cañón Enrollador', label: 'Cañón Enrollador' },
+                      { value: 'Surco', label: 'Riego por Gravedad / Surco' },
+                    ]}
+                    value={irrigationForm.method}
+                    onChange={(method) => setIrrigationForm({ ...irrigationForm, method })}
+                    icon={<Droplets className="h-3.5 w-3.5 text-water-600" />}
+                    placeholder="Seleccionar Método"
                   />
                 </div>
+              </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => setIsRegisterModalOpen(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="rounded-xl bg-slate-950 hover:bg-slate-850 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-70"
-                  >
-                    {isSubmitting ? 'Guardando...' : 'Guardar Registro'}
-                  </button>
-                </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 mb-1 block">
+                  Notas y Observaciones
+                </label>
+                <textarea
+                  rows={2}
+                  value={irrigationForm.notes}
+                  onChange={(e) => setIrrigationForm({ ...irrigationForm, notes: e.target.value })}
+                  className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-900 font-medium outline-none focus:border-crop-500 focus:ring-2 focus:ring-crop-500/20 shadow-sm"
+                  placeholder="Detalles sobre presión, pluviometría o anomalías..."
+                />
+              </div>
 
-              </form>
-            )}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setIsRegisterModalOpen(false)}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-slate-950 hover:bg-slate-850 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-70"
+                >
+                  {isSubmitting ? 'Guardando...' : 'Guardar Registro'}
+                </button>
+              </div>
 
-          </div>
+            </form>
+          )}
+
         </div>
-      )}
+      </ModalPortal>
 
     </div>
   );

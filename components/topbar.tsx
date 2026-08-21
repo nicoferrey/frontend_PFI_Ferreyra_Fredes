@@ -166,7 +166,7 @@ export function Topbar({
     : 'Dueño / Administrador';
 
   return (
-    <header className={`relative z-[1010] w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>
+    <header className={`relative z-[500] w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between gap-4">
         
         {/* Left Side: Breadcrumbs / Navigation Index */}

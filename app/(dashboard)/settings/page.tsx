@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { FarmSettingsView } from '@/components/farm-settings-view';
 import { PageHeader } from '@/components/page-header';
+import { CustomSelect } from '@/components/custom-select';
 import { 
   User, 
   Settings, 
@@ -232,79 +233,87 @@ export default function DashboardSettingsPage() {
                   </div>
                 )}
 
-                <form id="profile-form" onSubmit={handleProfileSave} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500">Nombre</label>
+                <form id="profile-form" onSubmit={handleProfileSave} className="space-y-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                        Nombre
+                      </label>
                       <input
                         type="text"
                         value={profileForm.firstName}
                         onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
                         required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-850 outline-hidden transition focus:border-sky-500 focus:bg-white"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500">Apellido</label>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                        Apellido
+                      </label>
                       <input
                         type="text"
                         value={profileForm.lastName}
                         onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
                         required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-850 outline-hidden transition focus:border-sky-500 focus:bg-white"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
                       />
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                        <Mail className="h-3.5 w-3.5" /> Correo Electrónico
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                        <Mail className="h-3.5 w-3.5 text-slate-400" /> Correo Electrónico
                       </label>
                       <input
                         type="email"
                         value={user?.email || ''}
                         disabled
-                        className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2 text-xs text-slate-400 cursor-not-allowed"
+                        className="w-full rounded-2xl border border-slate-200/80 bg-slate-100/80 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-500 cursor-not-allowed"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                        <Phone className="h-3.5 w-3.5" /> Teléfono (WhatsApp)
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                        <Phone className="h-3.5 w-3.5 text-slate-400" /> Teléfono (WhatsApp)
                       </label>
                       <input
                         type="text"
                         value={profileForm.phone}
                         placeholder="+54 9 ..."
                         onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-850 outline-hidden transition focus:border-sky-500 focus:bg-white"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500">Rol Operativo</label>
-                    <select
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                      Rol Operativo
+                    </label>
+                    <CustomSelect
+                      options={[
+                        { value: 'admin', label: 'Dueño / Administrador', sublabel: 'Control total del campo y gestión de usuarios' },
+                        { value: 'agronomist', label: 'Asesor Agrónomo', sublabel: 'Auditoría del balance hídrico y curvas NDVI' },
+                        { value: 'operator', label: 'Operador de Riego', sublabel: 'Registro de riegos y alertas operativas' },
+                      ]}
                       value={profileForm.role}
-                      onChange={(e) => setProfileForm({ ...profileForm, role: e.target.value as FieldRole })}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-850 outline-hidden transition focus:border-sky-500 focus:bg-white"
-                    >
-                      <option value="admin">Dueño / Administrador</option>
-                      <option value="agronomist">Asesor Agrónomo</option>
-                      <option value="operator">Operador de Riego</option>
-                    </select>
+                      onChange={(val) => setProfileForm({ ...profileForm, role: val as FieldRole })}
+                      icon={<UserCheck className="h-4 w-4 text-crop-600" />}
+                    />
                   </div>
                 </form>
               </div>
 
-              <div className="pt-5 border-t border-slate-100 mt-6">
+              <div className="pt-5 border-t border-slate-100 mt-6 flex justify-end">
                 <button
                   type="submit"
                   form="profile-form"
                   disabled={isSubmittingProfile}
-                  className="rounded-xl bg-slate-950 hover:bg-slate-850 text-white font-bold px-5 py-2.5 text-xs shadow-md transition disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white font-bold px-6 py-3 text-xs md:text-sm shadow-md hover:shadow-lg transition duration-150 disabled:opacity-50"
                 >
-                  {isSubmittingProfile ? 'Guardando...' : 'Guardar Perfil'}
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>{isSubmittingProfile ? 'Guardando...' : 'Guardar Perfil'}</span>
                 </button>
               </div>
             </div>
