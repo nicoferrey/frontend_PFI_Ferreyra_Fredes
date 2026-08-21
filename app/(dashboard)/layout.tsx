@@ -45,16 +45,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <aside className="hidden w-[280px] shrink-0 sticky top-4 lg:top-6 h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex-col rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur xl:flex justify-between overflow-y-auto">
             <div>
               
-              {/* Logo & Brand */}
-              <div className="flex items-center gap-3 border-b border-slate-200/80 pb-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-500 to-water-500 text-white shadow-lg shadow-crop-500/20">
-                  <Logo className="h-7 w-7 text-white" />
+              {/* Logo & Brand (Clickable link to Dashboard /) */}
+              <Link href="/" className="group flex items-center gap-3.5 border-b border-slate-200/80 pb-5 cursor-pointer">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-500 to-water-500 text-white shadow-lg shadow-crop-500/20 transition-all duration-500 ease-out group-hover:scale-110 group-hover:shadow-crop-500/40 group-hover:rotate-3 animate-in fade-in zoom-in-75 duration-700">
+                  <Logo className="h-6 w-6 text-white transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3" />
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">AgroMAS</p>
-                  <h1 className="text-lg font-semibold text-slate-950">Gestión inteligente</h1>
+                <div className="flex flex-col justify-center">
+                  <span className="text-2xl font-black tracking-tight text-slate-950 leading-none font-sans">
+                    Agro<span className="bg-gradient-to-r from-emerald-600 via-crop-500 to-water-600 bg-clip-text text-transparent">MAS</span>
+                  </span>
+                  <p className="mt-1 text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                    PLATAFORMA INTELIGENTE
+                  </p>
                 </div>
-              </div>
+              </Link>
 
               {/* Navigation Items */}
               <nav className="mt-6 space-y-1.5">
