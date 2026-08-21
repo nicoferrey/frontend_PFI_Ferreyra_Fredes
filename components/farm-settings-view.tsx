@@ -48,6 +48,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { ModalPortal } from '@/components/modal-portal';
+import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 
 interface FarmSettingsViewProps {
   fields: FieldItem[];
@@ -403,7 +404,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                               <Phone className="h-3.5 w-3.5" />
                             </div>
                             <span className="font-mono text-[11px] font-semibold text-slate-800 truncate">
-                              {member.phone_whatsapp}
+                              {formatPhoneWhatsapp(member.phone_whatsapp)}
                             </span>
                           </div>
                           
@@ -785,9 +786,9 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                 <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                 <input
                   type="tel"
-                  placeholder="+54 9 2477 123456"
+                  placeholder="+54 9 2477 1234-5678"
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
+                  onChange={(e) => setNewPhone(formatPhoneWhatsapp(e.target.value))}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
                 />
               </div>

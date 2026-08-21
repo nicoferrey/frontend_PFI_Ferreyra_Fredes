@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { FarmSettingsView } from '@/components/farm-settings-view';
 import { PageHeader } from '@/components/page-header';
 import { CustomSelect } from '@/components/custom-select';
+import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { 
   User, 
   Settings, 
@@ -59,7 +60,7 @@ export default function DashboardSettingsPage() {
     return {
       firstName,
       lastName,
-      phone: user?.phone_whatsapp || '',
+      phone: formatPhoneWhatsapp(user?.phone_whatsapp || ''),
       role: (user?.role || 'operator') as FieldRole
     };
   });
@@ -75,7 +76,7 @@ export default function DashboardSettingsPage() {
         ...prev,
         firstName: prev.firstName || firstName,
         lastName: prev.lastName || lastName,
-        phone: prev.phone || user.phone_whatsapp || '',
+        phone: formatPhoneWhatsapp(prev.phone || user.phone_whatsapp || ''),
         role: (user.role || prev.role || 'operator') as FieldRole
       }));
     }
@@ -280,8 +281,8 @@ export default function DashboardSettingsPage() {
                       <input
                         type="text"
                         value={profileForm.phone}
-                        placeholder="+54 9 ..."
-                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="+54 9 2477 1234-5678"
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: formatPhoneWhatsapp(e.target.value) })}
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
                       />
                     </div>

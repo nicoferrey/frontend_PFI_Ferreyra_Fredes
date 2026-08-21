@@ -7,6 +7,7 @@ import {
   ArrowRight, ArrowLeft, ShieldCheck, AlertCircle, Loader2, 
   Sprout, UserCheck, MessageSquare
 } from 'lucide-react';
+import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useAuth } from '@/lib/auth-context';
 
 interface AuthFormProps {
@@ -388,9 +389,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               <Phone className="absolute left-3.5 h-4 w-4 text-slate-500" />
               <input
                 type="tel"
-                placeholder="+54 9 11 2345 6789"
+                placeholder="+54 9 2477 1234-5678"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneWhatsapp(e.target.value))}
                 required
                 className="w-full bg-slate-900/60 border border-white/10 focus:border-emerald-400 rounded-xl py-2.5 pl-10 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/20 transition"
               />
@@ -614,9 +615,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               <Phone className="absolute left-3.5 h-4 w-4 text-slate-500" />
               <input
                 type="tel"
-                placeholder="+54 9 2477 458921"
+                placeholder="+54 9 2477 1234-5678"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneWhatsapp(e.target.value))}
                 required
                 className="w-full bg-slate-900/60 border border-white/10 focus:border-emerald-400 rounded-xl py-2 pl-10 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/20 transition"
               />

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
+import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -731,7 +732,7 @@ export default function DashboardAssistantPage() {
                     Historial WhatsApp &bull; {selectedMemberHistory.name}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    {selectedMemberHistory.role} &bull; <span className="font-mono text-slate-600">{selectedMemberHistory.phone}</span>
+                    {selectedMemberHistory.role} &bull; <span className="font-mono text-slate-600">{formatPhoneWhatsapp(selectedMemberHistory.phone)}</span>
                   </p>
                 </div>
               </div>
