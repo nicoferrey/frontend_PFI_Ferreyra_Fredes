@@ -40,6 +40,7 @@ import { CustomDatePicker } from '@/components/custom-date-picker';
 import { CustomTimePicker } from '@/components/custom-time-picker';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
+import { KpiCard } from '@/components/kpi-card';
 import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
@@ -833,68 +834,44 @@ export default function DashboardHistoryPage() {
       {/* Reports Summary KPI Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         {/* 1. Riegos Totales */}
-        <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Riegos Aplicados</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900 font-mono">
-              {reportsSummary?.metrics?.total_irrigation_applied_mm.toFixed(1) ?? '35.0'} <span className="text-xs font-normal text-slate-500">mm</span>
-            </p>
-            <p className="mt-1 text-[11px] text-water-600 font-medium">
-              Vol. est: {reportsSummary?.metrics?.total_water_volume_m3.toLocaleString('es-AR') ?? '16.800'} m³
-            </p>
-          </div>
-          <div className="h-10 w-10 rounded-xl bg-water-50 text-water-600 flex items-center justify-center">
-            <Droplets className="h-5 w-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Riegos Aplicados"
+          value={reportsSummary?.metrics?.total_irrigation_applied_mm.toFixed(1) ?? '35.0'}
+          unit="mm"
+          subtitle={`Vol. est: ${reportsSummary?.metrics?.total_water_volume_m3.toLocaleString('es-AR') ?? '16.800'} m³`}
+          icon={<Droplets className="h-5 w-5" />}
+          iconBgColor="bg-water-50 text-water-600 border border-water-200/60"
+        />
 
         {/* 2. Lluvias Totales */}
-        <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Lluvias Registradas</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900 font-mono">
-              {reportsSummary?.metrics?.total_precipitation_mm.toFixed(1) ?? '18.0'} <span className="text-xs font-normal text-slate-500">mm</span>
-            </p>
-            <p className="mt-1 text-[11px] text-slate-400">
-              Automáticas + manuales
-            </p>
-          </div>
-          <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <CloudRain className="h-5 w-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Lluvias Registradas"
+          value={reportsSummary?.metrics?.total_precipitation_mm.toFixed(1) ?? '18.0'}
+          unit="mm"
+          subtitle="Automáticas + manuales"
+          icon={<CloudRain className="h-5 w-5" />}
+          iconBgColor="bg-sky-50 text-sky-600 border border-sky-200/60"
+        />
 
         {/* 3. Evapotranspiración Acumulada */}
-        <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Consumo del cultivo (ETc)</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900 font-mono">
-              {reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '58.5'} <span className="text-xs font-normal text-slate-500">mm</span>
-            </p>
-            <p className="mt-1 text-[11px] text-slate-400">
-              Evapotranspiración acumulada
-            </p>
-          </div>
-          <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <SunMedium className="h-5 w-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Consumo del cultivo (ETc)"
+          value={reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '58.5'}
+          unit="mm"
+          subtitle="Evapotranspiración acumulada"
+          icon={<SunMedium className="h-5 w-5" />}
+          iconBgColor="bg-amber-50 text-amber-600 border border-amber-200/60"
+        />
 
         {/* 4. Estrés Hídrico */}
-        <div className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Estrés Crítico</p>
-            <p className="mt-2 text-2xl font-bold text-rose-600 font-mono">
-              {reportsSummary?.metrics?.days_under_stress_raw ?? 3} <span className="text-xs font-normal text-slate-500">días</span>
-            </p>
-            <p className="mt-1 text-[11px] text-rose-500 font-medium">
-              Días por encima del umbral de estrés
-            </p>
-          </div>
-          <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-            <ShieldAlert className="h-5 w-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Estrés Crítico"
+          value={reportsSummary?.metrics?.days_under_stress_raw ?? 3}
+          unit="días"
+          subtitle="Días por encima del umbral de estrés"
+          icon={<ShieldAlert className="h-5 w-5" />}
+          iconBgColor="bg-rose-50 text-rose-600 border border-rose-200/60"
+        />
       </div>
 
       {/* Historical balance evolution chart */}

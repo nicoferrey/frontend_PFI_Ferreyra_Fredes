@@ -46,6 +46,7 @@ import { FieldAgentSnapshot, NdviPreview, getNdviPreviewApi } from '@/lib/api';
 import { CustomDatePicker } from '@/components/custom-date-picker';
 import { CustomSelect } from '@/components/custom-select';
 import { CustomTimePicker } from '@/components/custom-time-picker';
+import { KpiCard } from '@/components/kpi-card';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;

@@ -18,6 +18,7 @@ import {
 import { useDashboard, defaultDemoPolygons } from './context';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
+import { KpiCard } from '@/components/kpi-card';
 
 const DashboardMap = dynamic(
   () => import('@/components/dashboard-map'),
@@ -222,18 +223,14 @@ export default function DashboardHome() {
         {dynamicKpis.map((item) => {
           const Icon = item.icon;
           return (
-            <article key={item.title} className="rounded-[24px] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{item.title}</p>
-                  <p className="mt-3 text-3xl font-extrabold tracking-tight text-slate-950 font-sans">{item.value}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.delta}</p>
-                </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.tone} shadow-sm`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </div>
-            </article>
+            <KpiCard
+              key={item.title}
+              title={item.title}
+              value={item.value}
+              subtitle={item.delta}
+              icon={<Icon className="h-5 w-5" />}
+              iconBgColor={`${item.tone} shadow-2xs`}
+            />
           );
         })}
       </section>
