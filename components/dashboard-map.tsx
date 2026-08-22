@@ -17,6 +17,9 @@ type CachedSentinelLayer = {
 
 const sentinelLayerCache = new Map<string, CachedSentinelLayer>();
 
+const isEarthEngineSceneId = (sceneId?: string | null): sceneId is string =>
+  Boolean(sceneId?.startsWith('COPERNICUS/S2_SR_HARMONIZED/'));
+
 export interface MapLotItem {
   id: string;
   name: string;
@@ -78,8 +81,12 @@ export default function DashboardMap({
     return selected || lots.find((lot) => lot.ndviSceneId) || lots[0] || null;
   }, [lots, selectedLotId]);
 
-  const sentinelCacheKey = sentinelLot?.ndviSceneId
-    ? `scene:${sentinelLot.ndviSceneId}`
+  const sentinelSceneId = isEarthEngineSceneId(sentinelLot?.ndviSceneId)
+    ? sentinelLot.ndviSceneId
+    : null;
+
+  const sentinelCacheKey = sentinelSceneId
+    ? `scene:${sentinelSceneId}`
     : `center:${center[0].toFixed(5)},${center[1].toFixed(5)}`;
 
   useEffect(() => {
@@ -160,7 +167,7 @@ export default function DashboardMap({
     setSentinelLayerStatus('loading');
     setSentinelLayerInfo(
       sentinelLot
-        ? { lotName: sentinelLot.name, date: sentinelLot.ndviObservationDate, sceneId: sentinelLot.ndviSceneId }
+        ? { lotName: sentinelLot.name, date: sentinelLot.ndviObservationDate, sceneId: sentinelSceneId }
         : { lotName: 'Campo', date: null, sceneId: null }
     );
     setSentinelLayerError(null);
@@ -195,8 +202,8 @@ export default function DashboardMap({
       };
     }
 
-    const sentinelRequest = sentinelLot?.ndviSceneId
-      ? getSentinelMapLayerApi(sentinelLot.id, sentinelLot.ndviSceneId)
+    const sentinelRequest = sentinelSceneId
+      ? getSentinelMapLayerApi(sentinelLot!.id, sentinelSceneId)
       : getSentinelMapLayerByCenterApi(center[0], center[1], 9000);
 
     sentinelRequest.then((result) => {
@@ -223,7 +230,7 @@ export default function DashboardMap({
     return () => {
       cancelled = true;
     };
-  }, [activeLayer, center, mapInstance, sentinelCacheKey, sentinelLot]);
+  }, [activeLayer, center, mapInstance, sentinelCacheKey, sentinelLot, sentinelSceneId]);
 
   useEffect(() => {
     const L = leafletRef.current;
