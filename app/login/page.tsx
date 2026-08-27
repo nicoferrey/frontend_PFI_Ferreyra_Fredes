@@ -1,13 +1,44 @@
 "use client";
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Sprout, Droplets, Waves, MessageSquareText, ShieldCheck, 
-  Satellite, ArrowUpRight, CheckCircle2 
+  Satellite, ArrowUpRight, CheckCircle2, Loader2 
 } from 'lucide-react';
 import AuthForm from '@/components/auth-form';
 import { Logo } from '@/components/logo';
+import { useAuth } from '@/lib/auth-context';
+
 export default function LoginPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 text-white font-sans">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 shadow-lg shadow-emerald-500/20 animate-pulse">
+          <Logo className="h-7 w-7 text-white" />
+        </div>
+        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+          <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+          <span>Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row overflow-hidden font-sans">
       

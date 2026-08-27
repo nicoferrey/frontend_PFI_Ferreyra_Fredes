@@ -61,6 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(formattedUser);
           setFields(meData.fields || []);
           localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
+        } else if (!getAccessToken()) {
+          // If no access token and meData failed, clear user
+          setUser(null);
+          setFields([]);
+          localStorage.removeItem('agromas_user');
         }
       } catch (err) {
         console.warn('Session init check failed:', err);
