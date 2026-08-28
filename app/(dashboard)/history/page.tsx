@@ -597,6 +597,7 @@ export default function DashboardHistoryPage() {
     };
 
     const getSuggestedWater = (lot: typeof lotsData[number]) => {
+      if (lot.recommendedGrossIrrigation_mm !== undefined) return Math.round(lot.recommendedGrossIrrigation_mm);
       if (lot.hydricStatus === 'Normal') return 0;
       return Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
     };
