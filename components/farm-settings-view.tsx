@@ -681,13 +681,20 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
           </div>
 
           <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap gap-2.5 items-center justify-between">
-            <Link
-              href="/onboarding"
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 text-xs font-bold transition"
-            >
-              <MapPinned className="h-3.5 w-3.5 text-crop-400" />
-              <span>Redelimitar Lotes en Mapa</span>
-            </Link>
+            {currentUserIsDueño ? (
+              <Link
+                href="/onboarding"
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 text-xs font-bold transition"
+              >
+                <MapPinned className="h-3.5 w-3.5 text-crop-400" />
+                <span>Redelimitar Lotes en Mapa</span>
+              </Link>
+            ) : (
+              <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-500 border border-slate-200">
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Delimitación de Lotes Reservada para el Dueño</span>
+              </div>
+            )}
 
             {currentUserIsDueño && (
               <button
