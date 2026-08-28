@@ -129,6 +129,7 @@ export interface FieldGeometry {
 export interface FieldItem {
   id: number | string;
   name: string;
+  user_role_in_farm?: FieldRole;
   geometry_geojson: FieldGeometry;
   area_ha: number;
   soil_type?: string;

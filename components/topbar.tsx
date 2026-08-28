@@ -51,7 +51,7 @@ export function Topbar({
   customNotifications,
   className = "",
 }: TopbarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, setUserRole } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 

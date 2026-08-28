@@ -158,9 +158,9 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
     return matchesSearch && matchesRole;
   });
 
-  // Calculate totals
+  // Calculate totals & active role
   const totalHectares = fields.reduce((acc, f) => acc + (f.area_ha || 0), 0);
-  const activeUserRole: FieldRole = user?.role || 'admin';
+  const activeUserRole: FieldRole = fields[0]?.user_role_in_farm || user?.role || 'admin';
   const currentUserIsDueño = activeUserRole === 'admin';
 
   // Handle Add Member Submission (Generates Invitation Link)
@@ -302,12 +302,22 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
               <span>+ Agregar Usuario al Campo</span>
             </button>
           ) : (
-            <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2.5 text-xs font-medium text-slate-500 border border-slate-200">
-              <Lock className="h-4 w-4 text-slate-400" />
-              <span>Solo el Dueño puede invitar</span>
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-800 border border-amber-200 shadow-2xs">
+              <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>Modo Lectura ({roleDetails[activeUserRole]?.shortTitle || 'Colaborador'})</span>
             </div>
           )}
         </div>
+
+        {/* Read-Only RBAC Notification Banner */}
+        {!currentUserIsDueño && (
+          <div className="mt-4 p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-900 text-xs flex items-center gap-3">
+            <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="leading-snug">
+              Estás viendo este establecimiento como <strong className="font-bold">{roleDetails[activeUserRole]?.title || activeUserRole}</strong>. La invitación de miembros, cambio de roles y ajuste de reglas están reservados para el <strong>Dueño / Administrador</strong>.
+            </p>
+          </div>
+        )}
 
         {/* Filters & Search */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
