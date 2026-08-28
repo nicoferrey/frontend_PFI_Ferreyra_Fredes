@@ -846,16 +846,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                 </p>
               </div>
 
-              <div className="flex gap-3 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => handleShareWhatsApp(createdInvitationUrl)}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white py-3 text-xs font-bold shadow-md shadow-emerald-700/20 hover:scale-[1.02] active:scale-[0.98] transition"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Enviar por WhatsApp</span>
-                </button>
-                
+              <div className="pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -863,7 +854,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                     setCreatedInvitationUrl(null);
                     setNewEmail('');
                   }}
-                  className="rounded-2xl border border-slate-200 bg-slate-100 px-5 py-3 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+                  className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white py-3 text-xs font-bold shadow-md hover:scale-[1.01] active:scale-[0.99] transition duration-200"
                 >
                   Listo
                 </button>
