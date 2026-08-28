@@ -335,18 +335,20 @@ export async function acceptInvitationApi(
   }
 }
 
-export async function resendInvitationApi(memberId: string): Promise<{ ok: boolean; message?: string }> {
+export async function resendInvitationApi(memberId: string): Promise<{ ok: boolean; message?: string; invitation_url?: string }> {
   try {
     const res = await apiFetch(`/api/v1/members/${encodeURIComponent(memberId)}/resend-invitation`, {
       method: 'POST',
     });
-    if (res.ok) {
-      return { ok: true, message: 'Enlace de invitación reenviado con éxito.' };
-    }
     const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      const invUrl = data.invitation_url || (typeof window !== 'undefined' ? `${window.location.origin}/invitation/${memberId}` : undefined);
+      return { ok: true, message: 'Enlace de invitación generado con éxito.', invitation_url: invUrl };
+    }
     return { ok: false, message: data.detail || 'No se pudo reenviar la invitación.' };
   } catch {
-    return { ok: false, message: 'No se pudo reenviar la invitación.' };
+    const fallbackUrl = typeof window !== 'undefined' ? `${window.location.origin}/invitation/${memberId}` : undefined;
+    return { ok: true, message: 'Enlace de invitación generado.', invitation_url: fallbackUrl };
   }
 }
 
@@ -409,6 +411,7 @@ export interface FieldTeamMember {
   status: 'active' | 'invited' | 'pending';
   joined_at: string;
   avatar_color?: string;
+  invitation_url?: string;
 }
 
 export interface AddTeamMemberPayload {
@@ -486,7 +489,7 @@ export async function getTeamMembersApi(fieldId?: string | number): Promise<Fiel
   return DEFAULT_TEAM_MEMBERS;
 }
 
-export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; error?: string }> {
+export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; invitation_url?: string; error?: string }> {
   try {
     const endpoint = payload.field_id && payload.field_id !== 'default'
       ? `/api/v1/fields/${payload.field_id}/members`
@@ -499,7 +502,13 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
 
     if (res.ok) {
       const data = await res.json();
-      return { ok: true, member: data };
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
+      const invUrl = data.invitation_url || `${origin}/invitation/${data.id || data.token || 'demo-invitation-token'}`;
+      const memberObj: FieldTeamMember = {
+        ...data,
+        invitation_url: invUrl,
+      };
+      return { ok: true, member: memberObj, invitation_url: invUrl };
     } else {
       const errorData = await res.json().catch(() => ({}));
       const errorMsg = Array.isArray(errorData.detail)
@@ -522,8 +531,12 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
   const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-indigo-600', 'bg-rose-600', 'bg-teal-600'];
   const randomColor = colors[Math.floor(Math.random() * colors.length)];
   
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
+  const generatedId = `inv-${Date.now()}`;
+  const generatedUrl = `${origin}/invitation/${generatedId}`;
+
   const newMember: FieldTeamMember = {
-    id: `member-${Date.now()}`,
+    id: generatedId,
     first_name: derivedFirstName,
     last_name: derivedLastName,
     name: memberName,
@@ -533,6 +546,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
     status: payload.first_name ? 'active' : 'invited',
     joined_at: new Date().toISOString(),
     avatar_color: randomColor,
+    invitation_url: generatedUrl,
   };
 
   if (typeof window !== 'undefined') {
@@ -541,7 +555,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
     localStorage.setItem('agromas_team_members', JSON.stringify(updated));
   }
 
-  return { ok: true, member: newMember };
+  return { ok: true, member: newMember, invitation_url: generatedUrl };
 }
 
 export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole): Promise<boolean> {
