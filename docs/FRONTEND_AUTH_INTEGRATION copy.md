@@ -22,7 +22,7 @@ Archivo `.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=560671538785-fojlgl5o7qnk6l93o0dh51d2f589h3g7.apps.googleusercontent.com
 ```
 
 - `NEXT_PUBLIC_API_URL` debe apuntar al backend FastAPI (sin `/api/v1` al final).
@@ -36,21 +36,24 @@ Los endpoints de agentes (`/agents/*`) siguen usando `X-API-Key` por ahora. No e
 
 | Metodo | Ruta | Auth | Uso en UI |
 |--------|------|------|-----------|
-| `POST` | `/api/v1/auth/register` | No | Registro directo de Productor/Dueño (1 paso unificado) |
+| `POST` | `/api/v1/auth/register` | No | Registro email/password (paso 1+2 juntos) |
 | `POST` | `/api/v1/auth/login` | No | Login email/password |
-| `POST` | `/api/v1/auth/google` | No | Login/registro Google (1 clic + WhatsApp si falta) |
+| `POST` | `/api/v1/auth/google` | No | Login/registro Google (2 pasos) |
 | `POST` | `/api/v1/auth/refresh` | Cookie | Renovar access token |
 | `POST` | `/api/v1/auth/logout` | Cookie | Cerrar sesion |
-| `GET` | `/api/v1/users/me` | Bearer | Perfil + lotes del usuario (si hay lotes omite onboarding) |
-| `POST` | `/api/v1/fields` | Bearer | Crear lote (onboarding mapa) |
-| `GET` | `/api/v1/fields` | Bearer | Listar lotes |
+| `GET` | `/api/v1/users/me` | Bearer | Perfil + lotes accesibles con `user_role_in_farm` |
+| `POST` | `/api/v1/fields` | Bearer | Crear lote; si no hay `farm_id`, crea farm + membresia admin |
+| `GET` | `/api/v1/fields` | Bearer | Listar lotes de todos los farms donde el usuario es miembro |
 | `GET` | `/api/v1/fields/{id}` | Bearer | Detalle de lote |
 | `PATCH` | `/api/v1/fields/{id}` | Bearer | Editar lote |
 | `DELETE` | `/api/v1/fields/{id}` | Bearer | Eliminar lote |
-| `GET` | `/api/v1/farms/members` | Bearer | Listar miembros del establecimiento (`/api/v1/fields/{id}/members`) |
-| `POST` | `/api/v1/farms/members` | Bearer | Agregar/invitar usuario al campo con rol (Dueño, Asesor, Operario) |
-| `PATCH` | `/api/v1/farms/members/{member_id}` | Bearer | Cambiar rol de un miembro en el campo |
-| `DELETE` | `/api/v1/farms/members/{member_id}` | Bearer | Desvincular miembro del campo |
+| `GET` | `/api/v1/fields/{id}/members` | Bearer | Listar miembros del establecimiento del lote |
+| `POST` | `/api/v1/fields/{id}/members` | Bearer (admin) | Invitar/agregar colaborador |
+| `PATCH` | `/api/v1/members/{member_id}/role` | Bearer (admin) | Cambiar rol de miembro |
+| `POST` | `/api/v1/members/{member_id}/resend-invitation` | Bearer (admin) | Reenviar link de invitacion |
+| `GET` | `/api/v1/auth/check-email?email=` | No | Detectar si email tiene invitacion pendiente |
+| `GET` | `/api/v1/invitations/{token}` | No | Preview de invitacion (pantalla /invitation) |
+| `POST` | `/api/v1/invitations/{token}/accept` | No | Completar cuenta y abrir sesion |
 
 ---
 
@@ -185,6 +188,28 @@ Misma forma de respuesta que register (sin `status` opcional). **401** si creden
 
 ### 4.3 Google OAuth (2 pasos)
 
+#### Configuracion previa en Google Cloud Console (obligatoria)
+
+Si ves `Error 400: origin_mismatch`, falta registrar el origen del frontend.
+
+1. Entra a [Google Cloud Console](https://console.cloud.google.com/) → **APIs y servicios** → **Credenciales**.
+2. Edita el cliente OAuth 2.0 cuyo ID coincide con `NEXT_PUBLIC_GOOGLE_CLIENT_ID`:
+   ```text
+   560671538785-fojlgl5o7qnk6l93o0dh51d2f589h3g7.apps.googleusercontent.com
+   ```
+3. En **Origenes de JavaScript autorizados**, agrega **exactamente** (sin `/` final):
+   ```text
+   http://localhost:3000
+   ```
+4. Cuando deployes el frontend, agrega tambien su URL publica, por ejemplo:
+   ```text
+   https://tu-app.vercel.app
+   ```
+5. Tipo de cliente: debe ser **Aplicacion web** (Web application), no Android/iOS.
+6. Guarda y espera 1-5 minutos a que Google propague el cambio.
+
+No hace falta agregar el backend (`backendpfiferreyrafredes-production.up.railway.app`) en origenes JS: el boton Google corre en el frontend. El backend solo valida el `id_token` recibido.
+
 **Paso 1 — boton Google en frontend:**
 
 Usar `@react-oauth/google` o GIS y obtener `credential` (id_token JWT de Google).
@@ -272,7 +297,24 @@ await apiFetch("/api/v1/fields", {
 
 Campos obligatorios al crear: `name`, `geometry_geojson`, `area_ha`, `crop_type`, `irrigation_system`.
 
+Opcionales:
+- `farm_id` — agregar lote a un establecimiento existente (usuario debe ser miembro).
+- `farm_name` — nombre del establecimiento si es el primer lote (default: nombre del lote).
+- `agricultural_zone` — zona agricola del establecimiento.
+
+En el **primer lote**, el backend crea automaticamente `farms` + `farm_members` con rol `admin` para el usuario.
+
 El backend calcula `center_latitude` / `center_longitude` del poligono si no se envian.
+
+Para un **segundo lote** del mismo campo, reenviar `farm_id` devuelto en el primer lote:
+
+```typescript
+body: JSON.stringify({
+  farm_id: firstField.farm_id,
+  name: "Lote Sur",
+  // ... resto igual
+})
+```
 
 ---
 
@@ -296,6 +338,7 @@ const { user, fields } = await response.json();
   "fields": [
     {
       "id": 1,
+      "farm_id": "f83a21b4-1029-4d6e-82f3-102948a7b1c3",
       "name": "Lote Norte",
       "geometry_geojson": { "type": "Polygon", "coordinates": [...] },
       "area_ha": 45.2,
@@ -304,6 +347,7 @@ const { user, fields } = await response.json();
       "irrigation_system": "Pivote",
       "center_latitude": -40.799,
       "center_longitude": -63.059,
+      "user_role_in_farm": "admin",
       "field_capacity_fc": 28.5,
       "wilting_point_wp": 12.0,
       "total_available_water_taw": 120.0,
@@ -313,6 +357,180 @@ const { user, fields } = await response.json();
   ]
 }
 ```
+
+> **Regla frontend:** si `fields.length > 0`, redirigir al Dashboard (`/`) y omitir Onboarding.
+
+---
+
+### 4.6 Gestion de miembros del establecimiento
+
+Los miembros pertenecen al **establecimiento (`farm`)**, no a un lote individual. Usa una de estas rutas:
+
+| Caso | Ruta recomendada |
+|------|------------------|
+| Un solo campo / UX simple | `GET/POST /api/v1/farms/members` |
+| Con `farm_id` de `/users/me` | `GET/POST /api/v1/farms/{farm_id}/members` |
+| Con `id` del lote (entero) | `GET/POST /api/v1/fields/{field_id}/members` |
+
+**No uses** `/fields/default/members` — `field_id` debe ser un **entero** (`1`, `2`, ...) o usar las rutas `/farms/...`.
+
+El admin invita solo con **email** y **rol**. Nombre, apellido y WhatsApp son opcionales en este POST: el invitado los completa al aceptar el link.
+
+```typescript
+// Opcion A — mas simple (primer farm del usuario)
+await apiFetch("/api/v1/farms/members");
+
+await apiFetch("/api/v1/farms/members", {
+  method: "POST",
+  body: JSON.stringify({
+    email: "m.garcia@campo.com",
+    role: "operator",
+  }),
+});
+
+// Opcion B — con farm_id UUID de GET /users/me → fields[0].farm_id
+const farmId = fields[0].farm_id;
+await apiFetch(`/api/v1/farms/${farmId}/members`, { method: "POST", ... });
+
+// Opcion C — con id entero del lote
+const fieldId = fields[0].id; // ej: 1
+await apiFetch(`/api/v1/fields/${fieldId}/members`, { method: "POST", ... });
+```
+
+// Cambiar rol
+await apiFetch(`/api/v1/members/${memberId}/role`, {
+  method: "PATCH",
+  body: JSON.stringify({ role: "agronomist" }),
+});
+
+// Desvincular
+await apiFetch(`/api/v1/members/${memberId}`, { method: "DELETE" });
+```
+
+Roles validos por establecimiento: `admin` (dueno), `agronomist`, `operator`.
+
+Al invitar, el miembro queda en `status: "invited"` **aunque ya tenga cuenta**. Recibe un email con el botón **Aceptar y unirme**. Hasta que acepte, no accede al campo.
+
+```json
+{
+  "status": "invited",
+  "invitation_url": "https://agromasapp.vercel.app/invitation/abc123...",
+  "email_sent": true,
+  "email_error": null
+}
+```
+
+Si el envío falla, `email_sent: false`, `email_error` describe el motivo y el dueño puede copiar `invitation_url` manualmente.
+
+**409 Conflict** si ese email ya es miembro **activo** del establecimiento.
+
+---
+
+### 4.7 Flujo de invitacion (link magico)
+
+**Pantalla frontend:** `/invitation/[token]`
+
+#### Paso 1 — Cargar datos de la invitacion
+
+```typescript
+const preview = await fetch(`${API_URL}/api/v1/invitations/${token}`);
+// 404 si expiro o es invalido
+```
+
+```json
+{
+  "email": "m.garcia@campo.com",
+  "first_name": "",
+  "last_name": "",
+  "farm_name": "Campo Don Pedro",
+  "role": "operator",
+  "invited_by_name": "Esteban Ferreyra",
+  "expires_at": "2026-08-20T00:00:00Z",
+  "requires_password": true,
+  "requires_profile": true
+}
+```
+
+Si `requires_profile` es `true`, la pantalla de invitacion debe pedir nombre y apellido (y WhatsApp si aplica).
+
+Si `requires_password` es `false`, el usuario **ya tiene cuenta**: mostrar el botón **Aceptar y unirme** sin pedir contraseña.
+
+```json
+{
+  "email": "m.garcia@campo.com",
+  "first_name": "Martín",
+  "last_name": "García",
+  "farm_name": "Campo Los Alamos",
+  "role": "agronomist",
+  "invited_by_name": "Esteban Ferreyra",
+  "expires_at": "2026-08-20T00:00:00Z",
+  "requires_password": false,
+  "requires_profile": false
+}
+```
+
+#### Paso 2 — Completar cuenta y entrar
+
+Usuario **nuevo** (`requires_password: true`):
+
+```typescript
+const response = await fetch(`${API_URL}/api/v1/invitations/${token}/accept`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    password: "PasswordSeguro123!",
+    first_name: "Martín",
+    last_name: "García",
+    phone_whatsapp: "+5492477334455",
+  }),
+});
+// 200 → { access_token, user } — redirect a Dashboard
+```
+
+Usuario **con cuenta** (`requires_password: false`):
+
+```typescript
+const response = await fetch(`${API_URL}/api/v1/invitations/${token}/accept`, {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({}),
+});
+// 200 → { access_token, user } — el miembro pasa a status active
+```
+
+#### Alternativa: detectar email en login
+
+Antes de mostrar error en login, consultar:
+
+```typescript
+const check = await fetch(`${API_URL}/api/v1/auth/check-email?email=${encodeURIComponent(email)}`);
+```
+
+```json
+{
+  "email": "m.garcia@campo.com",
+  "exists": true,
+  "has_password": false,
+  "invitation_pending": true,
+  "pending_farms": ["Campo Don Pedro"]
+}
+```
+
+Si `invitation_pending && !has_password` → mostrar: *"Tenés una invitacion pendiente. Revisá tu email o pedile el link al administrador."*
+
+Si `invitation_pending && has_password` → mostrar: *"Te invitaron a un campo. Revisá tu email y aceptá para unirte."*
+
+#### Reenviar invitacion (admin)
+
+```typescript
+await apiFetch(`/api/v1/members/${memberId}/resend-invitation`, { method: "POST" });
+```
+
+#### Registro alternativo (sin token)
+
+Sigue funcionando `POST /auth/register` con el mismo email si el usuario no tiene el link.
 
 ---
 
@@ -369,7 +587,7 @@ Contratos completos de agentes: [`FRONTEND_AND_CONSOLE_FLOW.md`](./FRONTEND_AND_
 | `/onboarding/map` | `POST /fields` |
 | `/dashboard` | `GET /users/me` |
 | `/fields/[id]` | `GET /fields/{id}`, `PATCH`, `DELETE` |
-| `/analysis` | Proxy a `POST /agents/analyze-irrigation` |
+| `/invitation/[token]` | `GET /invitations/{token}`, `POST /invitations/{token}/accept` |
 
 ---
 
@@ -383,6 +601,7 @@ Contratos completos de agentes: [`FRONTEND_AND_CONSOLE_FLOW.md`](./FRONTEND_AND_
 | `404` | Lote inexistente | Redirect dashboard |
 | `409` | Email duplicado en register | "Este email ya esta registrado" |
 | `503` | Backend sin JWT/DB config | Pagina de mantenimiento |
+| Google `origin_mismatch` | Origen no registrado en Cloud Console | Agregar `http://localhost:3000` en **Origenes de JavaScript autorizados** |
 
 ---
 

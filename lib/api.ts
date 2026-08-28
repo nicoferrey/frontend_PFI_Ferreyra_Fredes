@@ -266,6 +266,91 @@ export async function changePasswordApi(payload: {
 }
 
 /* ==========================================================================
+   INVITATIONS & EMAIL CHECK API METHODS
+   ========================================================================== */
+
+export interface CheckEmailResponse {
+  email: string;
+  exists: boolean;
+  has_password: boolean;
+  invitation_pending: boolean;
+  pending_farms?: string[];
+}
+
+export interface InvitationPreviewResponse {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  farm_name: string;
+  role: FieldRole;
+  invited_by_name?: string;
+  expires_at: string;
+  requires_password: boolean;
+  requires_profile: boolean;
+}
+
+export async function checkEmailApi(email: string): Promise<CheckEmailResponse | null> {
+  try {
+    const res = await apiFetch(`/api/v1/auth/check-email?email=${encodeURIComponent(email)}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Error checking email status:', err);
+  }
+  return null;
+}
+
+export async function getInvitationPreviewApi(token: string): Promise<{ ok: boolean; status: number; data?: InvitationPreviewResponse }> {
+  try {
+    const res = await apiFetch(`/api/v1/invitations/${encodeURIComponent(token)}`);
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data: res.ok ? data : undefined };
+  } catch (err) {
+    return { ok: false, status: 500 };
+  }
+}
+
+export async function acceptInvitationApi(
+  token: string,
+  payload: {
+    password?: string;
+    first_name?: string;
+    last_name?: string;
+    phone_whatsapp?: string;
+  }
+): Promise<{ ok: boolean; status: number; data?: any; access_token?: string }> {
+  try {
+    const res = await apiFetch(`/api/v1/invitations/${encodeURIComponent(token)}/accept`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.access_token) {
+      setAccessToken(data.access_token);
+    }
+    return { ok: res.ok, status: res.status, data, access_token: data.access_token };
+  } catch (err) {
+    return { ok: false, status: 500 };
+  }
+}
+
+export async function resendInvitationApi(memberId: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const res = await apiFetch(`/api/v1/members/${encodeURIComponent(memberId)}/resend-invitation`, {
+      method: 'POST',
+    });
+    if (res.ok) {
+      return { ok: true, message: 'Enlace de invitación reenviado con éxito.' };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, message: data.detail || 'No se pudo reenviar la invitación.' };
+  } catch {
+    return { ok: false, message: 'No se pudo reenviar la invitación.' };
+  }
+}
+
+/* ==========================================================================
    FIELDS (LOTS) API METHODS
    ========================================================================== */
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useAuth } from '@/lib/auth-context';
+import { checkEmailApi } from '@/lib/api';
 
 interface AuthFormProps {
   initialMode?: 'login' | 'signup';
@@ -431,7 +432,13 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       if (mode === 'login') {
         const res = await auth.login({ email, password });
         if (!res.success) {
-          setErrorMessage(res.error || 'Correo o contraseña incorrectos.');
+          const emailCheck = await checkEmailApi(email);
+          if (emailCheck?.invitation_pending && !emailCheck.has_password) {
+            const farmsText = emailCheck.pending_farms?.join(', ') || 'un establecimiento';
+            setErrorMessage(`Tenés una invitación pendiente a ${farmsText}. Por favor revisá tu correo o utilizá el enlace enviado por el administrador del campo.`);
+          } else {
+            setErrorMessage(res.error || 'Correo o contraseña incorrectos.');
+          }
           setLoading(false);
           return;
         }

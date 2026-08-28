@@ -45,6 +45,7 @@ import {
   addTeamMemberApi,
   updateTeamMemberRoleApi,
   removeTeamMemberApi,
+  resendInvitationApi,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { ModalPortal } from '@/components/modal-portal';
@@ -213,6 +214,16 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
     }
   };
 
+  // Handle Resend Invitation
+  const handleResendInvitation = async (memberId: string, email: string) => {
+    const res = await resendInvitationApi(memberId);
+    if (res.ok) {
+      alert(`Enlace de invitación reenviado con éxito a ${email}.`);
+    } else {
+      alert(res.message || 'No se pudo reenviar la invitación.');
+    }
+  };
+
   // Handle Save Farm Settings
   const handleSaveFarmConfig = () => {
     setSaveSuccessMsg(true);
@@ -338,7 +349,22 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
             filteredMembers.map((member) => {
               const roleMeta = roleDetails[member.role] || roleDetails.operator;
               const RoleIcon = roleMeta.icon;
-              const initials = getInitials(member.first_name, member.last_name, member.name);
+
+              const isInvited = member.status === 'invited' || 
+                !member.phone_whatsapp || 
+                member.phone_whatsapp === 'Pendiente de registro' ||
+                !member.first_name ||
+                member.first_name.toLowerCase().includes('invitado');
+
+              const displayName = (!isInvited && (member.name || (member.first_name && member.last_name)))
+                ? (member.name || `${member.first_name} ${member.last_name}`).trim()
+                : member.email;
+
+              const initials = getInitials(
+                !isInvited ? member.first_name : undefined,
+                !isInvited ? member.last_name : undefined,
+                displayName
+              );
 
               return (
                 <article
@@ -356,7 +382,10 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                         >
                           {initials}
                         </div>
-                        <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white shadow-sm" title="Usuario activo">
+                        <span 
+                          className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full ${isInvited ? 'bg-amber-400' : 'bg-emerald-500'} ring-2 ring-white shadow-sm`}
+                          title={isInvited ? "Invitación pendiente de registro" : "Usuario activo"}
+                        >
                           <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                         </span>
                       </div>
@@ -364,13 +393,20 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                       {/* Name & Role */}
                       <div className="min-w-0 flex-1">
                         <h4 className="text-base font-bold text-slate-900 truncate leading-snug">
-                          {member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email}
+                          {displayName}
                         </h4>
-                        <div className="mt-1.5 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${roleMeta.badgeStyle}`}>
                             <RoleIcon className="h-3 w-3 shrink-0" />
                             {roleMeta.shortTitle}
                           </span>
+
+                          {isInvited && (
+                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <Clock className="h-3 w-3 shrink-0 text-amber-600" />
+                              <span>Pendiente</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -384,7 +420,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                         <span className="truncate font-medium text-[11px] text-slate-700">{member.email}</span>
                       </div>
 
-                      {member.phone_whatsapp && (
+                      {member.phone_whatsapp && member.phone_whatsapp !== 'Pendiente de registro' && member.phone_whatsapp.length > 5 ? (
                         <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/50">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200/60 shrink-0 text-emerald-600">
@@ -405,6 +441,13 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                             <span>WhatsApp</span>
                           </a>
                         </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5 pt-1 border-t border-slate-200/50 text-[11px] text-slate-400">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 border border-slate-200/50 shrink-0 text-slate-400">
+                            <Phone className="h-3.5 w-3.5" />
+                          </div>
+                          <span className="italic font-medium">WhatsApp pendiente de registro</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -418,6 +461,16 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
 
                     {currentUserIsDueño && (
                       <div className="flex items-center gap-1">
+                        {isInvited && (
+                          <button
+                            onClick={() => handleResendInvitation(member.id, member.email)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition"
+                            title="Reenviar enlace de invitación"
+                          >
+                            <Mail className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Reenviar</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setEditingMember(member);
