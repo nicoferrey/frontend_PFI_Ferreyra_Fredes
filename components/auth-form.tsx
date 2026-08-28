@@ -533,9 +533,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 mode === 'signup'
                   ? 'bg-slate-950 text-white shadow-md'
                   : 'text-slate-600 hover:text-slate-900 font-semibold'
-                }`}
+              }`}
             >
-              Crear Demo
+              Crear Cuenta
             </button>
           </div>
         )}
@@ -567,7 +567,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 : '¡Contraseña Actualizada!'
               : mode === 'login'
               ? 'Bienvenido a AgroMAS'
-              : 'Crear Cuenta Demo'}
+              : 'Crear Cuenta'}
           </h2>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed font-normal">
             {isGooglePhonePrompt
@@ -582,7 +582,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 : 'Ya puedes acceder con tu nueva clave.'
               : mode === 'login'
               ? 'Ingresa tus credenciales para acceder al monitoreo satelital y balance hídrico.'
-              : 'Completá tus datos para crear una cuenta demo limpia y comenzar el onboarding.'}
+              : 'Completá tus datos para crear tu cuenta y comenzar el onboarding.'}
           </p>
         </div>
 
@@ -1088,17 +1088,17 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </div>
             </div>
 
-            {/* Row 2: Demo email (fixed) */}
+            {/* Row 2: Fixed email */}
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
               <div className="flex items-center gap-2.5">
                 <Mail className="h-4 w-4 shrink-0 text-emerald-700" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Correo demo fijo</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Correo electrónico</p>
                   <p className="truncate text-sm font-black text-slate-950">{DEMO_EMAIL}</p>
                 </div>
               </div>
               <p className="mt-1.5 text-[10px] font-semibold leading-relaxed text-emerald-800">
-                Si ya existía, se reinicia automáticamente junto con sus lotes, registros y sesiones.
+                El correo se asigna automáticamente para este flujo de registro.
               </p>
             </div>
 
@@ -1210,7 +1210,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
                 <>
-                  <span>Crear Cuenta Demo</span>
+                  <span>Crear Cuenta</span>
                   <ArrowRight className="h-4 w-4 text-white" />
                 </>
               )}
@@ -1222,13 +1222,13 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       {/* Footer Mode Switch Link */}
       {!isGooglePhonePrompt && mode !== 'forgot' && (
         <p className="text-center text-slate-500 text-xs font-medium pt-2">
-          {mode === 'login' ? '¿Querés probar la demo?' : '¿Ya tienes una cuenta registrada?'}
+          {mode === 'login' ? '¿Aún no tienes una cuenta?' : '¿Ya tienes una cuenta registrada?'}
           <button
             type="button"
             onClick={() => handleModeSwitch(mode === 'login' ? 'signup' : 'login')}
             className="ml-1.5 font-bold text-emerald-700 hover:text-emerald-800 underline transition"
           >
-            {mode === 'login' ? 'Crear demo' : 'Inicia sesión'}
+            {mode === 'login' ? 'Crear cuenta' : 'Inicia sesión'}
           </button>
         </p>
       )}
