@@ -7,7 +7,6 @@ import {
 } from '@/components/logo';
 import {
   getInvitationPreviewApi,
-  acceptInvitationApi,
   InvitationPreviewResponse,
   FieldRole,
 } from '@/lib/api';
@@ -27,6 +26,7 @@ import {
   Briefcase,
   Crown,
   Wrench,
+  Sparkles,
 } from 'lucide-react';
 
 const roleDetails: Record<
@@ -54,6 +54,7 @@ export default function InvitationPage() {
   const params = useParams();
   const router = useRouter();
   const token = params?.token as string;
+  const auth = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<InvitationPreviewResponse | null>(null);
@@ -89,13 +90,21 @@ export default function InvitationPage() {
     loadPreview();
   }, [token]);
 
+  const needsFullRegistration = Boolean(
+    preview?.requires_password || preview?.requires_profile || !preview?.first_name
+  );
+
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
-    if (preview?.requires_password) {
+    if (needsFullRegistration) {
       if (!firstName.trim() || !lastName.trim()) {
         setSubmitError('Por favor completa tu nombre y apellido.');
+        return;
+      }
+      if (!phone.trim() || phone.length < 8) {
+        setSubmitError('Por favor ingresa un número de WhatsApp para notificaciones de bombeo.');
         return;
       }
       if (!password || password.length < 6) {
@@ -110,18 +119,18 @@ export default function InvitationPage() {
 
     setIsSubmitting(true);
 
-    const res = await acceptInvitationApi(token, {
-      password: preview?.requires_password ? password : undefined,
-      first_name: preview?.requires_profile ? firstName.trim() : undefined,
-      last_name: preview?.requires_profile ? lastName.trim() : undefined,
-      phone_whatsapp: preview?.requires_profile ? phone.trim() : undefined,
+    const res = await auth.acceptInvitation(token, {
+      password: needsFullRegistration ? password : undefined,
+      first_name: needsFullRegistration ? firstName.trim() : undefined,
+      last_name: needsFullRegistration ? lastName.trim() : undefined,
+      phone_whatsapp: needsFullRegistration ? phone.trim() : undefined,
     });
 
-    if (res.ok) {
-      // Navigate directly to Dashboard
+    if (res.success) {
+      // Direct redirect to Dashboard (AuthContext state user & fields populated)
       router.push('/');
     } else {
-      setSubmitError(res.data?.detail || res.data?.message || 'Error al aceptar la invitación.');
+      setSubmitError(res.error || 'Error al aceptar la invitación.');
       setIsSubmitting(false);
     }
   };
@@ -232,8 +241,8 @@ export default function InvitationPage() {
                   </div>
                 </div>
 
-                {/* Additional Inputs if requires_profile or requires_password */}
-                {preview.requires_profile && (
+                {/* Registration inputs for new users */}
+                {needsFullRegistration ? (
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
@@ -279,11 +288,7 @@ export default function InvitationPage() {
                         />
                       </div>
                     </div>
-                  </>
-                )}
 
-                {preview.requires_password && (
-                  <>
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                         Crear Contraseña
@@ -318,6 +323,13 @@ export default function InvitationPage() {
                       </div>
                     </div>
                   </>
+                ) : (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 flex items-start gap-2.5">
+                    <Sparkles className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      Ya tenés una cuenta en AgroMAS. Al presionar el botón te vincularás de inmediato a este establecimiento.
+                    </p>
+                  </div>
                 )}
 
                 {/* Action Submit Button */}

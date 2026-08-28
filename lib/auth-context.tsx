@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   UserProfile, FieldItem, getMeApi, setAccessToken, 
   getAccessToken, logoutApi, loginApi, registerApi, 
-  googleAuthApi, LoginPayload, RegisterPayload, GoogleAuthPayload 
+  googleAuthApi, acceptInvitationApi, LoginPayload, RegisterPayload, GoogleAuthPayload 
 } from './api';
 
 interface AuthContextType {
@@ -25,6 +25,15 @@ interface AuthContextType {
     hasFields?: boolean;
     fieldCount?: number;
   }>;
+  acceptInvitation: (
+    token: string,
+    payload: {
+      password?: string;
+      first_name?: string;
+      last_name?: string;
+      phone_whatsapp?: string;
+    }
+  ) => Promise<{ success: boolean; error?: string; hasFields?: boolean }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<FieldItem[]>;
   setUserFields: (fields: FieldItem[]) => void;
@@ -242,6 +251,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const acceptInvitation = async (
+    token: string,
+    payload: {
+      password?: string;
+      first_name?: string;
+      last_name?: string;
+      phone_whatsapp?: string;
+    }
+  ) => {
+    const res = await acceptInvitationApi(token, payload);
+    if (!res.ok) {
+      const errorMsg = formatError(res.data?.detail, 'Error al aceptar la invitación.');
+      return { success: false, error: errorMsg };
+    }
+
+    if (res.access_token) {
+      setAccessToken(res.access_token);
+    }
+
+    const updatedFields = await refreshProfile();
+    const hasFields = (updatedFields && updatedFields.length > 0) || true;
+
+    return { success: true, hasFields };
+  };
+
   const logout = async () => {
     await logoutApi();
     setUser(null);
@@ -279,6 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         googleAuth,
+        acceptInvitation,
         logout,
         refreshProfile,
         setUserFields,
