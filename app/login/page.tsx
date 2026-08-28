@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -10,6 +10,50 @@ import {
 import AuthForm from '@/components/auth-form';
 import { Logo } from '@/components/logo';
 import { useAuth } from '@/lib/auth-context';
+import { CloudLoading } from '@/components/auth-guard';
+
+const TAGLINES = [
+  "Decisiones agronómicas de precisión impulsadas por satélite e IA.",
+  "Balance hídrico diario y estimación de humedad FAO-56 por parcela.",
+  "Monitoreo orbital Sentinel-2 con índices de vigor y NDVI en tiempo real.",
+  "Recomendaciones inteligentes de riego con Agentes IA de AgroMAS."
+];
+
+function TypewriterTagline() {
+  const [index, setIndex] = useState(0);
+  const [subIndex, setSubIndex] = useState(0);
+  const [reverse, setReverse] = useState(false);
+
+  useEffect(() => {
+    if (subIndex === TAGLINES[index].length + 1 && !reverse) {
+      const timeout = setTimeout(() => {
+        setReverse(true);
+      }, 2500);
+      return () => clearTimeout(timeout);
+    }
+
+    if (subIndex === 0 && reverse) {
+      setReverse(false);
+      setIndex((prev) => (prev + 1) % TAGLINES.length);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setSubIndex((prev) => prev + (reverse ? -1 : 1));
+    }, reverse ? 25 : 55);
+
+    return () => clearTimeout(timeout);
+  }, [subIndex, index, reverse]);
+
+  return (
+    <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight tracking-tight min-h-[5.5rem] flex items-center">
+      <span>
+        {TAGLINES[index].substring(0, subIndex)}
+        <span className="inline-block w-[3px] h-7 xl:h-8 ml-1 bg-emerald-400 align-middle animate-pulse" />
+      </span>
+    </h2>
+  );
+}
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -22,17 +66,7 @@ export default function LoginPage() {
   }, [isLoading, isAuthenticated, router]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 text-white font-sans">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 shadow-lg shadow-emerald-500/20 animate-pulse">
-          <Logo className="h-7 w-7 text-white" />
-        </div>
-        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
-          <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-          <span>Cargando...</span>
-        </div>
-      </div>
-    );
+    return <CloudLoading text="Cargando plataforma..." />;
   }
 
   if (isAuthenticated) {
@@ -40,121 +74,121 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row overflow-hidden font-sans">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f7f6f1_0%,#eef2eb_100%)] text-slate-900 flex items-center justify-center p-3 sm:p-4 lg:p-6 font-sans">
       
-      {/* LEFT COLUMN: AgTech Showcase & Thesis Brand Value */}
-      <section className="hidden lg:flex flex-1 flex-col justify-between p-12 relative bg-[linear-gradient(135deg,#070d14_0%,#0b1520_45%,#081711_100%)] border-r border-white/10 overflow-hidden">
+      {/* UNIFIED EXPANDED MASTER DARK CONTAINER */}
+      <main className="w-full max-w-[1560px] min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-3rem)] mx-auto bg-slate-950 text-slate-100 rounded-[36px] border border-white/10 shadow-2xl shadow-slate-950/20 p-6 md:p-10 lg:p-12 relative overflow-hidden flex flex-col justify-between">
         
         {/* Background Grids and Radial Glows */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(34,197,94,0.14),transparent_40%),radial-gradient(circle_at_80%_75%,rgba(14,165,233,0.12),transparent_35%)] pointer-events-none" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:48px_48px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(34,197,94,0.18),transparent_45%),radial-gradient(circle_at_80%_75%,rgba(14,165,233,0.14),transparent_40%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:48px_48px] pointer-events-none" />
 
-        {/* Brand Header */}
-        <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3 group w-fit">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition">
-              <Logo className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Plataforma AgTech</p>
-              <h1 className="text-xl font-bold text-white tracking-tight">AgroMAS</h1>
-            </div>
-          </Link>
-        </div>
-
-        {/* Center Pillars Showcase */}
-        <div className="relative z-10 my-auto py-8 max-w-xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            Riego Inteligente con Modelo FAO-56 y MAS
-          </div>
-
-          <h2 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight tracking-tight">
-            Decisiones de riego agronómicas impulsadas por satélite e IA.
-          </h2>
-
-          <p className="text-slate-300 text-sm leading-relaxed">
-            Elimina el uso de sensores de suelo físicos invasivos. Gestiona el balance de agua por parcela, anticipa el estrés hídrico y optimiza el consumo energético de tus equipos de bombeo.
-          </p>
-
-          {/* Key Value Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-center flex-1 my-auto">
+          
+          {/* LEFT COLUMN: AgTech Showcase & Brand Value (7 cols) */}
+          <section className="lg:col-span-7 xl:col-span-7 flex flex-col justify-between space-y-6 py-2">
             
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-sm space-y-1.5">
-              <div className="flex items-center gap-2 text-sky-400">
-                <Satellite className="h-4 w-4" />
-                <span className="font-bold text-xs">Monitoreo Sentinel-2</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Índices de vigor y NDVI calibrados en tiempo real por pasada orbital.
-              </p>
+            {/* Brand Header */}
+            <div>
+              <Link href="/" className="flex items-center gap-3.5 group w-fit">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition duration-300">
+                  <Logo className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Plataforma AgTech</p>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Agro<span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">MAS</span></h1>
+                </div>
+              </Link>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-sm space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <Waves className="h-4 w-4" />
-                <span className="font-bold text-xs">Balance Hídrico Dinámico</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Curvas de agotamiento $D_r$ referenciadas a umbrales $RAW$ y $TAW$.
+            {/* Center Showcase with Typewriter */}
+            <div className="space-y-5 max-w-3xl">
+              
+              {/* Typewriter Tagline Headline */}
+              <TypewriterTagline />
+
+              <p className="text-slate-300 text-sm xl:text-base leading-relaxed font-normal max-w-2xl">
+                Optimiza las decisiones de riego en tu establecimiento combinando modelos agronómicos internacionales, pasadas satelitales y asistentes conversacionales con Inteligencia Artificial.
               </p>
+
+              {/* 4 Real Feature Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+                
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md space-y-1.5 hover:border-sky-500/30 transition">
+                  <div className="flex items-center gap-2 text-sky-400">
+                    <Satellite className="h-4 w-4 shrink-0" />
+                    <span className="font-bold text-xs xl:text-sm">Monitoreo Satelital Sentinel-2</span>
+                  </div>
+                  <p className="text-[11px] xl:text-xs text-slate-400 leading-relaxed">
+                    Índices NDVI, NDWI y zonificación de vigor vegetal actualizados por pasadas orbitales.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md space-y-1.5 hover:border-emerald-500/30 transition">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Waves className="h-4 w-4 shrink-0" />
+                    <span className="font-bold text-xs xl:text-sm">Balance Hídrico FAO-56</span>
+                  </div>
+                  <p className="text-[11px] xl:text-xs text-slate-400 leading-relaxed">
+                    Cálculo diario de evapotranspiración ET₀, humedad del suelo y necesidad de riego.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md space-y-1.5 hover:border-amber-500/30 transition">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <MessageSquareText className="h-4 w-4 shrink-0" />
+                    <span className="font-bold text-xs xl:text-sm">Asistente IA Multi-Agente (MAS)</span>
+                  </div>
+                  <p className="text-[11px] xl:text-xs text-slate-400 leading-relaxed">
+                    Agentes especializados de riego, suelo y clima para consultas agronómicas.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md space-y-1.5 hover:border-cyan-500/30 transition">
+                  <div className="flex items-center gap-2 text-cyan-400">
+                    <Droplets className="h-4 w-4 shrink-0" />
+                    <span className="font-bold text-xs xl:text-sm">Estaciones y Clima Histórico</span>
+                  </div>
+                  <p className="text-[11px] xl:text-xs text-slate-400 leading-relaxed">
+                    Comparativa climática e integración con estaciones INTA EEAVI y fuentes meteorológicas.
+                  </p>
+                </div>
+
+              </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-sm space-y-1.5">
-              <div className="flex items-center gap-2 text-amber-400">
-                <MessageSquareText className="h-4 w-4" />
-                <span className="font-bold text-xs">Canal WhatsApp RAG</span>
+          </section>
+
+          {/* RIGHT COLUMN: Embedded Light Auth Card (5 cols) */}
+          <section className="lg:col-span-5 xl:col-span-5 flex justify-center w-full">
+            
+            <div className="w-full max-w-xl bg-white text-slate-900 rounded-[32px] p-6 sm:p-8 xl:p-10 shadow-2xl border border-slate-200/80">
+              {/* Mobile Brand Header */}
+              <div className="w-full lg:hidden flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10">
+                    <Logo className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-emerald-600">PLATAFORMA</p>
+                    <span className="text-lg font-black text-slate-950">AgroMAS</span>
+                  </div>
+                </div>
+                <Link href="/" className="text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
+                  Tablero &rarr;
+                </Link>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Alertas operativas de bombeo directo en el teléfono del regador.
-              </p>
+
+              {/* Auth Form Component */}
+              <AuthForm />
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 backdrop-blur-sm space-y-1.5">
-              <div className="flex items-center gap-2 text-crop-400">
-                <Droplets className="h-4 w-4" />
-                <span className="font-bold text-xs">+23% Ahorro de Agua</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Reducción directa de combustible diésel y horas de marcha de motor.
-              </p>
-            </div>
+          </section>
 
-          </div>
         </div>
 
-        {/* Footer info / Testimonial */}
-        <div className="relative z-10 border-t border-white/10 pt-4 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>Infraestructura Segura &bull; Cloud AgroMAS</span>
-          </div>
-          <span>AgroMAS &copy; 2026</span>
-        </div>
+      </main>
 
-      </section>
-
-      {/* RIGHT COLUMN: Auth Form Interface */}
-      <section className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 relative bg-slate-950">
-        
-        {/* Mobile Header */}
-        <div className="w-full max-w-md lg:hidden flex items-center justify-between mb-6 pb-4 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold">
-              <Sprout className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-base font-bold text-white">AgroMAS</span>
-          </div>
-          <Link href="/" className="text-xs text-emerald-400 font-semibold hover:underline">
-            Ir al Tablero &rarr;
-          </Link>
-        </div>
-
-        {/* Auth Form Component */}
-        <AuthForm />
-
-      </section>
-
-    </main>
+    </div>
   );
 }
