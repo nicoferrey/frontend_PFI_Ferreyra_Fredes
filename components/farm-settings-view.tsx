@@ -157,49 +157,36 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   const currentUserIsDueño = activeUserRole === 'admin';
 
   // Handle Add Member Submission
+  // Handle Add Member Submission (Simplified Flow: Email + Role)
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
-    if (!newFirstName.trim() || !newLastName.trim()) {
-      setFormError('Por favor ingresa nombre y apellido.');
-      return;
-    }
-    if (!newEmail.trim() || !newEmail.includes('@')) {
+    if (!newEmail.trim() || !newEmail.includes('@') || !newEmail.includes('.')) {
       setFormError('Por favor ingresa un correo electrónico válido.');
-      return;
-    }
-    if (!newPhone.trim() || newPhone.length < 8) {
-      setFormError('Por favor ingresa un número de WhatsApp con código de país (ej. +54 9 2477 123456).');
       return;
     }
 
     setIsSubmittingUser(true);
 
     const result = await addTeamMemberApi({
-      first_name: newFirstName.trim(),
-      last_name: newLastName.trim(),
       email: newEmail.trim(),
-      phone_whatsapp: newPhone.trim(),
       role: newRole,
       field_id: fields[0]?.id,
     });
 
     if (result.ok && result.member) {
       setMembers((prev) => [result.member!, ...prev]);
-      setFormSuccess(`¡${result.member.name} fue agregado exitosamente con rol de ${roleDetails[newRole].shortTitle}!`);
+      setFormSuccess(`¡Invitación enviada a ${newEmail} con rol de ${roleDetails[newRole].shortTitle}!`);
       setTimeout(() => {
         setIsAddModalOpen(false);
-        setNewFirstName('');
-        setNewLastName('');
         setNewEmail('');
-        setNewPhone('');
         setNewRole('agronomist');
         setFormSuccess(null);
       }, 1400);
     } else {
-      setFormError(result.error || 'No se pudo agregar el usuario.');
+      setFormError(result.error || 'No se pudo enviar la invitación al usuario.');
     }
 
     setIsSubmittingUser(false);
@@ -691,7 +678,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
         </div>
       </div>
 
-      {/* 6. MODAL: AGREGAR USUARIO AL CAMPO */}
+      {/* 6. MODAL: AGREGAR USUARIO AL CAMPO (Flujo Simplificado: Solo Email y Rol) */}
       <ModalPortal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)}>
         <div className="w-full max-w-lg rounded-[28px] border border-white/20 bg-white p-6 md:p-8 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto text-slate-900">
           {/* Modal Header */}
@@ -701,8 +688,8 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                 <UserPlus className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Agregar Usuario al Campo</h3>
-                <p className="text-xs text-slate-500">Asigna permisos y datos de contacto para el canal WhatsApp.</p>
+                <h3 className="text-lg font-bold text-slate-900">Invitar Colaborador al Campo</h3>
+                <p className="text-xs text-slate-500">Ingresa el correo electrónico y selecciona el rol de acceso.</p>
               </div>
             </div>
             <button
@@ -728,46 +715,19 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
           )}
 
           {/* Form */}
-          <form onSubmit={handleAddMember} className="mt-5 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Lucas"
-                  value={newFirstName}
-                  onChange={(e) => setNewFirstName(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Apellido
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Fredes"
-                  value={newLastName}
-                  onChange={(e) => setNewLastName(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
-                />
-              </div>
-            </div>
-
+          <form onSubmit={handleAddMember} noValidate className="mt-5 space-y-4">
+            
+            {/* Email Input */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                Correo Electrónico
+                Correo Electrónico del Colaborador
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                 <input
                   type="email"
                   required
-                  placeholder="usuario@campo.com"
+                  placeholder="ejemplo@establecimiento.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
@@ -775,28 +735,10 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Número de WhatsApp
-                </label>
-                <span className="text-[10px] text-crop-600 font-bold uppercase tracking-wider">Requerido para alertas</span>
-              </div>
-              <div className="relative">
-                <Phone className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="tel"
-                  placeholder="+54 9 2477 1234-5678"
-                  value={newPhone}
-                  onChange={(e) => setNewPhone(formatPhoneWhatsapp(e.target.value))}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition"
-                />
-              </div>
-            </div>
-
+            {/* Role Selector */}
             <div className="space-y-2 pt-1">
               <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                Rol asignado para este campo
+                Rol Asignado en este Establecimiento
               </label>
               <div className="space-y-2">
                 {(['admin', 'agronomist', 'operator'] as FieldRole[]).map((r) => {
@@ -829,20 +771,35 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
               </div>
             </div>
 
+            {/* Explanatory Note */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] text-slate-600 flex items-start gap-2.5">
+              <Sparkles className="h-4 w-4 text-crop-600 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Si el usuario ya pertenece a AgroMAS, accederá al instante. Si es nuevo, completará su nombre y WhatsApp al iniciar sesión por primera vez.
+              </p>
+            </div>
+
             <div className="flex gap-3 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="flex-1 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                className="flex-1 rounded-2xl border border-slate-200 bg-slate-100 py-3 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSubmittingUser}
-                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 text-white px-4 py-2.5 text-xs md:text-sm font-bold shadow-md transition disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 py-3 text-xs font-bold text-white shadow-md shadow-crop-600/20 hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50"
               >
-                {isSubmittingUser ? 'Guardando...' : 'Guardar y Vincular al Campo'}
+                {isSubmittingUser ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Enviar Invitación</span>
+                    <UserPlus className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           </form>

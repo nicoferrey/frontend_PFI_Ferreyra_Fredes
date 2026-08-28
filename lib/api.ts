@@ -327,11 +327,11 @@ export interface FieldTeamMember {
 }
 
 export interface AddTeamMemberPayload {
-  first_name: string;
-  last_name: string;
   email: string;
-  phone_whatsapp: string;
   role: FieldRole;
+  first_name?: string;
+  last_name?: string;
+  phone_whatsapp?: string;
   field_id?: string | number;
 }
 
@@ -419,19 +419,24 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
     console.warn('Backend team member creation error, using persistent local store:', err);
   }
 
-  // Persistent storage fallback
+  // Fallback name parsing from email if not provided
+  const emailUsername = payload.email.split('@')[0] || 'Usuario';
+  const derivedFirstName = payload.first_name || emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1);
+  const derivedLastName = payload.last_name || '(Invitado)';
+  const memberName = `${derivedFirstName} ${derivedLastName}`.trim();
+
   const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-indigo-600', 'bg-rose-600', 'bg-teal-600'];
   const randomColor = colors[Math.floor(Math.random() * colors.length)];
   
   const newMember: FieldTeamMember = {
     id: `member-${Date.now()}`,
-    first_name: payload.first_name,
-    last_name: payload.last_name,
-    name: `${payload.first_name} ${payload.last_name}`.trim(),
+    first_name: derivedFirstName,
+    last_name: derivedLastName,
+    name: memberName,
     email: payload.email,
-    phone_whatsapp: payload.phone_whatsapp,
+    phone_whatsapp: payload.phone_whatsapp || 'Pendiente de registro',
     role: payload.role,
-    status: 'active',
+    status: payload.first_name ? 'active' : 'invited',
     joined_at: new Date().toISOString(),
     avatar_color: randomColor,
   };
