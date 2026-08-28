@@ -411,17 +411,26 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
       method: 'POST',
       body: JSON.stringify(payload),
     });
+
     if (res.ok) {
       const data = await res.json();
       return { ok: true, member: data };
+    } else {
+      const errorData = await res.json().catch(() => ({}));
+      const errorMsg = Array.isArray(errorData.detail)
+        ? errorData.detail.map((d: any) => `${d.loc?.join('.')}: ${d.msg}`).join(', ')
+        : errorData.detail || errorData.message;
+      if (errorMsg) {
+        console.warn('Backend team member creation warning:', errorMsg);
+      }
     }
   } catch (err) {
     console.warn('Backend team member creation error, using persistent local store:', err);
   }
 
-  // Fallback name parsing from email if not provided
+  // Fallback for local storage display if offline
   const emailUsername = payload.email.split('@')[0] || 'Usuario';
-  const derivedFirstName = payload.first_name || emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1);
+  const derivedFirstName = payload.first_name || (emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1));
   const derivedLastName = payload.last_name || '(Invitado)';
   const memberName = `${derivedFirstName} ${derivedLastName}`.trim();
 
