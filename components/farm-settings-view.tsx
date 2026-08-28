@@ -487,38 +487,27 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                     {currentUserIsDueño && (
                       <div className="flex items-center gap-1">
                         {isInvited && (
-                          <>
-                            <button
-                              onClick={() => {
-                                const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
-                                const invUrl = member.invitation_url || `${origin}/invitation/${member.id}`;
-                                handleCopyUrl(invUrl, member.id);
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg transition"
-                              title="Copiar enlace de invitación"
-                            >
-                              {copiedMemberId === member.id ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                  <span>¡Copiado!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5 text-emerald-600" />
-                                  <span>Copiar Link</span>
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => handleResendInvitation(member.id, member.email)}
-                              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-amber-700 hover:text-amber-900 hover:bg-amber-50 rounded-lg transition"
-                              title="Generar nuevo enlace de invitación"
-                            >
-                              <RefreshCw className="h-3.5 w-3.5 text-amber-600" />
-                              <span>Nuevo Link</span>
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
+                              const invUrl = member.invitation_url || `${origin}/invitation/${member.id}`;
+                              handleCopyUrl(invUrl, member.id);
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg transition"
+                            title="Copiar enlace de invitación"
+                          >
+                            {copiedMemberId === member.id ? (
+                              <>
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>¡Copiado!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Copiar Link</span>
+                              </>
+                            )}
+                          </button>
                         )}
                         <button
                           onClick={() => {
