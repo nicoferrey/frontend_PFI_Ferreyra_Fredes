@@ -23,6 +23,8 @@ export interface LotHydricData {
   irrigationSystem: string;
   hydricStatus: 'Normal' | 'Atencion' | 'Critico';
   deficitDr_mm: number;
+  recommendedNetIrrigation_mm?: number;
+  recommendedGrossIrrigation_mm?: number;
   waterAvailableAU_mm: number;
   waterAvailableAU_pct: number;
   easilyAvailableAFD_mm: number;
@@ -322,6 +324,7 @@ export function buildAgentTimeline(
 export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgentSnapshot | null): LotHydricData {
   const analyze = snapshot?.analyze_response || {};
   const recommendation = analyze.recommendation || {};
+  const recommendationMetrics = recommendation.metrics || {};
   const waterBalance = recommendation.water_balance || {};
   const metrics = waterBalance.metrics || {};
   const weatherMetrics = waterBalance.weather_context?.metrics || {};
@@ -332,6 +335,14 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
   const taw = asNumber(field.total_available_water_taw, 100);
   const afd = round1(taw * 0.5);
   const deficit = round1(asNumber(metrics.deficit_mm, 0));
+  const recommendedNetIrrigation =
+    typeof recommendationMetrics.recommended_net_irrigation_mm === 'number'
+      ? round1(recommendationMetrics.recommended_net_irrigation_mm)
+      : undefined;
+  const recommendedGrossIrrigation =
+    typeof recommendationMetrics.recommended_gross_irrigation_mm === 'number'
+      ? round1(recommendationMetrics.recommended_gross_irrigation_mm)
+      : undefined;
   const available = Math.max(0, round1(taw - deficit));
   const urgency = analyze.urgency || recommendation.urgency || weatherCompare.urgency;
   const hydricStatus = snapshot ? statusFromUrgency(urgency) : 'Atencion';
@@ -366,6 +377,8 @@ export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgen
     irrigationSystem: field.irrigation_system || 'Sin especificar',
     hydricStatus,
     deficitDr_mm: deficit,
+    recommendedNetIrrigation_mm: recommendedNetIrrigation,
+    recommendedGrossIrrigation_mm: recommendedGrossIrrigation,
     waterAvailableAU_mm: available,
     waterAvailableAU_pct: taw > 0 ? Math.max(0, Math.min(100, Math.round((available / taw) * 100))) : 0,
     easilyAvailableAFD_mm: afd,

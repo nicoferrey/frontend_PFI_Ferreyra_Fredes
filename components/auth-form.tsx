@@ -15,6 +15,8 @@ interface AuthFormProps {
   initialMode?: 'login' | 'signup';
 }
 
+const DEMO_EMAIL = 'demo@agromas.com';
+
 declare global {
   interface Window {
     google?: any;
@@ -150,6 +152,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   // Switch between Login, Signup, and Forgot modes
   const handleModeSwitch = (newMode: 'login' | 'signup' | 'forgot') => {
     setMode(newMode);
+    if (newMode === 'signup') {
+      setEmail(DEMO_EMAIL);
+    }
     setForgotStep('email');
     setIsGooglePhonePrompt(false);
     setGoogleIdToken(null);
@@ -161,6 +166,12 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     setNewPassword('');
     setConfirmNewPassword('');
   };
+
+  useEffect(() => {
+    if (mode === 'signup') {
+      setEmail(DEMO_EMAIL);
+    }
+  }, [mode]);
 
   // OTP Timer countdown
   useEffect(() => {
@@ -556,7 +567,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 : '¡Contraseña Actualizada!'
               : mode === 'login'
               ? 'Bienvenido a AgroMAS'
-              : 'Crear Cuenta de Productor'}
+              : 'Crear Cuenta'}
           </h2>
           <p className="text-slate-500 text-xs mt-1 leading-relaxed font-normal">
             {isGooglePhonePrompt
@@ -571,7 +582,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 : 'Ya puedes acceder con tu nueva clave.'
               : mode === 'login'
               ? 'Ingresa tus credenciales para acceder al monitoreo satelital y balance hídrico.'
-              : 'Regístrate para comenzar a gestionar tu campo con el modelo FAO-56 y agentes de IA.'}
+              : 'Completá tus datos para crear tu cuenta y comenzar el onboarding.'}
           </p>
         </div>
 
@@ -1077,31 +1088,18 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </div>
             </div>
 
-            {/* Row 2: Email (Full Width Line) */}
-            <div className="space-y-0.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">
-                Correo Electrónico
-              </label>
-              <div className="relative flex items-center">
-                <Mail className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  type="email"
-                  placeholder="productor@campo.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    markTouched('email');
-                  }}
-                  onBlur={() => markTouched('email')}
-                  required
-                  className={getInputClass(!!emailError, !!touched.email, !emailError)}
-                />
+            {/* Row 2: Fixed email */}
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+              <div className="flex items-center gap-2.5">
+                <Mail className="h-4 w-4 shrink-0 text-emerald-700" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Correo electrónico</p>
+                  <p className="truncate text-sm font-black text-slate-950">{DEMO_EMAIL}</p>
+                </div>
               </div>
-              {emailError && (
-                <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" /> {emailError}
-                </p>
-              )}
+              <p className="mt-1.5 text-[10px] font-semibold leading-relaxed text-emerald-800">
+                El correo se asigna automáticamente para este flujo de registro.
+              </p>
             </div>
 
             {/* Row 3: WhatsApp Phone (Full Width Line) */}
@@ -1230,7 +1228,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
             onClick={() => handleModeSwitch(mode === 'login' ? 'signup' : 'login')}
             className="ml-1.5 font-bold text-emerald-700 hover:text-emerald-800 underline transition"
           >
-            {mode === 'login' ? 'Regístrate aquí' : 'Inicia sesión'}
+            {mode === 'login' ? 'Crear cuenta' : 'Inicia sesión'}
           </button>
         </p>
       )}

@@ -73,6 +73,8 @@ export interface LotHydricData {
   // Hydric Status
   hydricStatus: 'Normal' | 'Atencion' | 'Critico';
   deficitDr_mm: number;
+  recommendedNetIrrigation_mm?: number;
+  recommendedGrossIrrigation_mm?: number;
   waterAvailableAU_mm: number;
   waterAvailableAU_pct: number;
   easilyAvailableAFD_mm: number;
@@ -221,7 +223,9 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / dailyCropUseMm)
   );
   const suggestedWaterMm =
-    lot.hydricStatus === 'Normal'
+    lot.recommendedGrossIrrigation_mm !== undefined
+      ? Math.round(lot.recommendedGrossIrrigation_mm)
+      : lot.hydricStatus === 'Normal'
       ? 0
       : Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
   const nextActionLabel =
