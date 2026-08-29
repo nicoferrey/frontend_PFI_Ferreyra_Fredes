@@ -15,8 +15,6 @@ interface AuthFormProps {
   initialMode?: 'login' | 'signup';
 }
 
-const DEMO_EMAIL = 'demo@agromas.com';
-
 declare global {
   interface Window {
     google?: any;
@@ -152,9 +150,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   // Switch between Login, Signup, and Forgot modes
   const handleModeSwitch = (newMode: 'login' | 'signup' | 'forgot') => {
     setMode(newMode);
-    if (newMode === 'signup') {
-      setEmail(DEMO_EMAIL);
-    }
     setForgotStep('email');
     setIsGooglePhonePrompt(false);
     setGoogleIdToken(null);
@@ -166,12 +161,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     setNewPassword('');
     setConfirmNewPassword('');
   };
-
-  useEffect(() => {
-    if (mode === 'signup') {
-      setEmail(DEMO_EMAIL);
-    }
-  }, [mode]);
 
   // OTP Timer countdown
   useEffect(() => {
@@ -1088,18 +1077,31 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </div>
             </div>
 
-            {/* Row 2: Fixed email */}
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
-              <div className="flex items-center gap-2.5">
-                <Mail className="h-4 w-4 shrink-0 text-emerald-700" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Correo electrónico</p>
-                  <p className="truncate text-sm font-black text-slate-950">{DEMO_EMAIL}</p>
-                </div>
+            {/* Row 2: Email (Full Width Line) */}
+            <div className="space-y-0.5">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">
+                Correo Electrónico
+              </label>
+              <div className="relative flex items-center">
+                <Mail className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="email"
+                  placeholder="productor@campo.com"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    markTouched('email');
+                  }}
+                  onBlur={() => markTouched('email')}
+                  required
+                  className={getInputClass(!!emailError, !!touched.email, !emailError)}
+                />
               </div>
-              <p className="mt-1.5 text-[10px] font-semibold leading-relaxed text-emerald-800">
-                El correo se asigna automáticamente para este flujo de registro.
-              </p>
+              {emailError && (
+                <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
+                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" /> {emailError}
+                </p>
+              )}
             </div>
 
             {/* Row 3: WhatsApp Phone (Full Width Line) */}
