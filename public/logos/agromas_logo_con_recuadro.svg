@@ -1,0 +1,93 @@
+
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#0B1329" />
+    </linearGradient>
+
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#06B6D4" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.2" />
+    </linearGradient>
+
+    <linearGradient id="iconCloudGrad" x1="200" y1="200" x2="800" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="60%" stop-color="#F0FDF4" />
+      <stop offset="100%" stop-color="#E0F2FE" />
+    </linearGradient>
+
+    <linearGradient id="iconDropGrad" x1="500" y1="500" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <filter id="ambientGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="60" result="blur" />
+    </filter>
+
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <g filter="url(#cardShadow)">
+    <rect x="48" y="48" width="928" height="928" rx="216" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="12" />
+
+    <circle cx="512" cy="512" r="320" fill="#10B981" opacity="0.18" filter="url(#ambientGlow)" />
+    <circle cx="600" cy="580" r="260" fill="#0284C7" opacity="0.18" filter="url(#ambientGlow)" />
+
+    <g transform="translate(0, -10)">
+      <path
+        d="M 280 520 
+           C 280 380, 390 270, 530 270 
+           C 640 270, 730 330, 770 425 
+           C 785 420, 800 418, 815 418 
+           C 905 418, 980 493, 980 585 
+           C 980 677, 905 750, 815 750 
+           L 280 750 
+           C 190 750, 115 675, 115 585 
+           C 115 495, 190 420, 280 420 Z"
+        fill="url(#iconCloudGrad)"
+      />
+
+      <path
+        d="M 530 340 
+           C 475 340, 430 385, 430 440 
+           C 430 480, 455 515, 490 530 
+           C 510 590, 510 640, 480 690 
+           C 440 755, 380 740, 380 740 
+           C 380 740, 430 820, 530 820 
+           C 630 820, 680 740, 680 740 
+           C 680 740, 620 755, 580 690 
+           C 550 640, 550 590, 570 530 
+           C 605 515, 630 480, 630 440 
+           C 630 385, 585 340, 530 340 Z"
+        fill="#0F172A"
+        opacity="0.12"
+      />
+
+      <circle cx="390" cy="340" r="20" fill="#10B981" opacity="0.6" />
+      <circle cx="680" cy="320" r="28" fill="#06B6D4" opacity="0.6" />
+      <circle cx="750" cy="410" r="36" fill="#10B981" opacity="0.5" />
+
+      <circle cx="440" cy="720" r="80" fill="url(#iconDropGrad)" />
+      <circle cx="440" cy="890" r="50" fill="url(#iconDropGrad)" opacity="0.9" />
+      
+      <circle cx="310" cy="760" r="34" fill="#34D399" />
+      <circle cx="335" cy="850" r="18" fill="#059669" />
+
+      <path
+        d="M 680 670 
+           C 680 760, 770 760, 770 850 
+           C 770 900, 730 940, 680 940 
+           C 630 940, 590 900, 590 850 
+           C 590 760, 680 760, 680 670 Z"
+        fill="url(#iconDropGrad)"
+      />
+    </g>
+  </g>
+</svg>

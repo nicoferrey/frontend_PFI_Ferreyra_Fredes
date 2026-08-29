@@ -1,0 +1,38 @@
+
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#FFFFFF">
+    <!-- Base Cloud Shape -->
+    <path
+      d="M 280 520 
+         C 280 380, 390 270, 530 270 
+         C 640 270, 730 330, 770 425 
+         C 785 420, 800 418, 815 418 
+         C 905 418, 980 493, 980 585 
+         C 980 677, 905 750, 815 750 
+         L 280 750 
+         C 190 750, 115 675, 115 585 
+         C 115 495, 190 420, 280 420 Z"
+    />
+
+    <!-- Small Dots inside Cloud -->
+    <circle cx="390" cy="340" r="20" opacity="0.9" />
+    <circle cx="680" cy="320" r="28" opacity="0.9" />
+    <circle cx="750" cy="410" r="36" opacity="0.85" />
+
+    <!-- Water Drops Falling Down -->
+    <circle cx="440" cy="720" r="80" />
+    <circle cx="440" cy="890" r="50" opacity="0.95" />
+    
+    <circle cx="310" cy="760" r="34" opacity="0.9" />
+    <circle cx="335" cy="850" r="18" opacity="0.85" />
+
+    <path
+      d="M 680 670 
+         C 680 760, 770 760, 770 850 
+         C 770 900, 730 940, 680 940 
+         C 630 940, 590 900, 590 850 
+         C 590 760, 680 760, 680 670 Z"
+      opacity="0.95"
+    />
+  </g>
+</svg>
