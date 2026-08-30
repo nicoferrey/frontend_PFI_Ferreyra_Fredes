@@ -237,10 +237,10 @@ export default function DashboardHome() {
       </section>
 
       {/* Two Columns: IA Agent Priority Warnings & Consolidated List */}
-      <div className="grid gap-6 lg:grid-cols-12">
+      <div className="grid gap-6 lg:grid-cols-12 min-w-0">
         
         {/* IA Priority Alerts Panel (Left Column - Compact & Emerald/Water Palette) */}
-        <section className="lg:col-span-5 flex flex-col h-full">
+        <section className="lg:col-span-5 flex flex-col h-full min-w-0">
           <div className="rounded-[28px] border border-slate-200/90 bg-white p-5 shadow-soft flex-1 flex flex-col justify-between text-slate-900">
             <div>
               {/* Header */}
@@ -350,7 +350,7 @@ export default function DashboardHome() {
         </section>
 
         {/* Consolidated Water Balance Detail (Right Column) */}
-        <section className="lg:col-span-7 flex flex-col h-full">
+        <section className="lg:col-span-7 flex flex-col h-full min-w-0">
           <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-soft flex-1 flex flex-col justify-between text-slate-900">
             <div>
               <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
@@ -360,8 +360,8 @@ export default function DashboardHome() {
                 </div>
               </div>
               
-              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
-                <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
+                <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
                     <tr>
                       <th className="py-2.5 px-3">Lote</th>
@@ -390,23 +390,23 @@ export default function DashboardHome() {
                             {lotItem.crop} ({lotItem.areaHa} ha)
                           </td>
                           <td className="py-2.5 px-3 text-center">
-                            <span className={`inline-block rounded-lg px-2.5 py-0.5 font-extrabold text-[11px] shadow-2xs ${statusColor}`}>
+                            <span className={`inline-block rounded-lg px-2.5 py-0.5 font-extrabold text-[11px] shadow-2xs whitespace-nowrap ${statusColor}`}>
                               {lotItem.hydricStatus}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-900">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-900 whitespace-nowrap">
                             <div className="flex items-baseline justify-center">
                               <span className="text-xs font-black text-slate-950">{lotItem.deficitDr_mm.toFixed(1)}</span>
                               <span className="text-[11px] font-bold text-slate-400 ml-0.5">mm</span>
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <div className="flex items-baseline justify-center">
                               <span className="text-xs font-extrabold text-slate-950">{lotItem.waterAvailableAU_pct}</span>
                               <span className="text-[11px] font-bold text-slate-400 ml-0.5">%</span>
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-center font-medium text-slate-500">
+                          <td className="py-2.5 px-3 text-center font-medium text-slate-500 whitespace-nowrap">
                             {lotItem.lastIrrigationDate !== '-' 
                               ? `${lotItem.lastIrrigationAmount_mm} mm (${lotItem.lastIrrigationDate})` 
                               : 'Ninguno'}
@@ -416,7 +416,7 @@ export default function DashboardHome() {
                               <button
                                 type="button"
                                 onClick={() => handleInspectLot(lotItem.id)}
-                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 transition shadow-2xs"
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 transition shadow-2xs shrink-0"
                                 title="Ver detalle del lote"
                               >
                                 <Eye className="h-4 w-4 text-slate-700" />

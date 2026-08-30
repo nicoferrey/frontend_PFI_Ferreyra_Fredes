@@ -23,8 +23,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Top Header Card with Organic Green Background Waves */}
-      <div className="relative z-10 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-6 shadow-soft backdrop-blur-md">
+      <div className="relative z-10 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-5 sm:p-6 shadow-soft backdrop-blur-md">
         {/* Organic Layered Wave Curves in Background (Isolated overflow-hidden) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px] select-none">
           <div className="absolute inset-y-0 right-0 w-full md:w-3/4 lg:w-3/5">
@@ -45,8 +44,8 @@ export function PageHeader({
           </div>
         </div>
 
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
+        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             {icon && (
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-600 via-emerald-600 to-water-600 text-white shadow-md">
                 {icon}
@@ -61,12 +60,12 @@ export function PageHeader({
               )}
 
               {/* Title */}
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl leading-tight">
                 {title}
                 {titleAccent && (
                   <>
                     {' '}
-                    <span className="bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-crop-600 via-emerald-600 to-water-600 bg-clip-text text-transparent break-words">
                       {titleAccent}
                     </span>
                   </>
@@ -83,7 +82,7 @@ export function PageHeader({
           </div>
 
           {/* Action controls slot */}
-          {action && <div className="flex items-center gap-3 shrink-0">{action}</div>}
+          {action && <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">{action}</div>}
         </div>
       </div>
 

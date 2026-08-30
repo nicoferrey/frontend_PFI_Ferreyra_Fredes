@@ -1003,17 +1003,17 @@ export default function DashboardHistoryPage() {
         </div>
 
         {/* Standardized Responsive Table Container */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
               <tr>
-                <th className="px-4 py-2.5">Fecha y Hora</th>
-                <th className="px-4 py-2.5">Tipo de Evento</th>
-                <th className="px-4 py-2.5">Agua Registrada</th>
-                <th className="px-4 py-2.5">Método / Fuente</th>
-                <th className="px-4 py-2.5">Registrado Por</th>
+                <th className="px-4 py-2.5 whitespace-nowrap">Fecha y Hora</th>
+                <th className="px-4 py-2.5 whitespace-nowrap">Tipo de Evento</th>
+                <th className="px-4 py-2.5 whitespace-nowrap">Agua Registrada</th>
+                <th className="px-4 py-2.5 whitespace-nowrap">Método / Fuente</th>
+                <th className="px-4 py-2.5 whitespace-nowrap">Registrado Por</th>
                 <th className="px-4 py-2.5">Observaciones</th>
-                <th className="px-4 py-2.5 text-right">Acciones</th>
+                <th className="px-4 py-2.5 text-right whitespace-nowrap">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/90 text-xs">

@@ -25,7 +25,7 @@ export function KpiCard({
 }: KpiCardProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4.5 sm:p-5 shadow-soft text-slate-900 flex items-center justify-between gap-4 ${className}`}
+      className={`relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5 shadow-soft text-slate-900 flex items-center justify-between gap-4 ${className}`}
     >
       {/* Subtle Ambient Background Tint Glow */}
       <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-slate-100/60 blur-xl" />

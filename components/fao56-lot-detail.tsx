@@ -276,7 +276,7 @@ export function Fao56LotDetail() {
             {dynamicRecommendations.map((item, idx) => {
               const Icon = item.icon;
               return (
-                <article key={idx} className={`rounded-3xl border p-4.5 text-xs ${item.tone}`}>
+                <article key={idx} className={`rounded-3xl border p-4 text-xs ${item.tone}`}>
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 rounded-xl bg-white/10 p-2">
                       <Icon className="h-4 w-4" />

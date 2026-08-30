@@ -972,7 +972,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
                   </p>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
@@ -1047,16 +1047,16 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
               })}
             </div>
 
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-col sm:flex-row gap-3 justify-end mt-4">
               <button
                 onClick={() => setEditingMember(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs md:text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 text-xs md:text-sm font-semibold text-slate-600 hover:bg-slate-100"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveRoleEdit}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs md:text-sm font-bold shadow"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs md:text-sm font-bold shadow"
               >
                 Actualizar Rol
               </button>
