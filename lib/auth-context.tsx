@@ -108,7 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function formatError(detail: any, fallback: string): string {
     if (!detail) return fallback;
-    if (typeof detail === 'string') return detail;
+    if (typeof detail === 'string') {
+      if (detail.toLowerCase().includes('whatsapp')) {
+        return 'Este teléfono ya está asociado a otra cuenta.';
+      }
+      return detail;
+    }
     if (Array.isArray(detail)) {
       return detail
         .map((item) => {
@@ -116,7 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (item?.msg) {
             const field = item.loc ? item.loc[item.loc.length - 1] : '';
             if (field === 'password') return 'La contraseña debe tener al menos 8 caracteres.';
-            if (field === 'phone_whatsapp') return 'El número de WhatsApp debe tener al menos 8 caracteres con código de país.';
+            if (field === 'phone_whatsapp') {
+                if (item.msg.toLowerCase().includes('already registered')) {
+                    return 'Este teléfono ya está asociado a otra cuenta.';
+                }
+                return 'El número de WhatsApp ingresado no es válido (verifica el código de área).';
+            }
             if (field === 'email') return 'El correo electrónico ingresado no es válido.';
             return `${field ? field + ': ' : ''}${item.msg}`;
           }
@@ -125,7 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .join(' | ');
     }
     if (typeof detail === 'object') {
-      return detail.message || detail.error || detail.msg || fallback;
+      const msg = detail.message || detail.error || detail.msg || detail.detail;
+      if (typeof msg === 'string' && msg.toLowerCase().includes('whatsapp')) {
+         return 'Este teléfono ya está asociado a otra cuenta.';
+      }
+      return msg || fallback;
     }
     return String(detail);
   }
