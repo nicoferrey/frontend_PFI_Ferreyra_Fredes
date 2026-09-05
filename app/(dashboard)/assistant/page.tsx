@@ -463,10 +463,16 @@ export default function DashboardAssistantPage() {
             </div>
 
             {/* Member Cards Grid (Full Width 3 Columns) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {whatsappMembers.map((member) => (
-                <div
-                  key={member.id}
+            {isLoadingHistory ? (
+              <div className="py-12 text-center text-sm font-medium text-slate-400">
+                <span className="inline-block animate-spin h-5 w-5 border-2 border-slate-300 border-t-slate-500 rounded-full mr-2 align-middle"></span>
+                Cargando historial de WhatsApp...
+              </div>
+            ) : whatsappMembers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {whatsappMembers.map((member) => (
+                  <div
+                    key={member.id}
                   onClick={() => setSelectedMemberHistory(member)}
                   className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-slate-50/50 p-5 transition-all duration-200 hover:bg-white hover:border-slate-300 hover:shadow-md cursor-pointer"
                 >
@@ -525,6 +531,15 @@ export default function DashboardAssistantPage() {
                 </div>
               ))}
             </div>
+            ) : (
+              <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                <MessageSquare className="h-8 w-8 mx-auto text-slate-300 mb-3" />
+                <h4 className="text-sm font-bold text-slate-700">Sin conversaciones recientes</h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Aún no hay interacciones con el Asistente MAS registradas en los últimos 7 días para este establecimiento.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* THIRD ROW (100% Width): SECURITY RULES SPLIT IN 2 COLUMNS */}
