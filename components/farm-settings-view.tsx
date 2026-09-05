@@ -105,7 +105,7 @@ const roleDetails: Record<
 };
 
 export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps) {
-  const { user, isOwner, setUserRole } = useAuth();
+  const { user, isOwner, setUserRole, currentFarmId } = useAuth();
 
   // Active Team Members State
   const [members, setMembers] = useState<FieldTeamMember[]>([]);
@@ -143,12 +143,12 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   useEffect(() => {
     async function loadMembers() {
       setIsLoadingMembers(true);
-      const data = await getTeamMembersApi(fields[0]?.id);
+      const data = await getTeamMembersApi(currentFarmId);
       setMembers(data);
       setIsLoadingMembers(false);
     }
     loadMembers();
-  }, [fields]);
+  }, [currentFarmId]);
 
   // Filtered members list
   const filteredMembers = members.filter((m) => {
@@ -179,7 +179,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
     const result = await addTeamMemberApi({
       email: newEmail.trim(),
       role: newRole,
-      field_id: fields[0]?.id,
+      farm_id: currentFarmId,
     });
 
     if (result.ok && result.member) {

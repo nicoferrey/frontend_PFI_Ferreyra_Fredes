@@ -430,7 +430,7 @@ export interface AddTeamMemberPayload {
   first_name?: string;
   last_name?: string;
   phone_whatsapp?: string;
-  field_id?: string | number;
+  farm_id?: string | null;
 }
 
 const DEFAULT_TEAM_MEMBERS: FieldTeamMember[] = [
@@ -501,8 +501,8 @@ export async function getTeamMembersApi(farmId?: string | null): Promise<FieldTe
 
 export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; invitation_url?: string; error?: string }> {
   try {
-    const endpoint = payload.field_id && payload.field_id !== 'default'
-      ? `/api/v1/fields/${payload.field_id}/members`
+    const endpoint = payload.farm_id && payload.farm_id !== 'default'
+      ? `/api/v1/farms/${payload.farm_id}/members`
       : `/api/v1/farms/members`;
 
     const res = await apiFetch(endpoint, {
@@ -560,7 +560,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
   };
 
   if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi(payload.field_id);
+    const current = await getTeamMembersApi(payload.farm_id);
     const updated = [newMember, ...current];
     localStorage.setItem('agromas_team_members', JSON.stringify(updated));
   }

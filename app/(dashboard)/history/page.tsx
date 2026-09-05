@@ -35,6 +35,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useDashboard } from '../context';
+import { useAuth } from '@/lib/auth-context';
 import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
 import { CustomTimePicker } from '@/components/custom-time-picker';
@@ -79,6 +80,7 @@ export default function DashboardHistoryPage() {
     fieldSnapshots,
     isRefreshingAgents,
   } = useDashboard();
+  const { currentFarmId } = useAuth();
 
   // Mapped options for custom dropdown
   const lotSelectOptions: SelectOption[] = useMemo(() => {
@@ -208,7 +210,7 @@ export default function DashboardHistoryPage() {
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
           getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, true),
           getReportsSummaryApi(fieldId, dateFrom, dateTo),
-          getTeamMembersApi(auth.currentFarmId)
+          getTeamMembersApi(currentFarmId)
         ]);
 
         if (!isCancelled) {
