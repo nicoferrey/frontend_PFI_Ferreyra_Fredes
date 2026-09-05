@@ -1354,3 +1354,15 @@ export async function getFarmApi(farmId: string): Promise<FarmSummary | null> {
     return null;
   }
 }
+
+export async function updateFarmApi(farmId: string, payload: { name?: string }): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/farms/${farmId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

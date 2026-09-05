@@ -49,6 +49,7 @@ import {
   updateTeamMemberRoleApi,
   removeTeamMemberApi,
   resendInvitationApi,
+  updateFarmApi,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { ModalPortal } from '@/components/modal-portal';
@@ -105,7 +106,7 @@ const roleDetails: Record<
 };
 
 export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps) {
-  const { user, isOwner, setUserRole, currentFarmId } = useAuth();
+  const { user, isOwner, setUserRole, currentFarmId, currentFarm } = useAuth();
 
   // Active Team Members State
   const [members, setMembers] = useState<FieldTeamMember[]>([]);
@@ -133,7 +134,7 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   const [editRoleValue, setEditRoleValue] = useState<FieldRole>('operator');
 
   // Farm General Settings
-  const [farmName, setFarmName] = useState('Establecimiento AgroMAS Central');
+  const [farmName, setFarmName] = useState(currentFarm?.name || 'Establecimiento AgroMAS Central');
   const [whatsappAlertsEnabled, setWhatsappAlertsEnabled] = useState(true);
   const [nightTariffOnly, setNightTariffOnly] = useState(true);
   const [deficitAlertThreshold, setDeficitAlertThreshold] = useState<number>(40);
@@ -250,9 +251,17 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   };
 
   // Handle Save Farm Settings
-  const handleSaveFarmConfig = () => {
-    setSaveSuccessMsg(true);
-    setTimeout(() => setSaveSuccessMsg(false), 3000);
+  const handleSaveFarmConfig = async () => {
+    if (!currentFarmId) return;
+    const ok = await updateFarmApi(currentFarmId, { name: farmName });
+    if (ok) {
+      setSaveSuccessMsg(true);
+      setTimeout(() => setSaveSuccessMsg(false), 3000);
+      // Wait for 1 second, then reload the page to refresh the topbar farm name and useAuth context
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      alert('Error al guardar la configuración del establecimiento.');
+    }
   };
 
   // Helper for Initials
