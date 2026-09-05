@@ -472,8 +472,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Resolved Selected Field
   const selectedField = useMemo(() => {
-    return auth.fields?.find((field) => String(field.id) === selectedLotId) || null;
-  }, [auth.fields, selectedLotId]);
+    return auth.currentFields?.find((field) => String(field.id) === selectedLotId) || null;
+  }, [auth.currentFields, selectedLotId]);
 
   // Resolved Selected Snapshot
   const selectedSnapshot = useMemo(() => {
@@ -482,13 +482,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh agent snapshots
   const refreshAgentSnapshots = async () => {
-    if (!auth.fields || auth.fields.length === 0) return;
+    if (!auth.currentFields || auth.currentFields.length === 0) return;
     setIsRefreshingAgents(true);
     setAgentRefreshError(null);
 
     try {
       await Promise.all(
-        auth.fields.map(async (field) => {
+        auth.currentFields.map(async (field) => {
           const res = await refreshFieldAgentSnapshotApi(field.id, {
             force: true,
             date_from: dateFrom,
@@ -512,13 +512,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // 1. Initial snapshot loading on mount
   useEffect(() => {
-    if (auth.isLoading || !auth.fields) return;
+    if (auth.isLoading || !auth.currentFields) return;
 
     let isCancelled = false;
     async function loadAllSnapshots() {
       const snapshotsMap: Record<string, FieldAgentSnapshot | null> = {};
       await Promise.all(
-        auth.fields.map(async (field) => {
+        auth.currentFields.map(async (field) => {
           try {
             const data = await getFieldAgentSnapshotApi(field.id);
             snapshotsMap[String(field.id)] = data;
@@ -534,18 +534,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (auth.fields.length > 0) {
+    if (auth.currentFields.length > 0) {
       loadAllSnapshots();
     }
-  }, [auth.fields, auth.isLoading]);
+  }, [auth.currentFields, auth.isLoading]);
 
   // 2. Synchronize lotsData with custom fields & snapshots
   useEffect(() => {
-    const hasCustom = auth.fields && auth.fields.length > 0;
+    const hasCustom = auth.currentFields && auth.currentFields.length > 0;
     setHasCustomLots(hasCustom);
 
     if (hasCustom) {
-      const customLots = auth.fields.map((field, idx) => {
+      const customLots = auth.currentFields.map((field, idx) => {
         const snapshot = fieldSnapshots[String(field.id)];
         return fieldToLot(field, idx, snapshot);
       });
@@ -558,7 +558,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Center map on first custom field polygon
-      const firstField = auth.fields[0];
+      const firstField = auth.currentFields[0];
       if (firstField?.geometry_geojson?.coordinates?.[0]?.[0]) {
         const poly = firstField.geometry_geojson.coordinates[0];
         const sum = poly.reduce((acc: number[], coord: number[]) => {
@@ -571,7 +571,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       // Map raw coordinates for drawing
       const polygonsMap: { [id: string]: [number, number][] } = {};
-      auth.fields.forEach((f) => {
+      auth.currentFields.forEach((f) => {
         if (f.geometry_geojson?.coordinates?.[0]) {
           polygonsMap[String(f.id)] = f.geometry_geojson.coordinates[0].map((c: any) => [c[1], c[0]]);
         }
@@ -585,7 +585,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setSelectedLotId(initialMockLots[0].id);
       }
     }
-  }, [auth.fields, auth.isLoading, fieldSnapshots]);
+  }, [auth.currentFields, auth.isLoading, fieldSnapshots]);
 
   // 3. Load real daily history when lot selected or trigger fired
   useEffect(() => {

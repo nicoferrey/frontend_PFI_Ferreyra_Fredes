@@ -51,7 +51,7 @@ export function Topbar({
   customNotifications,
   className = "",
 }: TopbarProps) {
-  const { user, logout, setUserRole } = useAuth();
+  const { user, logout, setUserRole, farms, currentFarmId, currentFarm, setCurrentFarmId } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -169,7 +169,7 @@ export function Topbar({
     <header className={`relative z-[500] w-full rounded-[24px] border border-white/80 bg-white/90 px-5 py-3.5 shadow-sm backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between gap-4">
         
-        {/* Left Side: Breadcrumbs / Navigation Index */}
+        {/* Left Side: Farm Switcher & Breadcrumbs / Navigation Index */}
         <div className="flex items-center gap-3">
           {showSidebarToggle && (
             <button
@@ -179,6 +179,29 @@ export function Topbar({
             >
               <Menu className="h-4 w-4" />
             </button>
+          )}
+
+          {/* Farm Switcher */}
+          {farms.length > 1 && currentFarm && (
+            <div className="relative group/farm mr-2">
+              <select
+                value={currentFarmId || ''}
+                onChange={(e) => setCurrentFarmId(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                aria-label="Cambiar establecimiento"
+              >
+                {farms.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-800 transition-colors group-hover/farm:bg-slate-200">
+                <MapPin className="h-4 w-4 text-slate-500" />
+                <span className="max-w-[120px] truncate md:max-w-[160px]">{currentFarm.name}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+              </div>
+            </div>
           )}
 
           <nav aria-label="Breadcrumb" className="flex items-center text-sm font-medium">

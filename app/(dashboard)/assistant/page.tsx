@@ -21,6 +21,8 @@ import {
 import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
+import { useAuth } from '@/lib/auth-context';
+import { useEffect } from 'react';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -38,6 +40,7 @@ export default function DashboardAssistantPage() {
     isRefreshingAgents,
     teamMembers
   } = useDashboard();
+  const { currentFarmId } = useAuth();
 
   // State for interactive member history modal
   const [selectedMemberHistory, setSelectedMemberHistory] = useState<any | null>(null);
@@ -53,224 +56,111 @@ export default function DashboardAssistantPage() {
     return fieldSnapshots[String(lot.id)] || null;
   }, [lot, fieldSnapshots]);
 
-  // Team WhatsApp members & interaction histories (Derived dynamically from teamMembers context)
-  const whatsappMembers = useMemo(() => {
-    const roleLabels: Record<string, string> = {
-      admin: 'Dueño / Administrador',
-      agronomist: 'Asesor Agrónomo',
-      operator: 'Operador de Riego',
-      'Asesor Agrónomo Principal': 'Asesor Agrónomo',
-      'Operador de Pivote Central': 'Operador de Riego',
-      'Encargado de Bombeo y Mantenimiento': 'Operador de Riego',
-    };
+  // Dynamic Team WhatsApp members & interaction histories
+  const [whatsappMembers, setWhatsappMembers] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-    if (teamMembers && teamMembers.length > 0) {
-      return teamMembers.map((member, idx) => {
-        const name = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || `Miembro ${idx + 1}`;
-        const initials = name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'MB';
-        const rawRole = member.role || (idx === 0 ? 'agronomist' : idx === 1 ? 'operator' : 'admin');
-        const role = roleLabels[rawRole] || rawRole || (idx === 0 ? 'Asesor Agrónomo' : idx === 1 ? 'Operador de Riego' : 'Dueño / Administrador');
-        const phone = member.phone || member.phone_whatsapp || `+54 9 11 5555-010${idx + 1}`;
+  useEffect(() => {
+    let isCancelled = false;
+    
+    async function fetchAssistantHistory() {
+      setIsLoadingHistory(true);
+      try {
+        if (!currentFarmId) return;
         
-        const presets = [
-          {
-            lastActive: 'Hoy, 10:24 hs',
-            avatarBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-            latestQuery: '¿Cuál es la lámina neta sugerida para Soja considerando las precipitaciones recientes?',
-            latestSummary: 'Validación del balance hídrico (Dr: 26.3 mm). Se recomendó mantener monitoreo y no regar.',
-            tag: 'Validación Balance',
-            tagClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-            historyCount: 14,
-            history: [
-              {
-                id: 'h1',
-                date: 'Hoy, 10:24 hs',
-                query: '¿Cuál es la lámina neta sugerida para Soja considerando las precipitaciones recientes?',
-                aiResponse: 'Agotamiento actual Dr: 26.36 mm (por debajo del umbral crítico RAW de 70.0 mm). Se registraron 12 mm de lluvias. Acción sugerida: No regar en las próximas 48 hs.',
-                category: 'Balance Hídrico',
-                status: 'RESUELTO',
-              },
-              {
-                id: 'h2',
-                date: '17/08/2026 15:40 hs',
-                query: 'Solicito informe de NDVI satelital de la última pasada de Sentinel-2 para Lote Maíz 2.',
-                aiResponse: 'NDVI medio del lote Maíz 2: 0.81 (Vigor excelente, sin anomalías de estrés foliar). Imagen procesada el 15/08.',
-                category: 'Índices Satelitales',
-                status: 'COMPLETADO',
-              }
-            ]
-          },
-          {
-            lastActive: 'Ayer, 18:45 hs',
-            avatarBg: 'bg-sky-100 text-sky-800 border-sky-300',
-            latestQuery: 'Notifico finalización de aplicación de riego manual de 15 mm en Lote Soja. Presión: 2.8 bar.',
-            latestSummary: 'Registro automático de aplicación ejecutada. Balance recalculado correctamente.',
-            tag: 'Riego Aplicado',
-            tagClass: 'bg-sky-50 text-sky-800 border-sky-200',
-            historyCount: 8,
-            history: [
-              {
-                id: 'h4',
-                date: 'Ayer, 18:45 hs',
-                query: 'Notifico finalización de aplicación de riego manual de 15 mm en Lote Soja. Presión: 2.8 bar.',
-                aiResponse: 'Evento registrado con éxito en el historial operativo. Dr recalculado a 0.0 mm. Próxima evaluación en 72 hs.',
-                category: 'Registro Evento',
-                status: 'REGISTRADO',
-              }
-            ]
-          },
-          {
-            lastActive: 'Hace 2 días',
-            avatarBg: 'bg-amber-100 text-amber-800 border-amber-300',
-            latestQuery: 'Reprogramación de la ventana de bombeo por ráfagas de viento mayores a 40 km/h.',
-            latestSummary: 'Ventana de bombeo postergada para las 02:00 hs. Agente de Bombeo notificado.',
-            tag: 'Aviso Clima',
-            tagClass: 'bg-amber-50 text-amber-800 border-amber-200',
-            historyCount: 11,
-            history: [
-              {
-                id: 'h6',
-                date: 'Hace 2 días',
-                query: 'Reprogramación de la ventana de bombeo por ráfagas de viento mayores a 40 km/h.',
-                aiResponse: 'Alerta meteorológica evaluada. Se pausó la orden de riego en pivote 1 y se reprogramó inicio nocturno.',
-                category: 'Seguridad Operativa',
-                status: 'POSTERGADO',
-              }
-            ]
-          }
-        ];
+        const { getAssistantHistoryApi } = await import('@/lib/api');
+        
+        const historyRes = await getAssistantHistoryApi(currentFarmId, 7);
+        if (isCancelled) return;
+        
+        if (historyRes && historyRes.items) {
+          const itemsByMember = historyRes.items.reduce((acc: any, item: any) => {
+            if (!acc[item.member_id]) acc[item.member_id] = [];
+            acc[item.member_id].push(item);
+            return acc;
+          }, {});
 
-        const preset = presets[idx % presets.length];
+          const roleLabels: Record<string, string> = {
+            admin: 'Dueño / Administrador',
+            agronomist: 'Asesor Agrónomo',
+            operator: 'Operador de Riego',
+          };
 
-        return {
-          id: String(member.id || idx),
-          name,
-          role,
-          phone,
-          avatar: initials,
-          avatarBg: preset.avatarBg,
-          lastActive: preset.lastActive,
-          latestQuery: preset.latestQuery,
-          latestSummary: preset.latestSummary,
-          tag: preset.tag,
-          tagClass: preset.tagClass,
-          historyCount: preset.historyCount,
-          history: preset.history,
-        };
-      });
+          const dynamicMembers = Object.keys(itemsByMember).map((memberId, idx) => {
+            const memberHistory = itemsByMember[memberId];
+            // Sort by newest first
+            memberHistory.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            const latest = memberHistory[0];
+            const memberInfo = teamMembers?.find((m) => String(m.id) === String(memberId));
+            
+            const name = memberInfo?.name || `${memberInfo?.first_name || ''} ${memberInfo?.last_name || ''}`.trim() || `Usuario WhatsApp`;
+            const initials = name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase() || 'WA';
+            const rawRole = memberInfo?.role || 'operator';
+            const role = roleLabels[rawRole] || rawRole;
+            const phone = memberInfo?.phone_whatsapp || memberInfo?.phone || latest.phone_whatsapp;
+            
+            const colors = ['bg-emerald-100 text-emerald-800 border-emerald-300', 'bg-sky-100 text-sky-800 border-sky-300', 'bg-amber-100 text-amber-800 border-amber-300', 'bg-indigo-100 text-indigo-800 border-indigo-300'];
+            const avatarBg = colors[idx % colors.length];
+
+            const categoryLabels: Record<string, string> = {
+              irrigation: 'Balance Hídrico',
+              weather: 'Alerta Clima',
+              ndvi: 'Índices Satelitales',
+              register_irrigation: 'Registro Riego',
+              register_rainfall: 'Registro Lluvia',
+              navigation: 'Navegación'
+            };
+
+            const statusLabels: Record<string, string> = {
+              resolved: 'RESUELTO',
+              pending: 'POSTERGADO',
+              registered: 'REGISTRADO'
+            };
+
+            return {
+              id: memberId,
+              name,
+              role,
+              phone,
+              avatar: initials,
+              avatarBg,
+              lastActive: formatDate(latest.date, 'Reciente'),
+              latestQuery: latest.query,
+              latestSummary: latest.ai_response,
+              historyCount: memberHistory.length,
+              history: memberHistory.map((h: any) => ({
+                id: h.id,
+                date: new Date(h.date).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) + ' hs',
+                query: h.query,
+                aiResponse: h.ai_response,
+                category: categoryLabels[h.category] || h.category || 'Consulta',
+                status: statusLabels[h.status] || h.status || 'OK'
+              }))
+            };
+          });
+
+          setWhatsappMembers(dynamicMembers);
+        } else {
+          setWhatsappMembers([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch assistant history:', err);
+      } finally {
+        if (!isCancelled) setIsLoadingHistory(false);
+      }
     }
 
-    // Default static fallback if teamMembers is not loaded yet
-    return [
-      {
-        id: 'cg',
-        name: 'Ing. Carlos Gómez',
-        role: 'Asesor Agrónomo',
-        phone: '+54 9 11 5555-0192',
-        avatar: 'CG',
-        avatarBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-        lastActive: 'Hoy, 10:24 hs',
-        status: 'online',
-        latestQuery: '¿Cuál es la lámina neta sugerida para Soja considerando las precipitaciones recientes?',
-        latestSummary: 'Validación del balance hídrico (Dr: 26.3 mm). Se recomendó mantener monitoreo y no regar.',
-        tag: 'Validación Balance',
-        tagClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        historyCount: 14,
-        history: [
-          {
-            id: 'h1',
-            date: 'Hoy, 10:24 hs',
-            query: '¿Cuál es la lámina neta sugerida para Soja considerando las precipitaciones recientes?',
-            aiResponse: 'Agotamiento actual Dr: 26.36 mm (por debajo del umbral crítico RAW de 70.0 mm). Se registraron 12 mm de lluvias. Acción sugerida: No regar en las próximas 48 hs.',
-            category: 'Balance Hídrico',
-            status: 'RESUELTO',
-          },
-          {
-            id: 'h2',
-            date: '17/08/2026 15:40 hs',
-            query: 'Solicito informe de NDVI satelital de la última pasada de Sentinel-2 para Lote Maíz 2.',
-            aiResponse: 'NDVI medio del lote Maíz 2: 0.81 (Vigor excelente, sin anomalías de estrés foliar). Imagen procesada el 15/08.',
-            category: 'Índices Satelitales',
-            status: 'COMPLETADO',
-          },
-          {
-            id: 'h3',
-            date: '14/08/2026 09:15 hs',
-            query: '¿Hay alertas de heladas o ráfagas extremas para el fin de semana?',
-            aiResponse: 'Pronóstico de ráfagas de viento de hasta 42 km/h el sábado entre 14:00 y 18:00 hs. Se sugiere pausar el pivote central durante esa ventana.',
-            category: 'Alerta Clima',
-            status: 'NOTIFICADO',
-          }
-        ]
-      },
-      {
-        id: 'mf',
-        name: 'Martín Ferreyra',
-        role: 'Operador de Riego',
-        phone: '+54 9 341 5555-0211',
-        avatar: 'MF',
-        avatarBg: 'bg-sky-100 text-sky-800 border-sky-300',
-        lastActive: 'Ayer, 18:45 hs',
-        status: 'offline',
-        latestQuery: 'Notifico finalización de aplicación de riego manual de 15 mm en Lote Soja. Presión: 2.8 bar.',
-        latestSummary: 'Registro automático de aplicación ejecutada. Balance recalculado correctamente.',
-        tag: 'Riego Aplicado',
-        tagClass: 'bg-sky-50 text-sky-800 border-sky-200',
-        historyCount: 8,
-        history: [
-          {
-            id: 'h4',
-            date: 'Ayer, 18:45 hs',
-            query: 'Notifico finalización de aplicación de riego manual de 15 mm en Lote Soja. Presión: 2.8 bar.',
-            aiResponse: 'Evento registrado con éxito en el historial operativo. Dr recalculado a 0.0 mm. Próxima evaluación en 72 hs.',
-            category: 'Registro Evento',
-            status: 'REGISTRADO',
-          },
-          {
-            id: 'h5',
-            date: '15/08/2026 21:10 hs',
-            query: '¿Puedo iniciar la bomba en tarifa nocturna promocional a las 01:00 hs?',
-            aiResponse: 'Ventana optimizada aprobada. La tarifa nocturna reducida rige de 00:00 a 07:00 hs. Ahorro energético estimado: 38%.',
-            category: 'Bombeo Nocturno',
-            status: 'APROBADO',
-          }
-        ]
-      },
-      {
-        id: 'lg',
-        name: 'Luis Gómez',
-        role: 'Operador de Riego',
-        phone: '+54 9 261 5555-0309',
-        avatar: 'LG',
-        avatarBg: 'bg-amber-100 text-amber-800 border-amber-300',
-        lastActive: 'Hace 2 días',
-        status: 'offline',
-        latestQuery: 'Reprogramación de la ventana de bombeo por ráfagas de viento mayores a 40 km/h.',
-        latestSummary: 'Ventana de bombeo postergada para las 02:00 hs. Agente de Bombeo notificado.',
-        tag: 'Aviso Clima',
-        tagClass: 'bg-amber-50 text-amber-800 border-amber-200',
-        historyCount: 11,
-        history: [
-          {
-            id: 'h6',
-            date: 'Hace 2 días',
-            query: 'Reprogramación de la ventana de bombeo por ráfagas de viento mayores a 40 km/h.',
-            aiResponse: 'Alerta meteorológica evaluada. Se pausó la orden de riego en pivote 1 y se reprogramó inicio nocturno.',
-            category: 'Seguridad Operativa',
-            status: 'POSTERGADO',
-          },
-          {
-            id: 'h7',
-            date: '11/08/2026 11:30 hs',
-            query: 'Reporte de mantenimiento preventivo en caudalímetro del Sector Norte.',
-            aiResponse: 'Calibración registrada. Desviación ajustada al +1.2%. Caudalímetro validado en norma ISO 4064.',
-            category: 'Mantenimiento',
-            status: 'REGISTRADO',
-          }
-        ]
-      }
-    ];
-  }, [teamMembers]);
+    fetchAssistantHistory();
+    
+    // Soft polling every 30 seconds
+    const interval = setInterval(fetchAssistantHistory, 30000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentFarmId, teamMembers]);
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900">

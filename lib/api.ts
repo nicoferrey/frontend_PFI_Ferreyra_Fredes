@@ -126,8 +126,17 @@ export interface FieldGeometry {
   coordinates: number[][][]; // [ [ [lng, lat], [lng, lat], ... ] ]
 }
 
+export interface FarmSummary {
+  id: string;
+  name: string;
+  agricultural_zone?: string | null;
+  user_role_in_farm: 'admin' | 'agronomist' | 'operator';
+  field_ids: Array<number | string>;
+}
+
 export interface FieldItem {
   id: number | string;
+  farm_id?: string | null;
   name: string;
   user_role_in_farm?: FieldRole;
   geometry_geojson: FieldGeometry;
@@ -463,10 +472,10 @@ const DEFAULT_TEAM_MEMBERS: FieldTeamMember[] = [
   },
 ];
 
-export async function getTeamMembersApi(fieldId?: string | number): Promise<FieldTeamMember[]> {
+export async function getTeamMembersApi(farmId?: string | null): Promise<FieldTeamMember[]> {
   try {
-    const endpoint = fieldId && fieldId !== 'default' 
-      ? `/api/v1/fields/${fieldId}/members` 
+    const endpoint = farmId && farmId !== 'default' 
+      ? `/api/v1/farms/${farmId}/members` 
       : `/api/v1/farms/members`;
     const res = await apiFetch(endpoint);
     if (res.ok) {
@@ -559,7 +568,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
   return { ok: true, member: newMember, invitation_url: generatedUrl };
 }
 
-export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole): Promise<boolean> {
+export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole, farmId?: string | null): Promise<boolean> {
   try {
     const res = await apiFetch(`/api/v1/farms/members/${memberId}`, {
       method: 'PATCH',
@@ -569,7 +578,7 @@ export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRo
   } catch {}
 
   if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi();
+    const current = await getTeamMembersApi(farmId);
     const updated = current.map((m) => (m.id === memberId ? { ...m, role: newRole } : m));
     localStorage.setItem('agromas_team_members', JSON.stringify(updated));
     return true;
@@ -578,7 +587,7 @@ export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRo
   return false;
 }
 
-export async function removeTeamMemberApi(memberId: string): Promise<boolean> {
+export async function removeTeamMemberApi(memberId: string, farmId?: string | null): Promise<boolean> {
   try {
     const res = await apiFetch(`/api/v1/farms/members/${memberId}`, {
       method: 'DELETE',
@@ -587,7 +596,7 @@ export async function removeTeamMemberApi(memberId: string): Promise<boolean> {
   } catch {}
 
   if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi();
+    const current = await getTeamMembersApi(farmId);
     const updated = current.filter((m) => m.id !== memberId);
     localStorage.setItem('agromas_team_members', JSON.stringify(updated));
     return true;
@@ -1295,5 +1304,53 @@ export async function getNdviPreviewApi(
     };
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+/* ==========================================================================
+   ASSISTANT API METHODS
+   ========================================================================== */
+
+export interface AssistantHistoryItem {
+  id: string;
+  member_id: string;
+  user_id: string;
+  phone_whatsapp: string;
+  date: string;
+  query: string;
+  ai_response: string;
+  category: 'irrigation' | 'weather' | 'ndvi' | 'register_irrigation' | 'register_rainfall' | 'navigation' | string;
+  status: 'resolved' | 'pending' | 'registered' | string;
+  field_id?: number | null;
+  field_name?: string | null;
+}
+
+export interface AssistantHistoryResponse {
+  farm_id: string;
+  days: number;
+  items: AssistantHistoryItem[];
+}
+
+export async function getAssistantHistoryApi(
+  farmId?: string | null,
+  days: number = 7
+): Promise<AssistantHistoryResponse | null> {
+  if (!farmId || farmId === 'default') return null; // Enforce UUID
+  try {
+    const res = await apiFetch(`/api/v1/farms/${farmId}/assistant/history?days=${days}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getFarmApi(farmId: string): Promise<FarmSummary | null> {
+  try {
+    const res = await apiFetch(`/api/v1/farms/${farmId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }

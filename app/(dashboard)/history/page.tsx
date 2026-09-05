@@ -208,7 +208,7 @@ export default function DashboardHistoryPage() {
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
           getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, true),
           getReportsSummaryApi(fieldId, dateFrom, dateTo),
-          getTeamMembersApi(fieldId)
+          getTeamMembersApi(auth.currentFarmId)
         ]);
 
         if (!isCancelled) {

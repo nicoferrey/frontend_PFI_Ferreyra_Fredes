@@ -2,14 +2,19 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  UserProfile, FieldItem, getMeApi, setAccessToken, 
+  UserProfile, FieldItem, FarmSummary, getMeApi, setAccessToken, 
   getAccessToken, logoutApi, loginApi, registerApi, 
-  googleAuthApi, acceptInvitationApi, LoginPayload, RegisterPayload, GoogleAuthPayload 
+  googleAuthApi, acceptInvitationApi, LoginPayload, RegisterPayload, GoogleAuthPayload, getFarmApi 
 } from './api';
 
 interface AuthContextType {
   user: UserProfile | null;
   fields: FieldItem[];
+  currentFarmId: string | null;
+  farms: FarmSummary[];
+  currentFarm: FarmSummary | null;
+  currentFields: FieldItem[];
+  currentRole: 'admin' | 'agronomist' | 'operator' | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isOwner: boolean;
@@ -38,28 +43,103 @@ interface AuthContextType {
   refreshProfile: () => Promise<FieldItem[]>;
   setUserFields: (fields: FieldItem[]) => void;
   setUserRole: (role: 'admin' | 'agronomist' | 'operator') => void;
+  setCurrentFarmId: (farmId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function groupFarms(fields: FieldItem[]): Map<string, FieldItem[]> {
+  const map = new Map<string, FieldItem[]>();
+  for (const field of fields) {
+    if (!field.farm_id) continue;
+    const list = map.get(field.farm_id) ?? [];
+    list.push(field);
+    map.set(field.farm_id, list);
+  }
+  return map;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [fields, setFields] = useState<FieldItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Multi-farm state
+  const [currentFarmId, setCurrentFarmIdState] = useState<string | null>(null);
+  const [farms, setFarms] = useState<FarmSummary[]>([]);
+
+  const setCurrentFarmId = (farmId: string) => {
+    setCurrentFarmIdState(farmId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('agromas_current_farm_id', farmId);
+    }
+  };
+
+  const processFarms = async (currentFields: FieldItem[]) => {
+    const grouped = groupFarms(currentFields);
+    const newFarms: FarmSummary[] = [];
+
+    for (const [farmId, farmFields] of grouped.entries()) {
+      let name = `Establecimiento ${farmId.slice(0, 4)}`;
+      let agricultural_zone = null;
+      let role: 'admin' | 'agronomist' | 'operator' = 'operator';
+
+      // Try to find the highest role among fields
+      if (farmFields.some(f => f.user_role_in_farm === 'admin')) role = 'admin';
+      else if (farmFields.some(f => f.user_role_in_farm === 'agronomist')) role = 'agronomist';
+
+      // Fetch farm details to get the actual name
+      try {
+        const farmData = await getFarmApi(farmId);
+        if (farmData && farmData.name) {
+          name = farmData.name;
+          agricultural_zone = farmData.agricultural_zone || null;
+        }
+      } catch (err) {
+        console.warn(`Could not fetch farm details for ${farmId}`, err);
+      }
+
+      newFarms.push({
+        id: farmId,
+        name,
+        agricultural_zone,
+        user_role_in_farm: role,
+        field_ids: farmFields.map(f => f.id)
+      });
+    }
+
+    setFarms(newFarms);
+
+    // Determine currentFarmId
+    if (newFarms.length > 0) {
+      const savedFarmId = typeof window !== 'undefined' ? localStorage.getItem('agromas_current_farm_id') : null;
+      if (savedFarmId && newFarms.some(f => f.id === savedFarmId)) {
+        setCurrentFarmIdState(savedFarmId);
+      } else {
+        const firstFarmId = newFarms[0].id;
+        setCurrentFarmIdState(firstFarmId);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('agromas_current_farm_id', firstFarmId);
+        }
+      }
+    } else {
+      setCurrentFarmIdState(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('agromas_current_farm_id');
+      }
+    }
+  };
+
   // Initialize session on mount
   useEffect(() => {
     async function initSession() {
-      // 1. Check if we have a saved user or token in localStorage for instant UI feedback
       const savedUserStr = localStorage.getItem('agromas_user');
       if (savedUserStr) {
         try {
-          const parsed = JSON.parse(savedUserStr);
-          setUser(parsed);
+          setUser(JSON.parse(savedUserStr));
         } catch {}
       }
 
-      // 2. Fetch fresh user & fields profile from /api/v1/users/me (uses Bearer or refresh cookie)
       try {
         const meData = await getMeApi();
         if (meData && meData.user) {
@@ -68,12 +148,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: `${meData.user.first_name || ''} ${meData.user.last_name || ''}`.trim() || meData.user.email
           };
           setUser(formattedUser);
-          setFields(meData.fields || []);
+          const currentFields = meData.fields || [];
+          setFields(currentFields);
           localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
+          await processFarms(currentFields);
         } else if (!getAccessToken()) {
-          // If no access token and meData failed, clear user
           setUser(null);
           setFields([]);
+          setFarms([]);
           localStorage.removeItem('agromas_user');
         }
       } catch (err) {
@@ -98,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const currentFields = meData.fields || [];
         setFields(currentFields);
         localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
+        await processFarms(currentFields);
         return currentFields;
       }
     } catch (e) {
@@ -173,7 +256,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(formattedUser);
     localStorage.setItem('agromas_user', JSON.stringify(formattedUser));
 
-    // Fetch fresh user fields
     const updatedFields = await refreshProfile();
     const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
     const hasFields = (updatedFields && updatedFields.length > 0) || hasLotsInStorage;
@@ -228,7 +310,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: errorMsg };
     }
 
-    // Step 1: User requires Step 2 profile completion (phone + role)
     if (res.data.requires_profile) {
       return {
         success: true,
@@ -239,7 +320,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    // Step 2: Full session created
     if (res.data.access_token) {
       setAccessToken(res.data.access_token);
     }
@@ -294,15 +374,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await logoutApi();
     setUser(null);
     setFields([]);
+    setFarms([]);
+    setCurrentFarmIdState(null);
     localStorage.removeItem('agromas_user');
     localStorage.removeItem('agromas_access_token');
     sessionStorage.removeItem('agromas_access_token');
     localStorage.removeItem('agromas_lots');
     localStorage.removeItem('agromas_center');
+    localStorage.removeItem('agromas_current_farm_id');
   };
 
   const setUserFields = (newFields: FieldItem[]) => {
     setFields(newFields);
+    processFarms(newFields);
   };
 
   const setUserRole = (newRole: 'admin' | 'agronomist' | 'operator') => {
@@ -314,13 +398,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isOwner = !user || user.role === 'admin';
+  const currentFarm = farms.find(f => f.id === currentFarmId) || null;
+  const currentFields = currentFarmId ? fields.filter(f => f.farm_id === currentFarmId) : fields;
+  const currentRole = currentFarm ? currentFarm.user_role_in_farm : null;
+  const isOwner = currentRole === 'admin';
 
   return (
     <AuthContext.Provider
       value={{
         user,
         fields,
+        currentFarmId,
+        farms,
+        currentFarm,
+        currentFields,
+        currentRole,
         isLoading,
         isAuthenticated: !!user,
         isOwner,
@@ -332,6 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshProfile,
         setUserFields,
         setUserRole,
+        setCurrentFarmId,
       }}
     >
       {children}
