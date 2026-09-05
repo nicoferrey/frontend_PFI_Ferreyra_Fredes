@@ -122,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <ProtectedRoute>
       <DashboardProvider>
-        <main className="min-h-screen bg-[linear-gradient(180deg,#f7f6f1_0%,#eef2eb_100%)] text-slate-900 overflow-x-hidden">
+        <main className="min-h-screen bg-[linear-gradient(180deg,#f7f6f1_0%,#eef2eb_100%)] text-slate-900">
           {/* Mobile Overlay & Sidebar Drawer */}
           {isMobileMenuOpen && (
             <div className="fixed inset-0 z-[1000] xl:hidden">
@@ -161,6 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ]}
                 showSidebarToggle={true}
                 onToggleSidebar={() => setIsMobileMenuOpen(true)}
+                className="sticky top-4 lg:top-6 z-40"
               />
 
               {children}
