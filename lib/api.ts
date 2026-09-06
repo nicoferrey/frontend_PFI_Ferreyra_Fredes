@@ -1323,6 +1323,7 @@ export interface AssistantHistoryItem {
   status: 'resolved' | 'pending' | 'registered' | string;
   field_id?: number | null;
   field_name?: string | null;
+  turn_count?: number;
 }
 
 export interface AssistantHistoryResponse {

@@ -118,6 +118,8 @@ export default function DashboardAssistantPage() {
               registered: 'REGISTRADO'
             };
 
+            const totalTurnCount = memberHistory.reduce((sum: number, h: any) => sum + (h.turn_count ?? h.turnCount ?? 1), 0);
+
             return {
               id: memberId,
               name,
@@ -128,14 +130,15 @@ export default function DashboardAssistantPage() {
               lastActive: formatDate(latest.date, 'Reciente'),
               latestQuery: latest.query,
               latestSummary: latest.ai_response,
-              historyCount: memberHistory.length,
+              historyCount: totalTurnCount,
               history: memberHistory.map((h: any) => ({
                 id: h.id,
                 date: new Date(h.date).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) + ' hs',
                 query: h.query,
                 aiResponse: h.ai_response,
                 category: categoryLabels[h.category] || h.category || 'Consulta',
-                status: statusLabels[h.status] || h.status || 'OK'
+                status: statusLabels[h.status] || h.status || 'OK',
+                turnCount: h.turn_count ?? h.turnCount ?? 1
               }))
             };
           });
@@ -493,11 +496,11 @@ export default function DashboardAssistantPage() {
                       </div>
                     </div>
 
-                    {/* Latest Consultation */}
+                    {/* Latest Session */}
                     <div className="space-y-3 mb-4">
                       <div className="rounded-xl bg-white p-3 border border-slate-200/80 shadow-2xs">
                         <span className="text-[9px] text-slate-400 uppercase font-extrabold tracking-wider block mb-1">
-                          Última Consulta Enviada:
+                          Tema de la sesión:
                         </span>
                         <p className="text-xs font-semibold text-slate-900 leading-snug italic">
                           “{member.latestQuery}”
@@ -506,7 +509,7 @@ export default function DashboardAssistantPage() {
 
                       <div className="rounded-xl bg-emerald-50/60 p-3 border border-emerald-100">
                         <span className="text-[9px] text-emerald-700 uppercase font-extrabold tracking-wider block mb-1">
-                          Resumen / Diagnóstico MAS:
+                          Resumen de la conversación:
                         </span>
                         <p className="text-xs font-medium text-emerald-950 leading-relaxed">
                           {member.latestSummary}
@@ -518,7 +521,7 @@ export default function DashboardAssistantPage() {
                   {/* Card Footer Action */}
                   <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs">
                     <span className="text-[11px] font-bold text-slate-400">
-                      {member.lastActive} &bull; {member.historyCount} registros
+                      {member.lastActive} &bull; {member.historyCount} {member.historyCount === 1 ? 'consulta' : 'consultas'}
                     </span>
                     <button
                       type="button"
@@ -654,7 +657,7 @@ export default function DashboardAssistantPage() {
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
               <div className="flex items-center justify-between text-xs text-slate-400 font-extrabold uppercase tracking-wider pb-2 border-b border-slate-100">
                 <span>Línea de Tiempo de Consultas</span>
-                <span>{selectedMemberHistory.history.length} consultas registradas</span>
+                <span>{selectedMemberHistory.historyCount} {selectedMemberHistory.historyCount === 1 ? 'consulta registrada' : 'consultas registradas'}</span>
               </div>
 
               {selectedMemberHistory.history.map((item: any) => (
@@ -665,6 +668,11 @@ export default function DashboardAssistantPage() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-slate-400 font-mono text-[11px]">{item.date}</span>
                     <div className="flex items-center gap-2">
+                      {item.turnCount > 1 && (
+                        <span className="rounded-md bg-slate-200/70 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                          {item.turnCount} mensajes
+                        </span>
+                      )}
                       <span className="rounded-md bg-slate-200/80 px-2 py-0.5 text-[10px] font-bold text-slate-700 uppercase">
                         {item.category}
                       </span>
@@ -674,20 +682,20 @@ export default function DashboardAssistantPage() {
                     </div>
                   </div>
 
-                  {/* Question */}
+                  {/* Question / Session Topic */}
                   <div className="rounded-xl bg-white p-3 border border-slate-200/80">
                     <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1">
-                      Mensaje Enviado por WhatsApp:
+                      Tema de la sesión:
                     </span>
                     <p className="text-xs font-semibold text-slate-900 leading-snug">
                       "{item.query}"
                     </p>
                   </div>
 
-                  {/* AI Response */}
+                  {/* AI Response / Conversation Summary */}
                   <div className="rounded-xl bg-emerald-50/80 p-3 border border-emerald-100">
                     <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider block mb-1">
-                      Respuesta del Asistente MAS:
+                      Resumen de la conversación:
                     </span>
                     <p className="text-xs font-medium text-emerald-950 leading-relaxed">
                       {item.aiResponse}
