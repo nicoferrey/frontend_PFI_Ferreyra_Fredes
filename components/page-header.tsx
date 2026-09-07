@@ -22,8 +22,8 @@ export function PageHeader({
   icon,
 }: PageHeaderProps) {
   return (
-    <div className={`space-y-4 ${className}`}>
-      <div className="relative z-10 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-5 sm:p-6 shadow-soft backdrop-blur-md">
+    <div className={`space-y-4 relative z-20 ${className}`}>
+      <div className="relative z-20 rounded-[28px] border border-white/80 bg-gradient-to-r from-white/95 via-white/90 to-emerald-50/20 p-5 sm:p-6 shadow-soft backdrop-blur-md">
         {/* Organic Layered Wave Curves in Background (Isolated overflow-hidden) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px] select-none">
           <div className="absolute inset-y-0 right-0 w-full md:w-3/4 lg:w-3/5">
@@ -82,7 +82,7 @@ export function PageHeader({
           </div>
 
           {/* Action controls slot */}
-          {action && <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">{action}</div>}
+          {action && <div className="flex items-center gap-3 shrink-0 w-full md:w-auto relative z-30">{action}</div>}
         </div>
       </div>
 

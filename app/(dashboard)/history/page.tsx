@@ -705,7 +705,7 @@ export default function DashboardHistoryPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header card with selection and export actions - PageHeader Component */}
       <PageHeader
-        className="z-30"
+        className="relative z-30"
         badge="Historial & Reportes"
         title="Historial y Reportes del"
         titleAccent="Campo"
@@ -749,7 +749,7 @@ export default function DashboardHistoryPage() {
               </HeaderButton>
 
               {isExportDropdownOpen && (
-                <div className="absolute right-0 mt-2.5 w-72 rounded-2xl border border-slate-200/90 bg-white/95 p-2 shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95 z-50">
+                <div className="absolute right-0 mt-2.5 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 z-[100]">
                   <button
                     type="button"
                     onClick={() => {
