@@ -1367,3 +1367,134 @@ export async function updateFarmApi(farmId: string, payload: { name?: string }):
     return false;
   }
 }
+
+/* ==========================================================================
+   NOTIFICATIONS API
+   ========================================================================== */
+
+export type NotificationType =
+  | 'rainfall_forecast'
+  | 'irrigation'
+  | 'water_stress'
+  | 'frost'
+  | 'high_et0'
+  | 'ndvi_drop';
+
+export type NotificationSeverity = 'info' | 'warning' | 'critical';
+
+export interface BackendNotification {
+  id: string;
+  farm_id: string;
+  farm_name?: string;
+  field_id?: number;
+  field_name?: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  body: string;
+  payload?: Record<string, any>;
+  read_at: string | null;
+  whatsapp_status?: string;
+  whatsapp_sent_at?: string | null;
+  created_at: string;
+}
+
+export interface NotificationsListResponse {
+  unread_count: number;
+  items: BackendNotification[];
+}
+
+export interface UnreadCountResponse {
+  unread_count: number;
+}
+
+/**
+ * Get notifications for the current user.
+ * Uses /api/v1/notifications with optional farm_id filter.
+ */
+export async function getNotificationsApi(opts?: {
+  farmId?: string;
+  unreadOnly?: boolean;
+  type?: NotificationType;
+  limit?: number;
+  offset?: number;
+}): Promise<NotificationsListResponse | null> {
+  try {
+    const params = new URLSearchParams();
+    if (opts?.farmId) params.set('farm_id', opts.farmId);
+    if (opts?.unreadOnly) params.set('unread_only', 'true');
+    if (opts?.type) params.set('type', opts.type);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.offset) params.set('offset', String(opts.offset));
+
+    const qs = params.toString();
+    const res = await apiFetch(`/api/v1/notifications${qs ? `?${qs}` : ''}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get notifications scoped to a specific farm.
+ */
+export async function getFarmNotificationsApi(
+  farmId: string,
+  opts?: { unreadOnly?: boolean; limit?: number }
+): Promise<NotificationsListResponse | null> {
+  try {
+    const params = new URLSearchParams();
+    if (opts?.unreadOnly) params.set('unread_only', 'true');
+    if (opts?.limit) params.set('limit', String(opts.limit));
+
+    const qs = params.toString();
+    const res = await apiFetch(`/api/v1/farms/${farmId}/notifications${qs ? `?${qs}` : ''}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get unread notification count for the current user.
+ */
+export async function getNotificationsUnreadCountApi(): Promise<number> {
+  try {
+    const res = await apiFetch('/api/v1/notifications/unread-count');
+    if (!res.ok) return 0;
+    const data: UnreadCountResponse = await res.json();
+    return data.unread_count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Mark a single notification as read.
+ */
+export async function markNotificationReadApi(notificationId: string): Promise<boolean> {
+  try {
+    const res = await apiFetch(`/api/v1/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark all notifications as read for the current user.
+ */
+export async function markAllNotificationsReadApi(): Promise<boolean> {
+  try {
+    const res = await apiFetch('/api/v1/notifications/read-all', {
+      method: 'POST',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

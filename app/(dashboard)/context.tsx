@@ -67,12 +67,7 @@ export interface LotHydricData {
 
 export type MenuTab = 'dashboard' | 'mapa_lotes' | 'historial' | 'asistente_ia' | 'configuracion';
 
-export const kpis = [
-  { title: 'Próxima acción', value: 'Revisar riego', delta: '1 lote se acerca al umbral', icon: Sparkles, tone: 'text-crop-700 bg-crop-100 dark:bg-crop-950 dark:text-crop-300' },
-  { title: 'Lotes críticos', value: '1', delta: 'Lote Sur', icon: AlertTriangle, tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300' },
-  { title: 'Agua disponible', value: '68%', delta: 'Promedio utilizable por el cultivo', icon: Droplets, tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300' },
-  { title: 'Estado agentes', value: 'OK', delta: 'Agentes con datos actualizados', icon: Activity, tone: 'text-sky-700 bg-sky-100 dark:bg-sky-950 dark:text-sky-300' },
-];
+// KPIs are now computed dynamically in dashboard page.tsx from real lot data
 
 export const initialMockLots: LotHydricData[] = [
   {

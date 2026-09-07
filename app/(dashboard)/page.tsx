@@ -34,7 +34,8 @@ export default function DashboardHome() {
     customCenter,
     rawCustomPolygons,
     fieldSnapshots,
-    isRefreshingAgents
+    isRefreshingAgents,
+    hasCustomLots
   } = useDashboard();
 
   const criticalLots = useMemo(() => {
@@ -172,6 +173,30 @@ export default function DashboardHome() {
           </HeaderButton>
         }
       />
+
+      {/* Demo Mode Banner - visible when user has no real fields configured */}
+      {!hasCustomLots && (
+        <div className="rounded-[22px] border border-sky-200 bg-sky-50 px-5 py-4 text-sky-950 shadow-soft">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <Eye className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
+              <div>
+                <h3 className="text-sm font-extrabold">Modo Demostración</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-sky-800">
+                  Estás viendo datos de ejemplo. Para cargar tu campo real, completá el asistente de configuración inicial.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/onboarding"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Configurar mi campo
+            </Link>
+          </div>
+        </div>
+      )}
 
       {estimatedLots.length > 0 && (
         <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-soft">
@@ -359,9 +384,59 @@ export default function DashboardHome() {
                   <h3 className="text-base font-bold text-slate-900 mt-0.5">Estado operativo por lote</h3>
                 </div>
               </div>
+
+              {/* Mobile: Card Layout (visible < md) */}
+              <div className="space-y-3 md:hidden">
+                {lotsData.map((lotItem) => {
+                  const statusColor = lotItem.hydricStatus === 'Normal'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/90'
+                    : lotItem.hydricStatus === 'Atencion'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200/90'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200/90';
+
+                  return (
+                    <div key={lotItem.id} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{lotItem.name}</h4>
+                          <p className="text-xs text-slate-500 font-medium mt-0.5">{lotItem.crop} · {lotItem.areaHa} ha</p>
+                        </div>
+                        <span className={`rounded-lg px-2.5 py-0.5 font-extrabold text-[11px] shadow-2xs whitespace-nowrap ${statusColor}`}>
+                          {lotItem.hydricStatus}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-xl bg-slate-50 p-2">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Faltante</p>
+                          <p className="text-sm font-black text-slate-950">{lotItem.deficitDr_mm.toFixed(1)} <span className="text-[10px] font-bold text-slate-400">mm</span></p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Disponible</p>
+                          <p className="text-sm font-black text-slate-950">{lotItem.waterAvailableAU_pct}<span className="text-[10px] font-bold text-slate-400">%</span></p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">Últ. Riego</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">
+                            {lotItem.lastIrrigationDate !== '-' ? `${lotItem.lastIrrigationAmount_mm} mm` : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleInspectLot(lotItem.id)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Inspeccionar lote
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
               
-              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
-                <table className="w-full text-left border-collapse min-w-[700px]">
+              {/* Desktop: Table Layout (visible >= md) */}
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
+                <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
                     <tr>
                       <th className="py-2.5 px-3">Lote</th>
@@ -418,6 +493,7 @@ export default function DashboardHome() {
                                 onClick={() => handleInspectLot(lotItem.id)}
                                 className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 transition shadow-2xs shrink-0"
                                 title="Ver detalle del lote"
+                                aria-label={`Ver detalle de ${lotItem.name}`}
                               >
                                 <Eye className="h-4 w-4 text-slate-700" />
                               </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -17,9 +17,25 @@ import {
   Layers,
   Sparkles,
   Menu,
-  X
+  X,
+  CloudRain,
+  Droplets,
+  AlertTriangle,
+  Thermometer,
+  Sun,
+  Leaf,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import {
+  getNotificationsApi,
+  getNotificationsUnreadCountApi,
+  markNotificationReadApi,
+  markAllNotificationsReadApi,
+  type BackendNotification,
+  type NotificationType,
+  type NotificationSeverity,
+} from '@/lib/api';
 
 export interface BreadcrumbItem {
   label: string;
@@ -27,6 +43,7 @@ export interface BreadcrumbItem {
   active?: boolean;
 }
 
+// Keep legacy interface for backwards compat but it's no longer primary
 export interface NotificationItem {
   id: string;
   title: string;
@@ -42,6 +59,39 @@ interface TopbarProps {
   showSidebarToggle?: boolean;
   customNotifications?: NotificationItem[];
   className?: string;
+}
+
+// Map backend notification type to UI label and icon
+const notificationTypeConfig: Record<NotificationType, { label: string; icon: typeof Bell; color: string }> = {
+  rainfall_forecast: { label: 'Lluvia próxima', icon: CloudRain, color: 'text-sky-600' },
+  irrigation: { label: 'Recomendación de riego', icon: Droplets, color: 'text-water-600' },
+  water_stress: { label: 'Estrés hídrico', icon: AlertTriangle, color: 'text-amber-600' },
+  frost: { label: 'Riesgo de helada', icon: Thermometer, color: 'text-blue-600' },
+  high_et0: { label: 'Alta demanda hídrica', icon: Sun, color: 'text-orange-600' },
+  ndvi_drop: { label: 'Caída de NDVI', icon: Leaf, color: 'text-rose-600' },
+};
+
+// Map severity to dot color
+const severityDotColor: Record<NotificationSeverity, string> = {
+  info: 'bg-sky-500 ring-sky-100',
+  warning: 'bg-amber-500 ring-amber-100',
+  critical: 'bg-rose-500 ring-rose-100',
+};
+
+// Format time ago
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return 'Ahora';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `Hace ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return 'Ayer';
+  if (diffD < 7) return `Hace ${diffD} días`;
+  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
 }
 
 export function Topbar({
@@ -61,71 +111,87 @@ export function Topbar({
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  // Default sample notifications
-  const [notifications, setNotifications] = useState<NotificationItem[]>(
-    customNotifications || [
-      {
-        id: '1',
-        title: 'Déficit hídrico en Lote Sur',
-        description: 'Se proyecta cruce de umbral de estrés en 24h. Ajustar lámina de riego.',
-        time: 'Hace 15 min',
-        unread: true,
-        type: 'warning',
-      },
-      {
-        id: '2',
-        title: 'Nueva imagen satelital Sentinel-2',
-        description: 'Índices NDVI y NDRE procesados con 0% de cobertura de nubes.',
-        time: 'Hace 2 horas',
-        unread: true,
-        type: 'info',
-      },
-      {
-        id: '3',
-        title: 'Optimización MAS completada',
-        description: 'Ahorro proyectado de 18.4% en volumen de agua para este ciclo.',
-        time: 'Hace 5 horas',
-        unread: true,
-        type: 'success',
-      },
-    ]
-  );
+  // ── Real Notifications State ──
+  const [realNotifications, setRealNotifications] = useState<BackendNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  // Poll unread count every 60s when user is authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnread = async () => {
+      const count = await getNotificationsUnreadCountApi();
+      setUnreadCount(count);
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Load full notifications when panel opens (lazy)
+  const loadNotifications = useCallback(async () => {
+    if (isLoadingNotifications) return;
+    setIsLoadingNotifications(true);
+    try {
+      const res = await getNotificationsApi({ limit: 20 });
+      if (res) {
+        setRealNotifications(res.items);
+        setUnreadCount(res.unread_count);
+        setNotificationsLoaded(true);
+      }
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, [isLoadingNotifications]);
+
+  // When panel opens, fetch real data
+  useEffect(() => {
+    if (notificationsOpen && user && !notificationsLoaded) {
+      loadNotifications();
+    }
+  }, [notificationsOpen, user, notificationsLoaded, loadNotifications]);
 
   // Auto-generate breadcrumbs if none provided
   const resolvedBreadcrumbs: BreadcrumbItem[] = breadcrumbs || [
     { label: 'Inicio', href: '/' },
     ...(pathname === '/onboarding'
       ? [{ label: 'Configuración de Campo', active: true }]
-      : pathname === '/login'
-      ? [{ label: 'Acceso de Usuario', active: true }]
-      : [{ label: 'Monitoreo de Lotes', active: true }]),
+      : pathname !== '/'
+      ? [
+          {
+            label:
+              {
+                '/map': 'Visor de Lotes',
+                '/history': 'Historial & Reportes',
+                '/assistant': 'Asistente IA',
+                '/settings': 'Configuración',
+              }[pathname] || 'Dashboard',
+            active: true,
+          },
+        ]
+      : [{ label: 'Dashboard', active: true }]),
   ];
 
-  // Close menus on outside click or ESC key
+  // Click outside handler
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        userDropdownRef.current &&
-        !userDropdownRef.current.contains(event.target as Node)
-      ) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
       }
-      if (
-        notificationsRef.current &&
-        !notificationsRef.current.contains(event.target as Node)
-      ) {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setNotificationsOpen(false);
       }
-    }
+    };
 
-    function handleKeyDown(event: KeyboardEvent) {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setUserDropdownOpen(false);
         setNotificationsOpen(false);
       }
-    }
+    };
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
@@ -135,14 +201,27 @@ export function Topbar({
     };
   }, []);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  // Mark single notification as read (API)
+  const handleNotificationClick = async (notifId: string) => {
+    const notif = realNotifications.find((n) => n.id === notifId);
+    if (notif && !notif.read_at) {
+      await markNotificationReadApi(notifId);
+      setRealNotifications((prev) =>
+        prev.map((n) => (n.id === notifId ? { ...n, read_at: new Date().toISOString() } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
   };
 
-  const handleNotificationClick = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
-    );
+  // Mark all as read (API)
+  const handleMarkAllAsRead = async () => {
+    const success = await markAllNotificationsReadApi();
+    if (success) {
+      setRealNotifications((prev) =>
+        prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+      );
+      setUnreadCount(0);
+    }
   };
 
   // Helper to extract initials (e.g. "Ada Lovelace" -> "AL")
@@ -283,48 +362,85 @@ export function Topbar({
                 </div>
 
                 <div className="mt-2 divide-y divide-slate-100 max-h-[340px] overflow-y-auto pr-0.5">
-                  {notifications.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-400">
-                      No tienes notificaciones pendientes
+                  {isLoadingNotifications ? (
+                    <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-xs font-medium">Cargando notificaciones...</span>
+                    </div>
+                  ) : realNotifications.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Bell className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                      <p className="text-xs text-slate-400 font-medium">No tienes notificaciones</p>
+                      <p className="text-[10px] text-slate-300 mt-0.5">Las alertas agronómicas aparecerán aquí</p>
                     </div>
                   ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        onClick={() => handleNotificationClick(notif.id)}
-                        className={`group relative flex cursor-pointer gap-3 rounded-xl p-3 text-left transition-colors ${
-                          notif.unread ? 'bg-emerald-50/40 hover:bg-emerald-50/80' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <span
-                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                            notif.unread ? 'bg-rose-500 ring-4 ring-rose-100' : 'bg-transparent'
+                    realNotifications.map((notif) => {
+                      const isUnread = !notif.read_at;
+                      const typeConf = notificationTypeConfig[notif.type] || { label: notif.type, icon: Bell, color: 'text-slate-600' };
+                      const TypeIcon = typeConf.icon;
+                      const dotColor = severityDotColor[notif.severity] || 'bg-slate-400 ring-slate-100';
+
+                      return (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif.id)}
+                          className={`group relative flex cursor-pointer gap-3 rounded-xl p-3 text-left transition-colors ${
+                            isUnread ? 'bg-emerald-50/40 hover:bg-emerald-50/80' : 'hover:bg-slate-50'
                           }`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-900">
-                            {notif.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
-                            {notif.description}
-                          </p>
-                          <span className="mt-1.5 inline-block text-[10px] text-slate-400 font-medium">
-                            {notif.time}
-                          </span>
+                        >
+                          {/* Severity dot */}
+                          <span
+                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                              isUnread ? `${dotColor} ring-4` : 'bg-transparent'
+                            }`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            {/* Type badge + field name */}
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <TypeIcon className={`h-3 w-3 shrink-0 ${typeConf.color}`} />
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${typeConf.color}`}>
+                                {typeConf.label}
+                              </span>
+                              {notif.field_name && (
+                                <span className="text-[10px] font-medium text-slate-400 truncate">
+                                  · {notif.field_name}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold text-slate-900">
+                              {notif.title}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                              {notif.body}
+                            </p>
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {timeAgo(notif.created_at)}
+                              </span>
+                              {notif.whatsapp_status === 'sent' && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200/80">
+                                  <CheckCheck className="h-2.5 w-2.5" />
+                                  WhatsApp
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-slate-100 text-center">
-                  <Link
-                    href="#alertas"
-                    onClick={() => setNotificationsOpen(false)}
-                    className="block text-xs font-semibold text-crop-700 hover:text-crop-800 py-1"
+                  <button
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      setNotificationsLoaded(false); // force reload next time
+                    }}
+                    className="block w-full text-xs font-semibold text-crop-700 hover:text-crop-800 py-1"
                   >
-                    Ver todas las alertas MAS
-                  </Link>
+                    Actualizar notificaciones
+                  </button>
                 </div>
               </div>
             )}

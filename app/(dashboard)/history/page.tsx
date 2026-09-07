@@ -836,13 +836,13 @@ export default function DashboardHistoryPage() {
       </PageHeader>
 
       {/* Reports Summary KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {/* 1. Riegos Totales */}
         <KpiCard
           title="Riegos Aplicados"
-          value={reportsSummary?.metrics?.total_irrigation_applied_mm.toFixed(1) ?? '35.0'}
+          value={reportsSummary?.metrics?.total_irrigation_applied_mm.toFixed(1) ?? '—'}
           unit="mm"
-          subtitle={`Vol. est: ${reportsSummary?.metrics?.total_water_volume_m3.toLocaleString('es-AR') ?? '16.800'} m³`}
+          subtitle={reportsSummary ? `Vol. est: ${reportsSummary.metrics.total_water_volume_m3.toLocaleString('es-AR')} m³` : 'Cargando datos...'}
           icon={<Droplets className="h-5 w-5" />}
           iconBgColor="bg-water-50 text-water-600 border border-water-200/60"
         />
@@ -850,7 +850,7 @@ export default function DashboardHistoryPage() {
         {/* 2. Lluvias Totales */}
         <KpiCard
           title="Lluvias Registradas"
-          value={reportsSummary?.metrics?.total_precipitation_mm.toFixed(1) ?? '18.0'}
+          value={reportsSummary?.metrics?.total_precipitation_mm.toFixed(1) ?? '—'}
           unit="mm"
           subtitle="Automáticas + manuales"
           icon={<CloudRain className="h-5 w-5" />}
@@ -860,7 +860,7 @@ export default function DashboardHistoryPage() {
         {/* 3. Evapotranspiración Acumulada */}
         <KpiCard
           title="Consumo del cultivo (ETc)"
-          value={reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '58.5'}
+          value={reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '—'}
           unit="mm"
           subtitle="Evapotranspiración acumulada"
           icon={<SunMedium className="h-5 w-5" />}
@@ -870,7 +870,7 @@ export default function DashboardHistoryPage() {
         {/* 4. Estrés Hídrico */}
         <KpiCard
           title="Estrés Crítico"
-          value={reportsSummary?.metrics?.days_under_stress_raw ?? 3}
+          value={reportsSummary?.metrics?.days_under_stress_raw ?? '—'}
           unit="días"
           subtitle="Días por encima del umbral de estrés"
           icon={<ShieldAlert className="h-5 w-5" />}
@@ -1004,9 +1004,91 @@ export default function DashboardHistoryPage() {
           </div>
         </div>
 
-        {/* Standardized Responsive Table Container */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
-          <table className="w-full text-left border-collapse min-w-[800px]">
+        {/* Mobile: Card Layout (visible < md) */}
+        <div className="space-y-3 md:hidden">
+          {paginatedEvents.map((item, idx) => {
+            const isRiego = item.type === 'riego';
+            const eventDate = new Date(item.applied_at);
+            const dateFormatted = eventDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeFormatted = eventDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+            return (
+              <div key={item.id || idx} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isRiego ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-water-50 px-2.5 py-0.5 text-xs font-extrabold text-water-800 border border-water-200/90 shadow-2xs">
+                        <Droplets className="h-3.5 w-3.5 text-water-600 shrink-0" />
+                        Riego
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-2.5 py-0.5 text-xs font-extrabold text-sky-800 border border-sky-200/90 shadow-2xs">
+                        <CloudRain className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                        Lluvia
+                      </span>
+                    )}
+                    {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate')) && (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider">API</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-black text-slate-950">{item.amount_mm.toFixed(1)} <span className="text-xs font-bold text-slate-400">mm</span></span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Fecha</p>
+                    <p className="font-bold text-slate-900">{dateFormatted} <span className="font-medium text-slate-500">{timeFormatted}</span></p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Método</p>
+                    <p className="font-bold text-slate-800 truncate">{item.method}</p>
+                  </div>
+                </div>
+                {item.notes && (
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">{item.notes}</p>
+                )}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-500 font-medium">{item.registered_by}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const parts = item.applied_at.split('T');
+                        setEditingEvent({
+                          type: item.type, id: item.id, date: parts[0],
+                          time: parts[1] ? parts[1].slice(0, 5) : '12:00',
+                          amount_mm: String(item.amount_mm),
+                          method: isRiego ? item.method : undefined, notes: item.notes,
+                        });
+                        setIsEditModalOpen(true);
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition shadow-2xs"
+                      aria-label="Editar evento"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEvent(item.type, item.id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 transition shadow-2xs"
+                      aria-label="Eliminar evento"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {consolidatedEvents.length === 0 && (
+            <div className="py-8 text-center text-slate-400 font-medium text-xs rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+              No se encontraron riegos o lluvias registradas para el período seleccionado.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: Table Layout (visible >= md) */}
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
               <tr>
                 <th className="px-4 py-2.5 whitespace-nowrap">Fecha y Hora</th>
@@ -1135,6 +1217,7 @@ export default function DashboardHistoryPage() {
                           }}
                           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 transition shadow-2xs"
                           title="Editar milímetros u observaciones"
+                          aria-label="Editar evento"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -1143,6 +1226,7 @@ export default function DashboardHistoryPage() {
                           onClick={() => handleDeleteEvent(item.type, item.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition shadow-2xs"
                           title="Eliminar evento del registro"
+                          aria-label="Eliminar evento"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
