@@ -15,7 +15,8 @@ import {
   X
 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
-import { DashboardProvider } from './context';
+import { DashboardProvider, useDashboard } from './context';
+import { useAuth } from '@/lib/auth-context';
 import { Logo } from '@/components/logo';
 import { ProtectedRoute } from '@/components/auth-guard';
 
@@ -35,20 +36,66 @@ const breadcrumbLabels: Record<string, string> = {
   '/settings': 'Configuración',
 };
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function SidebarNavContent({ onCloseMobile }: { onCloseMobile?: () => void }) {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { hasCustomLots, lotsData, isRefreshingAgents, agentRefreshError } = useDashboard();
+  const { currentFarm } = useAuth();
 
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
+  // 1. Sentinel-2 Satellite status
+  const sentinelStatus = React.useMemo(() => {
+    if (!hasCustomLots) {
+      return { label: 'Simulado', color: 'bg-amber-500/15 text-amber-300 border border-amber-500/30' };
+    }
+    const hasRealNdvi = lotsData.some((l) => l.ndviDataAvailable);
+    if (hasRealNdvi) {
+      return { label: 'En Línea', color: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' };
+    }
+    return { label: 'Pendiente', color: 'bg-slate-500/20 text-slate-300 border border-slate-500/30' };
+  }, [hasCustomLots, lotsData]);
 
-  const renderNavContent = () => (
-    <>
+  // 2. FAO-56 Balance status
+  const faoStatus = React.useMemo(() => {
+    if (!hasCustomLots) {
+      return { label: 'Modo Demo', color: 'bg-amber-500/15 text-amber-300 border border-amber-500/30' };
+    }
+    const hasEstimated = lotsData.some((l) => l.usesEstimatedAgronomicData);
+    if (hasEstimated) {
+      return { label: 'Estimado', color: 'bg-sky-500/15 text-sky-300 border border-sky-500/30' };
+    }
+    return { label: 'Calibrado', color: 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' };
+  }, [hasCustomLots, lotsData]);
+
+  // 3. Irrigation AI Agent status
+  const agentStatus = React.useMemo(() => {
+    if (!hasCustomLots) {
+      return { label: 'Simulado', color: 'bg-slate-500/20 text-slate-300 border border-slate-500/30' };
+    }
+    if (isRefreshingAgents) {
+      return { label: 'Sincronizando', color: 'bg-amber-500/15 text-amber-300 border border-amber-500/30 animate-pulse' };
+    }
+    if (agentRefreshError) {
+      return { label: 'Con Alerta', color: 'bg-rose-500/15 text-rose-300 border border-rose-500/30' };
+    }
+    const hasCritical = lotsData.some((l) => l.hydricStatus === 'Critico');
+    if (hasCritical) {
+      return { label: 'Alerta Riego', color: 'bg-rose-500/15 text-rose-300 border border-rose-500/30' };
+    }
+    const hasWarning = lotsData.some((l) => l.hydricStatus === 'Atencion');
+    if (hasWarning) {
+      return { label: 'Atención', color: 'bg-amber-500/15 text-amber-300 border border-amber-500/30' };
+    }
+    return { label: 'Monitoreando', color: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' };
+  }, [hasCustomLots, isRefreshingAgents, agentRefreshError, lotsData]);
+
+  return (
+    <div className="flex flex-col justify-between h-full">
       <div>
         {/* Logo & Brand (Clickable link to Dashboard /) */}
-        <Link href="/" className="group flex items-center gap-3.5 border-b border-slate-200/80 pb-5 cursor-pointer">
+        <Link 
+          href="/" 
+          onClick={onCloseMobile}
+          className="group flex items-center gap-3.5 border-b border-slate-200/80 pb-5 cursor-pointer"
+        >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-crop-500 to-water-500 text-white shadow-lg shadow-crop-500/20 transition-all duration-500 ease-out group-hover:scale-110 group-hover:shadow-crop-500/40 group-hover:rotate-3 animate-in fade-in zoom-in-75 duration-700">
             <Logo className="h-6 w-6 text-white transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3" />
           </div>
@@ -72,6 +119,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onCloseMobile}
                 className={`group flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-crop-50 text-crop-800 font-bold shadow-sm ring-1 ring-crop-200 dark:bg-crop-950 dark:text-crop-300'
@@ -96,28 +144,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       </div>
 
-      {/* System Status */}
+      {/* Real Dynamic System Status */}
       <div className="space-y-3 pt-4 border-t border-slate-200/80">
         <div className="rounded-[24px] bg-slate-950 p-4 text-white shadow-lg">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
+            <span className="flex h-2 w-2 relative">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${hasCustomLots ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${hasCustomLots ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+            </span>
+          </div>
           <div className="mt-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Sentinel-2 MSI</span>
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">Activo</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sentinelStatus.color}`}>
+                {sentinelStatus.label}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Balance FAO-56</span>
-              <span className="rounded-full bg-water-500/15 px-2 py-0.5 text-[10px] text-water-300">Calibrado</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${faoStatus.color}`}>
+                {faoStatus.label}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-300">Agente de Riego</span>
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300">Monitoreando</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${agentStatus.color}`}>
+                {agentStatus.label}
+              </span>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <ProtectedRoute>
@@ -138,7 +208,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 >
                   <X className="h-5 w-5" />
                 </button>
-                {renderNavContent()}
+                <SidebarNavContent onCloseMobile={() => setIsMobileMenuOpen(false)} />
               </aside>
             </div>
           )}
@@ -147,7 +217,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* DESKTOP SIDEBAR NAVIGATION */}
             <aside className="hidden w-[280px] shrink-0 sticky top-4 lg:top-6 h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] flex-col rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-soft backdrop-blur xl:flex justify-between overflow-y-auto">
-              {renderNavContent()}
+              <SidebarNavContent />
             </aside>
 
             {/* MAIN CONTENT AREA */}
