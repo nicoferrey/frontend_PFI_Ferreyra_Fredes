@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Compass, Layers, MapPin, Check, RefreshCw } from 'lucide-react';
 import "leaflet/dist/leaflet.css";
 import { getSentinelMapLayerByCenterApi } from '@/lib/api';
+import { CustomDialog } from './custom-dialog';
 
 const ESRI_WORLD_IMAGERY_URL =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -174,6 +175,18 @@ export default function InteractiveOnboardingMap({
   const [sentinelLayerStatus, setSentinelLayerStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [sentinelLayerDate, setSentinelLayerDate] = useState<string | null>(null);
   const [sentinelLayerError, setSentinelLayerError] = useState<string | null>(null);
+
+  // Custom Dialog State for alerts
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
  
   const drawModeRef = useRef(drawMode);
   const circleRadiusRef = useRef(circleRadius);
@@ -632,7 +645,12 @@ export default function InteractiveOnboardingMap({
           const handleDeleteVertex = (e: any) => {
             L.DomEvent.stopPropagation(e);
             if (lot.polygon.length <= 3) {
-              alert('Un lote debe tener al menos 3 vértices.');
+              setDialogState({
+                isOpen: true,
+                title: 'Límite de Vértices',
+                description: 'Un lote debe tener al menos 3 vértices para mantener su geometría.',
+                variant: 'warning',
+              });
               return;
             }
             const updatedPolygon = lot.polygon.filter((_, i) => i !== idx);
@@ -819,6 +837,15 @@ export default function InteractiveOnboardingMap({
           </div>
         )}
       </div>
+
+      {/* Custom Alert Dialog */}
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        variant={dialogState.variant}
+      />
 
       {/* CSS injection for Leaflet map styling */}
       <style jsx global>{`

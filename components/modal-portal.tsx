@@ -22,15 +22,16 @@ export function ModalPortal({ isOpen, onClose, children }: ModalPortalProps) {
       document.body.style.overflow = 'hidden';
       
       const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && onClose) {
+        if ((e.key === 'Escape' || e.key === 'Esc') && onClose) {
+          e.stopPropagation();
           onClose();
         }
       };
       
-      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', handleKeyDown, true);
       return () => {
         document.body.style.overflow = originalOverflow;
-        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keydown', handleKeyDown, true);
       };
     }
   }, [isOpen, onClose]);
@@ -45,8 +46,11 @@ export function ModalPortal({ isOpen, onClose, children }: ModalPortalProps) {
 
   return createPortal(
     <div
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in outline-none"
     >
       {children}
     </div>,

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
+import { ModalPortal } from '@/components/modal-portal';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useAuth } from '@/lib/auth-context';
 import { useEffect } from 'react';
@@ -625,9 +626,12 @@ export default function DashboardAssistantPage() {
       )}
 
       {/* WHATSAPP HISTORY MODAL DIALOG */}
-      {selectedMemberHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in zoom-in-95">
-          <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-[28px] border border-slate-200 bg-white shadow-2xl overflow-hidden">
+      <ModalPortal
+        isOpen={Boolean(selectedMemberHistory)}
+        onClose={() => setSelectedMemberHistory(null)}
+      >
+        {selectedMemberHistory && (
+          <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-[28px] border border-slate-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 p-6 bg-gradient-to-r from-slate-50 via-white to-emerald-50/30">
@@ -717,8 +721,8 @@ export default function DashboardAssistantPage() {
             </div>
 
           </div>
-        </div>
-      )}
+        )}
+      </ModalPortal>
 
     </div>
   );

@@ -430,18 +430,6 @@ export function Topbar({
                     })
                   )}
                 </div>
-
-                <div className="mt-2 pt-2 border-t border-slate-100 text-center">
-                  <button
-                    onClick={() => {
-                      setNotificationsOpen(false);
-                      setNotificationsLoaded(false); // force reload next time
-                    }}
-                    className="block w-full text-xs font-semibold text-crop-700 hover:text-crop-800 py-1"
-                  >
-                    Actualizar notificaciones
-                  </button>
-                </div>
               </div>
             )}
           </div>

@@ -9,6 +9,7 @@ import {
   Home, Search
 } from 'lucide-react';
 import InteractiveOnboardingMap from './interactive-onboarding-map';
+import { CustomDialog } from './custom-dialog';
 import { createFieldApi, updateFieldApi, deleteFieldApi, refreshFieldAgentSnapshotApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 
@@ -248,6 +249,18 @@ export default function OnboardingWizard() {
   // Setup completion animation state
   const [isFinishing, setIsFinishing] = useState(false);
 
+  // Custom Dialog State for alerts
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
   // Load existing fields on mount if they exist
   useEffect(() => {
     if (!auth.isLoading && auth.fields && auth.fields.length > 0) {
@@ -430,7 +443,12 @@ export default function OnboardingWizard() {
       setStep(2);
     } else if (step === 2) {
       if (lots.length === 0) {
-        alert('Por favor dibuja al menos un lote sobre el mapa para continuar.');
+        setDialogState({
+          isOpen: true,
+          title: 'Lote Requerido',
+          description: 'Por favor dibuja al menos un lote sobre el mapa para continuar.',
+          variant: 'warning',
+        });
         return;
       }
       // If we have lots but none selected, select the first one
@@ -1228,6 +1246,15 @@ export default function OnboardingWizard() {
           onUpdateLotPolygon={handleUpdateLotPolygon}
         />
       </section>
+
+      {/* Custom Alert Dialog */}
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        variant={dialogState.variant}
+      />
 
       {/* Embedded Animations & Transitions style */}
       <style jsx global>{`

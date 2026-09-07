@@ -43,6 +43,7 @@ import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
 import { KpiCard } from '@/components/kpi-card';
 import { ModalPortal } from '@/components/modal-portal';
+import { CustomDialog } from '@/components/custom-dialog';
 import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
@@ -149,6 +150,21 @@ export default function DashboardHistoryPage() {
     method?: string;
     notes: string;
   } | null>(null);
+
+  // Custom Dialog State for alerts & confirmations
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
+    isConfirm?: boolean;
+    confirmText?: string;
+    onConfirm?: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
 
   // Selected Lot object (with real history overlay)
   const selectedLot = useMemo(() => {
@@ -487,7 +503,13 @@ export default function DashboardHistoryPage() {
         });
       }, 1000);
     } else {
-      alert(`Error al registrar ${eventForm.type}: ` + (res.data?.detail || 'Inténtelo de nuevo.'));
+      setDialogState({
+        isOpen: true,
+        title: `Error al registrar ${eventForm.type}`,
+        description: res.data?.detail || 'Inténtelo de nuevo.',
+        variant: 'error',
+        isConfirm: false,
+      });
     }
     setIsSubmittingEvent(false);
   };
@@ -502,22 +524,29 @@ export default function DashboardHistoryPage() {
   };
 
   // Handler to delete event (irrigation or rainfall)
-  const handleDeleteEvent = async (type: 'riego' | 'lluvia', eventId: string | number) => {
+  const handleDeleteEvent = (type: 'riego' | 'lluvia', eventId: string | number) => {
     if (!selectedField) return;
-    const confirmDelete = window.confirm(`¿Está seguro de que desea eliminar este evento de ${type}?`);
-    if (!confirmDelete) return;
+    setDialogState({
+      isOpen: true,
+      title: `Eliminar evento de ${type}`,
+      description: `¿Está seguro de que desea eliminar este evento de ${type}? Esta acción actualizará los balances hídricos del lote.`,
+      variant: 'danger',
+      isConfirm: true,
+      confirmText: 'Eliminar',
+      onConfirm: async () => {
+        const idStr = String(eventId);
+        setDeletedEventIds((prev) => new Set(prev).add(idStr));
 
-    const idStr = String(eventId);
-    setDeletedEventIds((prev) => new Set(prev).add(idStr));
-
-    if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
-      if (type === 'riego') {
-        await deleteIrrigationEventApi(selectedField.id, eventId);
-      } else {
-        await deleteRainfallEventApi(selectedField.id, eventId);
-      }
-    }
-    setHistoryReloadTrigger((prev: number) => prev + 1);
+        if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
+          if (type === 'riego') {
+            await deleteIrrigationEventApi(selectedField.id, eventId);
+          } else {
+            await deleteRainfallEventApi(selectedField.id, eventId);
+          }
+        }
+        setHistoryReloadTrigger((prev: number) => prev + 1);
+      },
+    });
   };
 
   // Handler to update event (irrigation or rainfall)
@@ -582,7 +611,13 @@ export default function DashboardHistoryPage() {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Error al exportar reporte. Asegúrese de que el servidor esté activo.');
+      setDialogState({
+        isOpen: true,
+        title: 'Error al Exportar',
+        description: 'Error al exportar reporte. Asegúrese de que el servidor esté activo.',
+        variant: 'error',
+        isConfirm: false,
+      });
     }
   };
 
@@ -1575,6 +1610,18 @@ export default function DashboardHistoryPage() {
           </div>
         )}
       </ModalPortal>
+
+      {/* Custom Alert / Confirmation Dialog */}
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        variant={dialogState.variant}
+        isConfirm={dialogState.isConfirm}
+        confirmText={dialogState.confirmText}
+        onConfirm={dialogState.onConfirm}
+      />
     </div>
   );
 }

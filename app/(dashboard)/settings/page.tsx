@@ -19,7 +19,9 @@ import {
   UserCheck,
   Building,
   KeyRound,
-  ShieldCheck
+  ShieldCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { updateUserProfileApi, changePasswordApi, FieldRole } from '@/lib/api';
 
@@ -88,6 +90,9 @@ export default function DashboardSettingsPage() {
     newPassword: '',
     confirmPassword: ''
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
   const [passwordSuccessMessage, setPasswordSuccessMessage] = useState<string | null>(null);
   const [passwordErrorMessage, setPasswordErrorMessage] = useState<string | null>(null);
@@ -135,6 +140,12 @@ export default function DashboardSettingsPage() {
     setIsSubmittingPassword(true);
     setPasswordSuccessMessage(null);
     setPasswordErrorMessage(null);
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordErrorMessage('La nueva contraseña debe tener al menos 8 caracteres.');
+      setIsSubmittingPassword(false);
+      return;
+    }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordErrorMessage('Las contraseñas nuevas no coinciden.');
@@ -347,40 +358,88 @@ export default function DashboardSettingsPage() {
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                         <Lock className="h-3.5 w-3.5 text-slate-400" /> Contraseña Actual
                       </label>
-                      <input
-                        type="password"
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        required
-                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                          required
+                          placeholder="••••••••"
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-4 pr-11 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                          tabIndex={-1}
+                          aria-label={showCurrentPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                           Nueva Contraseña
                         </label>
-                        <input
-                          type="password"
-                          value={passwordForm.newPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                          required
-                          minLength={6}
-                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            required
+                            minLength={8}
+                            placeholder="Mínimo 8 caracteres"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-4 pr-11 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                            tabIndex={-1}
+                            aria-label={showNewPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                          >
+                            {showNewPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                           Confirmar Nueva Contraseña
                         </label>
-                        <input
-                          type="password"
-                          value={passwordForm.confirmPassword}
-                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                          required
-                          minLength={6}
-                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            required
+                            minLength={8}
+                            placeholder="Repita la nueva contraseña"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 pl-4 pr-11 py-2.5 text-xs md:text-sm font-semibold text-slate-900 focus:border-crop-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-crop-500/20 transition duration-150"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                            tabIndex={-1}
+                            aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="flex justify-end">

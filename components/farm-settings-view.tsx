@@ -53,6 +53,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { ModalPortal } from '@/components/modal-portal';
+import { CustomDialog } from '@/components/custom-dialog';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 
 interface FarmSettingsViewProps {
@@ -140,6 +141,21 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   const [deficitAlertThreshold, setDeficitAlertThreshold] = useState<number>(40);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
 
+  // Custom Dialog State for alerts & confirmations
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
+    isConfirm?: boolean;
+    confirmText?: string;
+    onConfirm?: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
+
   // Load team members on mount
   useEffect(() => {
     async function loadMembers() {
@@ -225,14 +241,21 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
   };
 
   // Handle Remove Member
-  const handleRemoveMember = async (memberId: string, memberName?: string) => {
-    const confirm = window.confirm(`¿Estás seguro de desvincular a ${memberName || 'este usuario'} del campo?`);
-    if (!confirm) return;
-
-    const ok = await removeTeamMemberApi(memberId);
-    if (ok) {
-      setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    }
+  const handleRemoveMember = (memberId: string, memberName?: string) => {
+    setDialogState({
+      isOpen: true,
+      title: 'Desvincular Miembro',
+      description: `¿Estás seguro de que deseas desvincular a ${memberName || 'este usuario'} del establecimiento?`,
+      variant: 'danger',
+      isConfirm: true,
+      confirmText: 'Desvincular',
+      onConfirm: async () => {
+        const ok = await removeTeamMemberApi(memberId);
+        if (ok) {
+          setMembers((prev) => prev.filter((m) => m.id !== memberId));
+        }
+      },
+    });
   };
 
   // Handle Resend / Regenerate Invitation Link
@@ -246,7 +269,13 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
       setCopiedMemberId(memberId);
       setTimeout(() => setCopiedMemberId(null), 2500);
     } else {
-      alert(res.message || 'No se pudo generar un nuevo enlace de invitación.');
+      setDialogState({
+        isOpen: true,
+        title: 'Error de Invitación',
+        description: res.message || 'No se pudo generar un nuevo enlace de invitación.',
+        variant: 'error',
+        isConfirm: false,
+      });
     }
   };
 
@@ -260,7 +289,13 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
       // Wait for 1 second, then reload the page to refresh the topbar farm name and useAuth context
       setTimeout(() => window.location.reload(), 1000);
     } else {
-      alert('Error al guardar la configuración del establecimiento.');
+      setDialogState({
+        isOpen: true,
+        title: 'Error al Guardar',
+        description: 'Error al guardar la configuración del establecimiento.',
+        variant: 'error',
+        isConfirm: false,
+      });
     }
   };
 
@@ -1073,6 +1108,18 @@ export function FarmSettingsView({ fields, onOpenWizard }: FarmSettingsViewProps
           </div>
         )}
       </ModalPortal>
+
+      {/* Custom Alert / Confirmation Dialog */}
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        variant={dialogState.variant}
+        isConfirm={dialogState.isConfirm}
+        confirmText={dialogState.confirmText}
+        onConfirm={dialogState.onConfirm}
+      />
     </div>
   );
 }

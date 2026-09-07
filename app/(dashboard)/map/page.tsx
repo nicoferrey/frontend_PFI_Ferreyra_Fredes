@@ -8,6 +8,7 @@ import { LotDetailView } from '@/components/lot-detail-view';
 import { DashboardMapLayer } from '@/components/dashboard-map';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
+import { CustomDialog } from '@/components/custom-dialog';
 import {
   createIrrigationEventApi,
   refreshFieldAgentSnapshotApi,
@@ -40,6 +41,18 @@ export default function DashboardMapPage() {
     dateFrom,
     dateTo
   } = useDashboard();
+
+  // Custom Dialog State for alerts
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+  });
 
   // Selected Lot object (with real history overlay)
   const selectedLot = useMemo(() => {
@@ -143,7 +156,12 @@ export default function DashboardMapPage() {
         setIsRefreshingAgents(false);
       } else {
         console.error('Failed to create irrigation event in backend:', res.data);
-        alert('Error al registrar el riego en el servidor: ' + (res.data?.detail || 'Inténtelo de nuevo.'));
+        setDialogState({
+          isOpen: true,
+          title: 'Error al registrar riego',
+          description: 'Error al registrar el riego en el servidor: ' + (res.data?.detail || 'Inténtelo de nuevo.'),
+          variant: 'error',
+        });
       }
     } else {
       // Mock lot fallback
@@ -379,6 +397,14 @@ export default function DashboardMapPage() {
         />
       )}
 
+      {/* Custom Alert Dialog */}
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        title={dialogState.title}
+        description={dialogState.description}
+        variant={dialogState.variant}
+      />
     </div>
   );
 }
