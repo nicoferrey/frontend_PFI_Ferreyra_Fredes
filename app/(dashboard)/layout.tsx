@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Home,
   Map,
@@ -14,7 +14,7 @@ import {
   MapPinned,
   X
 } from 'lucide-react';
-import { Topbar } from '@/components/topbar';
+import { Topbar, BreadcrumbItem } from '@/components/topbar';
 import { DashboardProvider, useDashboard } from './context';
 import { useAuth } from '@/lib/auth-context';
 import { Logo } from '@/components/logo';
@@ -180,6 +180,97 @@ function SidebarNavContent({ onCloseMobile }: { onCloseMobile?: () => void }) {
   );
 }
 
+function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { lotsData, selectedLotId, selectedField } = useDashboard();
+
+  const selectedLot = React.useMemo(() => {
+    return lotsData.find((l) => l.id === selectedLotId) || (selectedField ? { name: selectedField.name } : null);
+  }, [lotsData, selectedLotId, selectedField]);
+
+  const breadcrumbs: BreadcrumbItem[] = React.useMemo(() => {
+    // 1. Dashboard Home
+    if (pathname === '/') {
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Tablero General', active: true },
+      ];
+    }
+
+    // 2. Settings (Configuración)
+    if (pathname === '/settings') {
+      const tab = searchParams.get('tab');
+      const isProfile = tab === 'profile';
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Configuración', href: '/settings' },
+        {
+          label: isProfile ? 'Perfil de Usuario' : 'Campo y Equipo',
+          active: true,
+        },
+      ];
+    }
+
+    // 3. Map (Mapa de Lotes)
+    if (pathname === '/map') {
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Mapa de Lotes', href: '/map' },
+        {
+          label: selectedLot ? selectedLot.name : 'Visor Espacial',
+          active: true,
+        },
+      ];
+    }
+
+    // 4. History (Historial y Reportes)
+    if (pathname === '/history') {
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Historial y Reportes', href: '/history' },
+        {
+          label: selectedLot ? selectedLot.name : 'Balance y Eventos',
+          active: true,
+        },
+      ];
+    }
+
+    // 5. Assistant (Asistente IA)
+    if (pathname === '/assistant') {
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Asistente IA', href: '/assistant' },
+        { label: 'Diagnóstico MAS', active: true },
+      ];
+    }
+
+    // 6. Onboarding
+    if (pathname === '/onboarding') {
+      return [
+        { label: 'Inicio', href: '/' },
+        { label: 'Configuración', href: '/settings' },
+        { label: 'Asistente de Campo', active: true },
+      ];
+    }
+
+    // Fallback
+    return [
+      { label: 'Inicio', href: '/' },
+      { label: breadcrumbLabels[pathname] || 'Dashboard', active: true },
+    ];
+  }, [pathname, searchParams, selectedLot]);
+
+  return (
+    <Topbar
+      breadcrumbs={breadcrumbs}
+      showSidebarToggle={true}
+      onToggleSidebar={onToggleSidebar}
+      className="sticky top-4 lg:top-6 z-40"
+    />
+  );
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -223,16 +314,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* MAIN CONTENT AREA */}
             <section className="flex min-w-0 flex-1 flex-col gap-6">
               
-              {/* Top Bar with dynamic Breadcrumbs & Mobile Toggle */}
-              <Topbar 
-                breadcrumbs={[
-                  { label: 'Inicio', href: '/' },
-                  { label: breadcrumbLabels[pathname] || 'Dashboard', active: true }
-                ]}
-                showSidebarToggle={true}
-                onToggleSidebar={() => setIsMobileMenuOpen(true)}
-                className="sticky top-4 lg:top-6 z-40"
-              />
+              {/* Top Bar with dynamic 3-level Breadcrumbs & Mobile Toggle */}
+              <DashboardHeaderBar onToggleSidebar={() => setIsMobileMenuOpen(true)} />
 
               {children}
             </section>

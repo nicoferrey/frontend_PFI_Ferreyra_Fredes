@@ -283,24 +283,26 @@ export function Topbar({
             </div>
           )}
 
-          <nav aria-label="Breadcrumb" className="flex items-center text-sm font-medium">
-            <ol className="flex items-center flex-wrap gap-1.5 md:gap-2">
+          <nav aria-label="Breadcrumb" className="flex items-center text-xs sm:text-sm font-medium min-w-0">
+            <ol className="flex items-center flex-wrap gap-1 sm:gap-1.5 md:gap-2 min-w-0">
               {resolvedBreadcrumbs.map((crumb, idx) => {
                 const isLast = idx === resolvedBreadcrumbs.length - 1;
                 return (
-                  <li key={idx} className="flex items-center">
+                  <li key={idx} className="flex items-center min-w-0">
                     {idx > 0 && (
-                      <ChevronRight className="h-4 w-4 mx-1 text-slate-400 shrink-0 select-none stroke-[2.2]" />
+                      <ChevronRight className="h-3.5 w-3.5 mx-0.5 sm:mx-1 text-slate-400 shrink-0 select-none stroke-[2.2]" />
                     )}
                     {crumb.href && !isLast ? (
                       <Link
                         href={crumb.href}
-                        className="text-slate-500 hover:text-slate-800 transition-colors duration-150 py-1"
+                        className="text-slate-500 hover:text-slate-900 hover:underline underline-offset-4 transition-colors duration-150 py-0.5 max-w-[100px] sm:max-w-[150px] md:max-w-none truncate"
                       >
                         {crumb.label}
                       </Link>
                     ) : (
-                      <span className={`py-1 ${isLast ? 'font-bold text-slate-800 tracking-tight' : 'text-slate-500'}`}>
+                      <span className={`py-0.5 max-w-[120px] sm:max-w-[180px] md:max-w-none truncate ${
+                        isLast ? 'font-extrabold text-slate-950 tracking-tight' : 'text-slate-500 font-medium'
+                      }`}>
                         {crumb.label}
                       </span>
                     )}
