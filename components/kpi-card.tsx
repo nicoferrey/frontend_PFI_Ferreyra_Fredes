@@ -11,6 +11,7 @@ export interface KpiCardProps {
   iconBgColor?: string; // e.g. "bg-water-50 text-water-600 border border-water-200/60"
   badge?: ReactNode;
   className?: string;
+  isLoading?: boolean;
 }
 
 export function KpiCard({
@@ -22,7 +23,27 @@ export function KpiCard({
   iconBgColor = 'bg-water-50 text-water-600 border border-water-200/60',
   badge,
   className = '',
+  isLoading = false,
 }: KpiCardProps) {
+  if (isLoading) {
+    return (
+      <div
+        className={`relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5 shadow-soft text-slate-900 flex items-center justify-between gap-4 animate-pulse ${className}`}
+      >
+        <div className="flex-1 min-w-0 space-y-2.5">
+          {/* Skeleton Title */}
+          <div className="h-3 w-24 bg-slate-200/80 rounded-md" />
+          {/* Skeleton Value */}
+          <div className="h-8 w-28 bg-slate-200/90 rounded-xl" />
+          {/* Skeleton Subtitle */}
+          <div className="h-3 w-36 bg-slate-100 rounded-md" />
+        </div>
+        {/* Skeleton Icon Box */}
+        <div className="relative z-10 flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-slate-100 shadow-2xs" />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 sm:p-5 shadow-soft text-slate-900 flex items-center justify-between gap-4 ${className}`}

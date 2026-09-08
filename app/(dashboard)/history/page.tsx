@@ -44,6 +44,7 @@ import { HeaderButton } from '@/components/header-button';
 import { KpiCard } from '@/components/kpi-card';
 import { ModalPortal } from '@/components/modal-portal';
 import { CustomDialog } from '@/components/custom-dialog';
+import { TableSkeleton, MobileCardsSkeleton, ChartSkeleton } from '@/components/skeleton-loaders';
 import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
@@ -74,6 +75,7 @@ export default function DashboardHistoryPage() {
     dateTo,
     setDateTo,
     realHistory,
+    isLoadingHistory,
     historyReloadTrigger,
     setHistoryReloadTrigger,
     teamMembers,
@@ -99,7 +101,6 @@ export default function DashboardHistoryPage() {
   const [rainfallEvents, setRainfallEvents] = useState<RainfallEvent[]>([]);
   const [ndviHistory, setNdviHistory] = useState<NdviHistoryItem[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Export report dropdown state & ref
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
@@ -224,7 +225,7 @@ export default function DashboardHistoryPage() {
         const [irrigs, rains, ndviItems, summary, team] = await Promise.all([
           getIrrigationEventsApi(fieldId, dateFrom, dateTo),
           getRainfallEventsApi(fieldId, dateFrom, dateTo),
-          getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, true),
+          getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, false),
           getReportsSummaryApi(fieldId, dateFrom, dateTo),
           getTeamMembersApi(currentFarmId)
         ]);
@@ -880,6 +881,7 @@ export default function DashboardHistoryPage() {
           subtitle={reportsSummary ? `Vol. est: ${reportsSummary.metrics.total_water_volume_m3.toLocaleString('es-AR')} m³` : 'Cargando datos...'}
           icon={<Droplets className="h-5 w-5" />}
           iconBgColor="bg-water-50 text-water-600 border border-water-200/60"
+          isLoading={isLoadingReports}
         />
 
         {/* 2. Lluvias Totales */}
@@ -890,6 +892,7 @@ export default function DashboardHistoryPage() {
           subtitle="Automáticas + manuales"
           icon={<CloudRain className="h-5 w-5" />}
           iconBgColor="bg-sky-50 text-sky-600 border border-sky-200/60"
+          isLoading={isLoadingReports}
         />
 
         {/* 3. Evapotranspiración Acumulada */}
@@ -900,6 +903,7 @@ export default function DashboardHistoryPage() {
           subtitle="Evapotranspiración acumulada"
           icon={<SunMedium className="h-5 w-5" />}
           iconBgColor="bg-amber-50 text-amber-600 border border-amber-200/60"
+          isLoading={isLoadingReports}
         />
 
         {/* 4. Estrés Hídrico */}
@@ -910,6 +914,7 @@ export default function DashboardHistoryPage() {
           subtitle="Días por encima del umbral de estrés"
           icon={<ShieldAlert className="h-5 w-5" />}
           iconBgColor="bg-rose-50 text-rose-600 border border-rose-200/60"
+          isLoading={isLoadingReports}
         />
       </div>
 
@@ -929,88 +934,92 @@ export default function DashboardHistoryPage() {
           )}
         </div>
 
-        <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua disponible (AU)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-amber-500" /> Agua faltante (Dr)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {selectedLot?.easilyAvailableAFD_mm?.toFixed(0) ?? 40} mm)
-              </span>
-            </div>
-            <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {selectedLot?.totalAvailableTAW_mm ?? 100} mm</span>
-          </div>
-
-          <div className="h-[300px] w-full">
-            {selectedLot?.timeline && selectedLot.timeline.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={selectedLot.timeline} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="auHistoryGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} domain={[0, Math.ceil((selectedLot?.totalAvailableTAW_mm || 100) * 1.05)]} unit=" mm" />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="rounded-2xl border border-slate-700 bg-slate-900/95 p-3.5 text-xs text-white shadow-2xl backdrop-blur-md">
-                            <p className="font-bold text-slate-200 border-b border-slate-800 pb-1 mb-2">
-                              Fecha: {data.date} ({data.dayLabel})
-                            </p>
-                            <div className="space-y-1">
-                              <p className="text-emerald-400 font-semibold">Agua disponible (AU): {data.au_mm?.toFixed(1)} mm</p>
-                              <p className="text-amber-400 font-semibold">Agua faltante (Dr): {data.dr_mm?.toFixed(1)} mm</p>
-                              <p className="text-sky-300">Umbral antes de estrés (AFD/RAW): {(data.raw_mm || data.afd_mm)?.toFixed(1)} mm</p>
-                              {data.kc ? (
-                                <p className="text-slate-350">
-                                  Coeficiente del cultivo (Kc): {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
-                                </p>
-                              ) : null}
-                              {data.irrigation_mm ? (
-                                <p className="text-cyan-300 font-bold mt-1 bg-cyan-500/20 px-2 py-0.5 rounded">
-                                  💧 Riego: +{data.irrigation_mm} mm
-                                </p>
-                              ) : null}
-                              {data.rain_mm ? (
-                                <p className="text-blue-300 font-bold mt-1 bg-blue-500/20 px-2 py-0.5 rounded">
-                                  🌧️ Lluvia: +{data.rain_mm} mm {data.rain_source ? `(${data.rain_source === 'manual' ? 'Manual' : 'Open-Meteo'})` : ''}
-                                </p>
-                              ) : null}
-                              {(data.under_stress || data.dr_mm > (data.raw_mm || data.afd_mm)) && (
-                                <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
-                                  ⚠️ Estrés Hídrico Activo
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
-                  <ReferenceLine y={selectedLot?.totalAvailableTAW_mm} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
-                  <Area type="monotone" dataKey="au_mm" stroke="#10b981" fill="url(#auHistoryGrad)" strokeWidth={2.5} />
-                  <Line type="monotone" dataKey="dr_mm" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, fill: '#f59e0b' }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                No hay serie temporal disponible para este rango de fechas.
+        {isLoadingHistory ? (
+          <ChartSkeleton height="340px" />
+        ) : (
+          <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.8),rgba(2,6,23,0.95))] p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-emerald-500" /> Agua disponible (AU)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-amber-500" /> Agua faltante (Dr)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {selectedLot?.easilyAvailableAFD_mm?.toFixed(0) ?? 40} mm)
+                </span>
               </div>
-            )}
+              <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {selectedLot?.totalAvailableTAW_mm ?? 100} mm</span>
+            </div>
+
+            <div className="h-[300px] w-full">
+              {selectedLot?.timeline && selectedLot.timeline.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={selectedLot.timeline} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="auHistoryGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} domain={[0, Math.ceil((selectedLot?.totalAvailableTAW_mm || 100) * 1.05)]} unit=" mm" />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="rounded-2xl border border-slate-700 bg-slate-900/95 p-3.5 text-xs text-white shadow-2xl backdrop-blur-md">
+                              <p className="font-bold text-slate-200 border-b border-slate-800 pb-1 mb-2">
+                                Fecha: {data.date} ({data.dayLabel})
+                              </p>
+                              <div className="space-y-1">
+                                <p className="text-emerald-400 font-semibold">Agua disponible (AU): {data.au_mm?.toFixed(1)} mm</p>
+                                <p className="text-amber-400 font-semibold">Agua faltante (Dr): {data.dr_mm?.toFixed(1)} mm</p>
+                                <p className="text-sky-300">Umbral antes de estrés (AFD/RAW): {(data.raw_mm || data.afd_mm)?.toFixed(1)} mm</p>
+                                {data.kc ? (
+                                  <p className="text-slate-350">
+                                    Coeficiente del cultivo (Kc): {data.kc} {data.kc_source ? `(${data.kc_source})` : ''}
+                                  </p>
+                                ) : null}
+                                {data.irrigation_mm ? (
+                                  <p className="text-cyan-300 font-bold mt-1 bg-cyan-500/20 px-2 py-0.5 rounded">
+                                    💧 Riego: +{data.irrigation_mm} mm
+                                  </p>
+                                ) : null}
+                                {data.rain_mm ? (
+                                  <p className="text-blue-300 font-bold mt-1 bg-blue-500/20 px-2 py-0.5 rounded">
+                                    🌧️ Lluvia: +{data.rain_mm} mm {data.rain_source ? `(${data.rain_source === 'manual' ? 'Manual' : 'Open-Meteo'})` : ''}
+                                  </p>
+                                ) : null}
+                                {(data.under_stress || data.dr_mm > (data.raw_mm || data.afd_mm)) && (
+                                  <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
+                                    ⚠️ Estrés Hídrico Activo
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
+                    <ReferenceLine y={selectedLot?.totalAvailableTAW_mm} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
+                    <Area type="monotone" dataKey="au_mm" stroke="#10b981" fill="url(#auHistoryGrad)" strokeWidth={2.5} />
+                    <Line type="monotone" dataKey="dr_mm" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, fill: '#f59e0b' }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                  No hay serie temporal disponible para este rango de fechas.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Event Log Table */}
@@ -1041,217 +1050,66 @@ export default function DashboardHistoryPage() {
 
         {/* Mobile: Card Layout (visible < md) */}
         <div className="space-y-3 md:hidden">
-          {paginatedEvents.map((item, idx) => {
-            const isRiego = item.type === 'riego';
-            const eventDate = new Date(item.applied_at);
-            const dateFormatted = eventDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const timeFormatted = eventDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-
-            return (
-              <div key={item.id || idx} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {isRiego ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-water-50 px-2.5 py-0.5 text-xs font-extrabold text-water-800 border border-water-200/90 shadow-2xs">
-                        <Droplets className="h-3.5 w-3.5 text-water-600 shrink-0" />
-                        Riego
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-2.5 py-0.5 text-xs font-extrabold text-sky-800 border border-sky-200/90 shadow-2xs">
-                        <CloudRain className="h-3.5 w-3.5 text-sky-600 shrink-0" />
-                        Lluvia
-                      </span>
-                    )}
-                    {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate')) && (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider">API</span>
-                    )}
-                  </div>
-                  <span className="text-sm font-black text-slate-950">{item.amount_mm.toFixed(1)} <span className="text-xs font-bold text-slate-400">mm</span></span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Fecha</p>
-                    <p className="font-bold text-slate-900">{dateFormatted} <span className="font-medium text-slate-500">{timeFormatted}</span></p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Método</p>
-                    <p className="font-bold text-slate-800 truncate">{item.method}</p>
-                  </div>
-                </div>
-                {item.notes && (
-                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">{item.notes}</p>
-                )}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-500 font-medium">{item.registered_by}</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const parts = item.applied_at.split('T');
-                        setEditingEvent({
-                          type: item.type, id: item.id, date: parts[0],
-                          time: parts[1] ? parts[1].slice(0, 5) : '12:00',
-                          amount_mm: String(item.amount_mm),
-                          method: isRiego ? item.method : undefined, notes: item.notes,
-                        });
-                        setIsEditModalOpen(true);
-                      }}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition shadow-2xs"
-                      aria-label="Editar evento"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEvent(item.type, item.id)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 transition shadow-2xs"
-                      aria-label="Eliminar evento"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {consolidatedEvents.length === 0 && (
-            <div className="py-8 text-center text-slate-400 font-medium text-xs rounded-2xl border border-dashed border-slate-200 bg-slate-50">
-              No se encontraron riegos o lluvias registradas para el período seleccionado.
-            </div>
-          )}
-        </div>
-
-        {/* Desktop: Table Layout (visible >= md) */}
-        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
-              <tr>
-                <th className="px-4 py-2.5 whitespace-nowrap">Fecha y Hora</th>
-                <th className="px-4 py-2.5 whitespace-nowrap">Tipo de Evento</th>
-                <th className="px-4 py-2.5 whitespace-nowrap">Agua Registrada</th>
-                <th className="px-4 py-2.5 whitespace-nowrap">Método / Fuente</th>
-                <th className="px-4 py-2.5 whitespace-nowrap">Registrado Por</th>
-                <th className="px-4 py-2.5">Observaciones</th>
-                <th className="px-4 py-2.5 text-right whitespace-nowrap">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100/90 text-xs">
+          {isLoadingEvents ? (
+            <MobileCardsSkeleton count={3} />
+          ) : (
+            <>
               {paginatedEvents.map((item, idx) => {
                 const isRiego = item.type === 'riego';
                 const eventDate = new Date(item.applied_at);
-                const dateFormatted = eventDate.toLocaleDateString('es-AR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                });
-                const timeFormatted = eventDate.toLocaleTimeString('es-AR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                });
+                const dateFormatted = eventDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const timeFormatted = eventDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
                 return (
-                  <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors duration-150">
-                    
-                    {/* Fecha y Hora */}
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 text-xs">{dateFormatted}</span>
-                        <span className="text-[11px] font-medium text-slate-500 font-sans">{timeFormatted}</span>
-                      </div>
-                    </td>
-
-                    {/* Tipo de Evento (Professional Badges) */}
-                    <td className="px-4 py-2.5">
-                      {isRiego ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-xl bg-water-50 px-2.5 py-0.5 text-xs font-extrabold text-water-800 border border-water-200/90 shadow-2xs">
-                          <Droplets className="h-3.5 w-3.5 text-water-600 shrink-0" />
-                          Riego
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-2.5 py-0.5 text-xs font-extrabold text-sky-800 border border-sky-200/90 shadow-2xs">
-                          <CloudRain className="h-3.5 w-3.5 text-sky-600 shrink-0" />
-                          Lluvia
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Agua Registrada (mm) */}
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-baseline">
-                        <span className="text-sm font-black text-slate-950">{item.amount_mm.toFixed(1)}</span>
-                        <span className="text-xs font-bold text-slate-400 ml-1">mm</span>
-                      </div>
-                    </td>
-
-                    {/* Método / Fuente */}
-                    <td className="px-4 py-2.5 font-bold text-slate-800">
-                      {item.method}
-                    </td>
-
-                    {/* Registrado Por */}
-                    <td className="px-4 py-2.5 font-medium text-slate-600">
-                      {item.registered_by}
-                    </td>
-
-                    {/* Observaciones (Structured & Parsed) */}
-                    <td className="px-4 py-2.5 max-w-xs">
-                      {item.notes ? (
-                        item.notes.includes('NDVI') ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {(() => {
-                              const isInterpolated = item.notes.includes('interpolado');
-                              const ndviPart = item.notes.split('|')[0].trim();
-                              
-                              return (
-                                <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs border ${
-                                  isInterpolated
-                                    ? 'bg-sky-50 text-sky-800 border-sky-200/90'
-                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
-                                }`}>
-                                  <Sparkles className={`h-3 w-3 shrink-0 ${isInterpolated ? 'text-sky-600' : 'text-emerald-600'}`} />
-                                  {ndviPart}
-                                </span>
-                              );
-                            })()}
-                            {item.notes.split('|')[1] && (
-                              <span className="text-xs text-slate-700 font-medium">
-                                {item.notes.split('|').slice(1).join('|').trim()}
-                              </span>
-                            )}
-                          </div>
+                  <div key={item.id || idx} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {isRiego ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-water-50 px-2.5 py-0.5 text-xs font-extrabold text-water-800 border border-water-200/90 shadow-2xs">
+                            <Droplets className="h-3.5 w-3.5 text-water-600 shrink-0" />
+                            Riego
+                          </span>
                         ) : (
-                          <span className="text-xs text-slate-700 font-medium leading-normal">{item.notes}</span>
-                        )
-                      ) : (
-                        <span className="text-slate-400 text-xs italic font-medium">Sin observaciones</span>
-                      )}
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate') || String(item.id).startsWith('auto')) && (
-                          <span className="inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider mr-1" title="Obtenido automáticamente por API clima">
-                            API
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-2.5 py-0.5 text-xs font-extrabold text-sky-800 border border-sky-200/90 shadow-2xs">
+                            <CloudRain className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                            Lluvia
                           </span>
                         )}
+                        {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate')) && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider">API</span>
+                        )}
+                      </div>
+                      <span className="text-sm font-black text-slate-950">{item.amount_mm.toFixed(1)} <span className="text-xs font-bold text-slate-400">mm</span></span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Fecha</p>
+                        <p className="font-bold text-slate-900">{dateFormatted} <span className="font-medium text-slate-500">{timeFormatted}</span></p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Método</p>
+                        <p className="font-bold text-slate-800 truncate">{item.method}</p>
+                      </div>
+                    </div>
+                    {item.notes && (
+                      <p className="text-[11px] text-slate-600 font-medium leading-relaxed bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">{item.notes}</p>
+                    )}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-slate-500 font-medium">{item.registered_by}</span>
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => {
                             const parts = item.applied_at.split('T');
                             setEditingEvent({
-                              type: item.type,
-                              id: item.id,
-                              date: parts[0],
+                              type: item.type, id: item.id, date: parts[0],
                               time: parts[1] ? parts[1].slice(0, 5) : '12:00',
                               amount_mm: String(item.amount_mm),
-                              method: isRiego ? item.method : undefined,
-                              notes: item.notes,
+                              method: isRiego ? item.method : undefined, notes: item.notes,
                             });
                             setIsEditModalOpen(true);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 transition shadow-2xs"
-                          title="Editar milímetros u observaciones"
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition shadow-2xs"
                           aria-label="Editar evento"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -1259,26 +1117,189 @@ export default function DashboardHistoryPage() {
                         <button
                           type="button"
                           onClick={() => handleDeleteEvent(item.type, item.id)}
-                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition shadow-2xs"
-                          title="Eliminar evento del registro"
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 transition shadow-2xs"
                           aria-label="Eliminar evento"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
               {consolidatedEvents.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
-                    No se encontraron riegos o lluvias registradas para el período seleccionado.
-                  </td>
-                </tr>
+                <div className="py-8 text-center text-slate-400 font-medium text-xs rounded-2xl border border-dashed border-slate-200 bg-slate-50">
+                  No se encontraron riegos o lluvias registradas para el período seleccionado.
+                </div>
               )}
-            </tbody>
-          </table>
+            </>
+          )}
+        </div>
+
+        {/* Desktop: Table Layout (visible >= md) */}
+        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white min-w-0 w-full">
+          {isLoadingEvents ? (
+            <div className="p-4">
+              <TableSkeleton rows={4} cols={7} />
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50/80 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 select-none">
+                <tr>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Fecha y Hora</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Tipo de Evento</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Agua Registrada</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Método / Fuente</th>
+                  <th className="px-4 py-2.5 whitespace-nowrap">Registrado Por</th>
+                  <th className="px-4 py-2.5">Observaciones</th>
+                  <th className="px-4 py-2.5 text-right whitespace-nowrap">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100/90 text-xs">
+                {paginatedEvents.map((item, idx) => {
+                  const isRiego = item.type === 'riego';
+                  const eventDate = new Date(item.applied_at);
+                  const dateFormatted = eventDate.toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  });
+                  const timeFormatted = eventDate.toLocaleTimeString('es-AR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+
+                  return (
+                    <tr key={item.id || idx} className="hover:bg-slate-50/70 transition-colors duration-150">
+                      
+                      {/* Fecha y Hora */}
+                      <td className="px-4 py-2.5">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-xs">{dateFormatted}</span>
+                          <span className="text-[11px] font-medium text-slate-500 font-sans">{timeFormatted}</span>
+                        </div>
+                      </td>
+
+                      {/* Tipo de Evento (Professional Badges) */}
+                      <td className="px-4 py-2.5">
+                        {isRiego ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-water-50 px-2.5 py-0.5 text-xs font-extrabold text-water-800 border border-water-200/90 shadow-2xs">
+                            <Droplets className="h-3.5 w-3.5 text-water-600 shrink-0" />
+                            Riego
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50 px-2.5 py-0.5 text-xs font-extrabold text-sky-800 border border-sky-200/90 shadow-2xs">
+                            <CloudRain className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                            Lluvia
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Agua Registrada (mm) */}
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-baseline">
+                          <span className="text-sm font-black text-slate-950">{item.amount_mm.toFixed(1)}</span>
+                          <span className="text-xs font-bold text-slate-400 ml-1">mm</span>
+                        </div>
+                      </td>
+
+                      {/* Método / Fuente */}
+                      <td className="px-4 py-2.5 font-bold text-slate-800">
+                        {item.method}
+                      </td>
+
+                      {/* Registrado Por */}
+                      <td className="px-4 py-2.5 font-medium text-slate-600">
+                        {item.registered_by}
+                      </td>
+
+                      {/* Observaciones (Structured & Parsed) */}
+                      <td className="px-4 py-2.5 max-w-xs">
+                        {item.notes ? (
+                          item.notes.includes('NDVI') ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {(() => {
+                                const isInterpolated = item.notes.includes('interpolado');
+                                const ndviPart = item.notes.split('|')[0].trim();
+                                
+                                return (
+                                  <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-[11px] font-extrabold shadow-2xs border ${
+                                    isInterpolated
+                                      ? 'bg-sky-50 text-sky-800 border-sky-200/90'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
+                                  }`}>
+                                    <Sparkles className={`h-3 w-3 shrink-0 ${isInterpolated ? 'text-sky-600' : 'text-emerald-600'}`} />
+                                    {ndviPart}
+                                  </span>
+                                );
+                              })()}
+                              {item.notes.split('|')[1] && (
+                                <span className="text-xs text-slate-700 font-medium">
+                                  {item.notes.split('|').slice(1).join('|').trim()}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-700 font-medium leading-normal">{item.notes}</span>
+                          )
+                        ) : (
+                          <span className="text-slate-400 text-xs italic font-medium">Sin observaciones</span>
+                        )}
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {(item.isManual === false || String(item.id).startsWith('mock') || String(item.id).startsWith('climate') || String(item.id).startsWith('auto')) && (
+                            <span className="inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-md border border-slate-200/90 bg-slate-100/70 text-slate-500 uppercase tracking-wider mr-1" title="Obtenido automáticamente por API clima">
+                              API
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const parts = item.applied_at.split('T');
+                              setEditingEvent({
+                                type: item.type,
+                                id: item.id,
+                                date: parts[0],
+                                time: parts[1] ? parts[1].slice(0, 5) : '12:00',
+                                amount_mm: String(item.amount_mm),
+                                method: isRiego ? item.method : undefined,
+                                notes: item.notes,
+                              });
+                              setIsEditModalOpen(true);
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900 transition shadow-2xs"
+                            title="Editar milímetros u observaciones"
+                            aria-label="Editar evento"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(item.type, item.id)}
+                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition shadow-2xs"
+                            title="Eliminar evento del registro"
+                            aria-label="Eliminar evento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {consolidatedEvents.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400 font-medium">
+                      No se encontraron riegos o lluvias registradas para el período seleccionado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Pagination Controls Footer */}
