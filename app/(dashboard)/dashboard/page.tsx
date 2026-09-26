@@ -11,12 +11,11 @@ import {
   Sparkles,
   ArrowUpRight,
   Activity,
-  CheckCircle,
   CheckCircle2,
   BrainCircuit,
   Eye
 } from 'lucide-react';
-import { useDashboard, defaultDemoPolygons } from './context';
+import { useDashboard, defaultDemoPolygons } from '../context';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
 import { KpiCard } from '@/components/kpi-card';

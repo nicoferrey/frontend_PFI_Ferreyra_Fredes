@@ -10,6 +10,8 @@ import {
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useAuth } from '@/lib/auth-context';
 import { checkEmailApi } from '@/lib/api';
+import { LegalConsent } from '@/components/legal/legal-consent';
+import Link from 'next/link';
 
 interface AuthFormProps {
   initialMode?: 'login' | 'signup';
@@ -47,6 +49,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   // Forgot Password Fields
   const [forgotEmail, setForgotEmail] = useState('');
@@ -145,7 +149,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       email.length > 0 && !emailError &&
       phone.replace(/\D/g, '').length >= 8 && !phoneError &&
       password.length >= 8 && !passwordError &&
-      confirmPassword === password && !confirmPasswordError;
+      confirmPassword === password && !confirmPasswordError &&
+      acceptedTerms;
 
   // Switch between Login, Signup, and Forgot modes
   const handleModeSwitch = (newMode: 'login' | 'signup' | 'forgot') => {
@@ -157,6 +162,8 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     setErrorMessage(null);
     setSuccessMessage(null);
     setTouched({});
+    setAcceptedTerms(false);
+    setMarketingOptIn(false);
     setOtp(['', '', '', '', '', '']);
     setNewPassword('');
     setConfirmNewPassword('');
@@ -287,7 +294,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setTimeout(() => {
           const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
           if (res.hasFields || (auth.fields && auth.fields.length > 0) || hasLotsInStorage) {
-            router.push('/');
+            router.push('/dashboard');
           } else {
             router.push('/onboarding');
           }
@@ -378,6 +385,11 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       setErrorMessage('Por favor ingresa un número de WhatsApp con código de país (ej. +54 9 11 2345 6789).');
       return;
     }
+    if (!acceptedTerms) {
+      markTouched('acceptedTerms');
+      setErrorMessage('Para crear la cuenta tenés que aceptar los Términos y la Política de privacidad.');
+      return;
+    }
 
     setLoading(true);
     setErrorMessage(null);
@@ -398,7 +410,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
       if (res.hasFields || auth.fields.length > 0 || hasLotsInStorage) {
         setSuccessMessage('¡Cuenta vinculada con éxito! Redirigiendo a tu panel...');
-        setTimeout(() => router.push('/'), 800);
+        setTimeout(() => router.push('/dashboard'), 800);
       } else {
         setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
         setTimeout(() => router.push('/onboarding'), 800);
@@ -420,9 +432,15 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       phone: true,
       password: true,
       confirmPassword: true,
+      acceptedTerms: true,
     });
 
-    if (!isFormValid) return;
+    if (!isFormValid) {
+      if (mode === 'signup' && !acceptedTerms) {
+        setErrorMessage('Para crear la cuenta tenés que aceptar los Términos y la Política de privacidad.');
+      }
+      return;
+    }
 
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -447,7 +465,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setTimeout(() => {
           const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
           if (res.hasFields || auth.fields.length > 0 || hasLotsInStorage) {
-            router.push('/');
+            router.push('/dashboard');
           } else {
             router.push('/onboarding');
           }
@@ -472,6 +490,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('agromas_lots');
           localStorage.removeItem('agromas_center');
+          localStorage.setItem('agromas_marketing_opt_in', marketingOptIn ? '1' : '0');
         }
 
         setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
@@ -498,7 +517,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto flex flex-col justify-between h-[580px]">
+    <div className="w-full max-w-xl mx-auto flex flex-col justify-between min-h-[580px]">
       
       <div>
         {/* Tab Selector (Login / Signup) */}
@@ -629,6 +648,14 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
                 </p>
               )}
             </div>
+
+            <LegalConsent
+              accepted={acceptedTerms}
+              onAcceptedChange={setAcceptedTerms}
+              marketing={marketingOptIn}
+              onMarketingChange={setMarketingOptIn}
+              showError={!!touched.acceptedTerms}
+            />
 
             <button
               type="submit"
@@ -1001,6 +1028,15 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </label>
             </div>
 
+            <p className="text-[10px] leading-relaxed text-slate-500">
+              Al iniciar sesión aceptás los{' '}
+              <Link href="/legal/terminos" className="font-bold text-crop-700 underline underline-offset-2">Términos</Link>
+              {' '}y la{' '}
+              <Link href="/legal/privacidad" className="font-bold text-crop-700 underline underline-offset-2">Privacidad</Link>
+              . Usamos cookies necesarias para la sesión.{' '}
+              <Link href="/legal/cookies" className="font-bold text-crop-700 underline underline-offset-2">Más info</Link>.
+            </p>
+
             <button
               type="submit"
               disabled={loading || googleLoading}
@@ -1202,7 +1238,14 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </div>
             </div>
 
-            {/* Submit Button */}
+            <LegalConsent
+              accepted={acceptedTerms}
+              onAcceptedChange={setAcceptedTerms}
+              marketing={marketingOptIn}
+              onMarketingChange={setMarketingOptIn}
+              showError={!!touched.acceptedTerms}
+            />
+
             <button
               type="submit"
               disabled={loading}
@@ -1223,16 +1266,25 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
 
       {/* Footer Mode Switch Link */}
       {!isGooglePhonePrompt && mode !== 'forgot' && (
-        <p className="text-center text-slate-500 text-xs font-medium pt-2">
-          {mode === 'login' ? '¿Aún no tienes una cuenta?' : '¿Ya tienes una cuenta registrada?'}
-          <button
-            type="button"
-            onClick={() => handleModeSwitch(mode === 'login' ? 'signup' : 'login')}
-            className="ml-1.5 font-bold text-emerald-700 hover:text-emerald-800 underline transition"
-          >
-            {mode === 'login' ? 'Crear cuenta' : 'Inicia sesión'}
-          </button>
-        </p>
+        <div className="pt-3 space-y-2">
+          <p className="text-center text-slate-500 text-xs font-medium">
+            {mode === 'login' ? '¿Aún no tienes una cuenta?' : '¿Ya tienes una cuenta registrada?'}
+            <button
+              type="button"
+              onClick={() => handleModeSwitch(mode === 'login' ? 'signup' : 'login')}
+              className="ml-1.5 font-bold text-emerald-700 hover:text-emerald-800 underline transition"
+            >
+              {mode === 'login' ? 'Crear cuenta' : 'Inicia sesión'}
+            </button>
+          </p>
+          <p className="text-center text-[10px] font-medium text-slate-400">
+            <Link href="/legal/terminos" className="hover:text-crop-700">Términos</Link>
+            <span className="mx-1.5">·</span>
+            <Link href="/legal/privacidad" className="hover:text-crop-700">Privacidad</Link>
+            <span className="mx-1.5">·</span>
+            <Link href="/legal/cookies" className="hover:text-crop-700">Cookies</Link>
+          </p>
+        </div>
       )}
 
     </div>

@@ -557,7 +557,7 @@ export default function OnboardingWizard() {
 
     // Redirect to Dashboard
     setTimeout(() => {
-      router.push('/');
+      router.push('/dashboard');
     }, 1800);
   };
 
@@ -600,7 +600,7 @@ export default function OnboardingWizard() {
               </div>
 
               <Link
-                href="/"
+                href="/dashboard"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 transition shadow-xs"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -611,7 +611,7 @@ export default function OnboardingWizard() {
             {auth.fields && auth.fields.length > 0 && (
               <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between text-xs text-emerald-800">
                 <span>Ya cuentas con {auth.fields.length} lotes activos</span>
-                <Link href="/" className="font-bold underline hover:text-emerald-900">
+                <Link href="/dashboard" className="font-bold underline hover:text-emerald-900">
                   Ir al Tablero &rarr;
                 </Link>
               </div>

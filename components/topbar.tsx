@@ -156,10 +156,10 @@ export function Topbar({
 
   // Auto-generate breadcrumbs if none provided
   const resolvedBreadcrumbs: BreadcrumbItem[] = breadcrumbs || [
-    { label: 'Inicio', href: '/' },
+    { label: 'Inicio', href: '/dashboard' },
     ...(pathname === '/onboarding'
       ? [{ label: 'Configuración de Campo', active: true }]
-      : pathname !== '/'
+      : pathname !== '/dashboard'
       ? [
           {
             label:
@@ -502,7 +502,8 @@ export function Topbar({
                     <span>Ajustes de Cuenta</span>
                   </Link>
 
-                  <button
+                  <Link
+                    href="/#faq"
                     onClick={() => {
                       setUserDropdownOpen(false);
                     }}
@@ -510,7 +511,7 @@ export function Topbar({
                   >
                     <HelpCircle className="h-4 w-4 text-slate-500" />
                     <span>Centro de Ayuda</span>
-                  </button>
+                  </Link>
                 </div>
 
                 {/* Divider */}

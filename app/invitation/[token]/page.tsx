@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
+import { LegalConsent } from '@/components/legal/legal-consent';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -70,6 +71,9 @@ export default function InvitationPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [touchedTerms, setTouchedTerms] = useState(false);
 
   // Real-time Field Touch State
   const [touched, setTouched] = useState({
@@ -162,6 +166,12 @@ export default function InvitationPage() {
       }
     }
 
+    if (!acceptedTerms) {
+      setTouchedTerms(true);
+      setSubmitError('Para unirte tenés que aceptar los Términos y la Política de privacidad.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const res = await auth.acceptInvitation(token, {
@@ -173,7 +183,7 @@ export default function InvitationPage() {
 
     if (res.success) {
       // Direct redirect to Dashboard with active session
-      router.push('/');
+      router.push('/dashboard');
     } else {
       setSubmitError(res.error || 'Error al aceptar la invitación.');
       setIsSubmitting(false);
@@ -453,6 +463,17 @@ export default function InvitationPage() {
                     </p>
                   </div>
                 )}
+
+                <LegalConsent
+                  accepted={acceptedTerms}
+                  onAcceptedChange={(value) => {
+                    setAcceptedTerms(value);
+                    setTouchedTerms(true);
+                  }}
+                  marketing={marketingOptIn}
+                  onMarketingChange={setMarketingOptIn}
+                  showError={touchedTerms}
+                />
 
                 {/* Action Submit Button */}
                 <button

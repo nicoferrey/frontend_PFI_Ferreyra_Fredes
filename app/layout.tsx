@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import { AuthProvider } from '@/lib/auth-context';
+import { CookieConsentProvider } from '@/components/legal/cookie-consent-provider';
+import { CookieBanner } from '@/components/legal/cookie-banner';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AgroMAS Dashboard',
-  description: 'Dashboard agrotech para monitoreo satelital, balance hidrico y sostenibilidad.',
+  title: 'AgroMAS | Riego de precisión con satélite e IA',
+  description: 'Plataforma AgTech para monitoreo satelital, balance hídrico FAO-56 y recomendaciones de riego con agentes de inteligencia artificial.',
 };
 
 export default function RootLayout({
@@ -19,7 +21,12 @@ export default function RootLayout({
         <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <CookieConsentProvider>
+            {children}
+            <CookieBanner />
+          </CookieConsentProvider>
+        </AuthProvider>
       </body>
     </html>
   );

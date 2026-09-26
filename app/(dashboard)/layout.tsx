@@ -12,6 +12,7 @@ import {
   Sprout,
   ChevronRight,
   MapPinned,
+  Globe2,
   X
 } from 'lucide-react';
 import { Topbar, BreadcrumbItem } from '@/components/topbar';
@@ -21,7 +22,7 @@ import { Logo } from '@/components/logo';
 import { ProtectedRoute } from '@/components/auth-guard';
 
 const navigationItems = [
-  { label: 'Inicio / Dashboard', icon: Home, href: '/' },
+  { label: 'Inicio / Dashboard', icon: Home, href: '/dashboard' },
   { label: 'Mapa de Lotes', icon: Map, href: '/map' },
   { label: 'Historial y Reportes', icon: History, href: '/history' },
   { label: 'Asistente IA', icon: Bot, badge: 'MAS', href: '/assistant' },
@@ -29,7 +30,7 @@ const navigationItems = [
 ];
 
 const breadcrumbLabels: Record<string, string> = {
-  '/': 'Inicio / Dashboard',
+  '/dashboard': 'Inicio / Dashboard',
   '/map': 'Mapa de Lotes',
   '/history': 'Historial y Reportes',
   '/assistant': 'Asistente IA',
@@ -92,7 +93,7 @@ function SidebarNavContent({ onCloseMobile }: { onCloseMobile?: () => void }) {
       <div>
         {/* Logo & Brand (Clickable link to Dashboard /) */}
         <Link 
-          href="/" 
+          href="/dashboard" 
           onClick={onCloseMobile}
           className="group flex items-center gap-3.5 border-b border-slate-200/80 pb-5 cursor-pointer"
         >
@@ -146,6 +147,14 @@ function SidebarNavContent({ onCloseMobile }: { onCloseMobile?: () => void }) {
 
       {/* Real Dynamic System Status */}
       <div className="space-y-3 pt-4 border-t border-slate-200/80">
+        <Link
+          href="/"
+          onClick={onCloseMobile}
+          className="flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-crop-800"
+        >
+          <Globe2 className="h-3.5 w-3.5" />
+          Sitio institucional
+        </Link>
         <div className="rounded-[24px] bg-slate-950 p-4 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400 font-semibold">Estado del sistema</p>
@@ -191,9 +200,9 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
 
   const breadcrumbs: BreadcrumbItem[] = React.useMemo(() => {
     // 1. Dashboard Home
-    if (pathname === '/') {
+    if (pathname === '/dashboard') {
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Tablero General', active: true },
       ];
     }
@@ -203,7 +212,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
       const tab = searchParams.get('tab');
       const isProfile = tab === 'profile';
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Configuración', href: '/settings' },
         {
           label: isProfile ? 'Perfil de Usuario' : 'Campo y Equipo',
@@ -215,7 +224,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
     // 3. Map (Mapa de Lotes)
     if (pathname === '/map') {
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Mapa de Lotes', href: '/map' },
         {
           label: selectedLot ? selectedLot.name : 'Visor Espacial',
@@ -227,7 +236,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
     // 4. History (Historial y Reportes)
     if (pathname === '/history') {
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Historial y Reportes', href: '/history' },
         {
           label: selectedLot ? selectedLot.name : 'Balance y Eventos',
@@ -239,7 +248,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
     // 5. Assistant (Asistente IA)
     if (pathname === '/assistant') {
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Asistente IA', href: '/assistant' },
         { label: 'Diagnóstico MAS', active: true },
       ];
@@ -248,7 +257,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
     // 6. Onboarding
     if (pathname === '/onboarding') {
       return [
-        { label: 'Inicio', href: '/' },
+        { label: 'Inicio', href: '/dashboard' },
         { label: 'Configuración', href: '/settings' },
         { label: 'Asistente de Campo', active: true },
       ];
@@ -256,7 +265,7 @@ function DashboardHeaderBar({ onToggleSidebar }: { onToggleSidebar: () => void }
 
     // Fallback
     return [
-      { label: 'Inicio', href: '/' },
+      { label: 'Inicio', href: '/dashboard' },
       { label: breadcrumbLabels[pathname] || 'Dashboard', active: true },
     ];
   }, [pathname, searchParams, selectedLot]);

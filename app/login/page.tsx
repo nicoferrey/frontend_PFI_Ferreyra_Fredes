@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Sprout, Droplets, Waves, MessageSquareText, ShieldCheck, 
@@ -55,13 +55,15 @@ function TypewriterTagline() {
   );
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/');
+      router.replace('/dashboard');
     }
   }, [isLoading, isAuthenticated, router]);
 
@@ -91,8 +93,8 @@ export default function LoginPage() {
             {/* Brand Header */}
             <div>
               <Link href="/" className="flex items-center gap-3.5 group w-fit">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition duration-300">
-                  <Logo className="h-6 w-6 text-white" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 transition-all duration-500 ease-out group-hover:scale-110 group-hover:shadow-emerald-500/40 group-hover:rotate-3">
+                  <Logo className="h-6 w-6 text-white transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400">Plataforma AgTech</p>
@@ -147,10 +149,10 @@ export default function LoginPage() {
                 <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-md space-y-1.5 hover:border-cyan-500/30 transition">
                   <div className="flex items-center gap-2 text-cyan-400">
                     <Droplets className="h-4 w-4 shrink-0" />
-                    <span className="font-bold text-xs xl:text-sm">Estaciones y Clima Histórico</span>
+                    <span className="font-bold text-xs xl:text-sm">Clima georreferenciado</span>
                   </div>
                   <p className="text-[11px] xl:text-xs text-slate-400 leading-relaxed">
-                    Comparativa climática e integración con estaciones INTA EEAVI y fuentes meteorológicas.
+                    Consenso entre Open-Meteo y NASA POWER para no decidir con una sola fuente meteorológica.
                   </p>
                 </div>
 
@@ -165,9 +167,9 @@ export default function LoginPage() {
             <div className="w-full max-w-xl bg-white text-slate-900 rounded-[32px] p-6 sm:p-8 xl:p-10 shadow-2xl border border-slate-200/80">
               {/* Mobile Brand Header */}
               <div className="w-full lg:hidden flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10">
-                    <Logo className="h-6 w-6 text-white" />
+                <div className="group flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10 transition-all duration-500 ease-out group-hover:scale-110 group-hover:rotate-3">
+                    <Logo className="h-6 w-6 text-white transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3" />
                   </div>
                   <div>
                     <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-emerald-600">PLATAFORMA</p>
@@ -175,12 +177,12 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <Link href="/" className="text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
-                  Tablero &rarr;
+                  Sitio &rarr;
                 </Link>
               </div>
 
               {/* Auth Form Component */}
-              <AuthForm />
+              <AuthForm initialMode={initialMode} />
             </div>
 
           </section>
@@ -190,5 +192,13 @@ export default function LoginPage() {
       </main>
 
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<CloudLoading text="Cargando plataforma..." />}>
+      <LoginContent />
+    </Suspense>
   );
 }

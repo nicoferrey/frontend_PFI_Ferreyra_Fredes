@@ -34,3 +34,181 @@ a {
   background: rgba(63, 157, 79, 0.18);
   color: #102116;
 }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-left {
+  transform: translateX(-36px);
+}
+
+.reveal-right {
+  transform: translateX(36px);
+}
+
+.reveal-scale {
+  transform: translateY(20px) scale(0.96);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.hero-enter {
+  animation: hero-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-nav-enter {
+  animation: nav-drop 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-drawer-enter {
+  animation: drawer-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-drawer-backdrop {
+  animation: fade-soft 0.28s ease both;
+}
+
+.float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
+.stroke-draw {
+  stroke-dasharray: 720;
+  stroke-dashoffset: 720;
+  animation: stroke-draw 1.8s ease forwards 0.45s;
+}
+
+.kpi-pop {
+  animation: kpi-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nav-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes fade-soft {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes stroke-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes kpi-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .hero-enter,
+  .landing-nav-enter,
+  .landing-drawer-enter,
+  .landing-drawer-backdrop,
+  .float-slow,
+  .stroke-draw,
+  .kpi-pop {
+    animation: none;
+  }
+
+  .stroke-draw {
+    stroke-dashoffset: 0;
+  }
+}
+
+.landing-hero-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #0f172a;
+  font-family: inherit;
+}
+
+.landing-hero-map .leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.72);
+  color: rgba(226, 232, 240, 0.8);
+  font-size: 9px;
+  margin: 0;
+}
+
+.landing-hero-map .leaflet-control-attribution a {
+  color: #6ee7b7;
+}
+
+.leaflet-tooltip.landing-map-tooltip {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 11px;
+  padding: 6px 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.leaflet-tooltip.landing-map-tooltip::before {
+  border-top-color: #0f172a;
+}

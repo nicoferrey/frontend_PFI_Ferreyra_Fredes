@@ -22,7 +22,7 @@ function OnboardingContent() {
   useEffect(() => {
     if (isOperator) {
       const timer = setTimeout(() => {
-        router.replace('/');
+        router.replace('/dashboard');
       }, 3000);
       return () => clearTimeout(timer);
     }
@@ -48,7 +48,7 @@ function OnboardingContent() {
 
           <div className="pt-2">
             <button
-              onClick={() => router.replace('/')}
+              onClick={() => router.replace('/dashboard')}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-6 py-3 text-xs font-bold shadow-lg shadow-emerald-600/20 hover:scale-[1.02] active:scale-[0.98] transition duration-200"
             >
               <ArrowLeft className="h-4 w-4" />
