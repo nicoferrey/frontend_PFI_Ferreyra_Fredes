@@ -258,10 +258,6 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     <div className={`space-y-6 ${className}`}>
       
       {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{formError}</p>}
-      {lot.warnings.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-semibold">Advertencias del modelo y de los datos</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5">{lot.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
-      </div>}
       {/* 1. TOP SUMMARY CARD: Lot Header & Quick FAO-56 Matrix */}
       <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90">
         
