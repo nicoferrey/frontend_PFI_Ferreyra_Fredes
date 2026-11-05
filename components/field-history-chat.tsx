@@ -17,7 +17,6 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
   const [turns, setTurns] = useState<Array<{ question: string; result: FieldHistoryAnswer }>>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const [interpret, setInterpret] = useState(false);
   const transcript = useRef<HTMLDivElement>(null);
   const validRange = !!from && !!to && from <= to && to <= yesterday && from >= shiftFieldDate(to, -89);
 
@@ -35,7 +34,7 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
       const last = turns.at(-1);
       const previous = last?.result.date_from === from && last.result.date_to === to ? last.question : undefined;
       const result = await askFieldHistoryApi(fieldId, { question: asked, date_from: from, date_to: to,
-        use_language_model: interpret, ...(interpret && previous ? { previous_question: previous } : {}) });
+        ...(previous ? { previous_question: previous } : {}) });
       setTurns(previous => [...previous.slice(-19), { question: asked, result }]);
       setQuestion('');
     } catch (err) {
@@ -77,7 +76,7 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
           Puedo ayudarte a entender el balance, la lluvia, el NDVI y la recomendación de riego de este lote.
         </div>
         <div className="flex flex-wrap gap-2">
-          {(interpret ? [...examples, conversationalExample] : examples).map(example =>
+          {[...examples, conversationalExample].map(example =>
             <button key={example} type="button" disabled={pending} onClick={() => setQuestion(example)}
               className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs text-emerald-900">{example}</button>)}
         </div>
@@ -107,11 +106,8 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
         <button type="submit" aria-label="Enviar pregunta" disabled={pending || !validRange || !question.trim()}
           className="rounded-xl bg-emerald-700 p-2.5 text-white disabled:opacity-40"><ArrowUp className="h-5 w-5" /></button>
       </div>
-      <label className="flex items-start gap-2 text-xs text-slate-600">
-        <input type="checkbox" checked={interpret} disabled={pending} onChange={event => setInterpret(event.target.checked)} />
-        <span><strong>Interpretar con Gemini.</strong> Se envían el texto de la pregunta, la anterior si aplica y las fechas,
-          no los registros del lote. No incluyas información personal.</span>
-      </label>
+      <p className="text-xs text-slate-600"><strong>Gemini interpreta las preguntas.</strong> Al enviar, se comparten
+        la pregunta, la anterior si aplica y las fechas, no los registros del lote. No incluyas información personal.</p>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
   </section>;

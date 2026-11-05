@@ -571,7 +571,7 @@ export interface FieldHistoryAnswer {
 
 export async function askFieldHistoryApi(
   fieldId: number, query: { question: string; date_from: string; date_to: string;
-    use_language_model?: boolean; previous_question?: string },
+    previous_question?: string },
 ): Promise<FieldHistoryAnswer> {
   const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
     method: 'POST', body: JSON.stringify(query), cache: 'no-store',
