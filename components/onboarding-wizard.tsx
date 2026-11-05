@@ -1,5 +1,7 @@
 "use client";
 
+import { fieldDateString, shiftFieldDate } from '@/lib/field-dates';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +17,7 @@ import { useAuth } from '@/lib/auth-context';
 
 interface Lot {
   id: string;
+  persisted?: boolean;
   name: string;
   polygon: [number, number][];
   area: number;
@@ -44,6 +47,13 @@ const PRESET_REGIONS = [
 ];
 
 const AUTO_SOIL_ID = 'AUTO';
+
+function formatSaveError(data: any): string {
+  const detail = data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((item) => item?.msg || 'Dato inválido').join('; ');
+  return 'El servidor rechazó la operación. Revisá los datos y tus permisos.';
+}
 
 // FAO/soil physical properties fallback lookup. AWC is shown as mm/m and
 // backend combines it with crop root depth; it is not sent as measured TAW.
@@ -76,7 +86,7 @@ const INITIAL_WATER_OPTIONS = [
   { id: 'MEDIUM', label: 'Humedad media', pct: 60, desc: 'Reserva intermedia cuando no hay medición' },
   { id: 'DRY', label: 'Suelo seco', pct: 30, desc: 'Condición inicial conservadora para lotes secos' },
   { id: 'MEASURED', label: 'Valor medido', pct: null, desc: 'Carga agua disponible inicial en milímetros' },
-  { id: 'UNKNOWN', label: 'Auto / no sé', pct: null, desc: 'El backend usará capacidad de campo y avisará menor precisión' },
+  { id: 'UNKNOWN', label: 'Auto / no sé', pct: null, desc: 'El backend estima un estado inicial y conserva su incertidumbre; no equivale a suelo vacío' },
 ];
 
 const PHENOLOGICAL_STAGES = [
@@ -248,6 +258,8 @@ export default function OnboardingWizard() {
 
   // Setup completion animation state
   const [isFinishing, setIsFinishing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Custom Dialog State for alerts
   const [dialogState, setDialogState] = useState<{
@@ -279,6 +291,7 @@ export default function OnboardingWizard() {
         }
         return {
           id: String(f.id),
+          persisted: true,
           name: f.name,
           polygon: coords,
           area: f.area_ha,
@@ -290,7 +303,8 @@ export default function OnboardingWizard() {
           taw: f.total_available_water_taw,
           initialWaterPct: f.initial_available_water_pct,
           initialWaterMm: f.initial_available_water_mm,
-          initialWaterSource: f.initial_water_source || 'UNKNOWN',
+          initialWaterSource: f.initial_available_water_mm != null ? 'MEASURED' :
+            INITIAL_WATER_OPTIONS.find((option) => option.pct != null && option.pct === f.initial_available_water_pct)?.id || 'UNKNOWN',
           sowingDate: f.sowing_date,
           emergenceDate: f.emergence_date,
           expectedHarvestDate: f.expected_harvest_date,
@@ -327,7 +341,7 @@ export default function OnboardingWizard() {
     // Estimate default agronomic parameters
     const defaultSoil = SOIL_TYPES[0];
     const crop = 'Maíz';
-    const irrigation = 'Pivote';
+    const irrigation = '';
 
     const fullLot: Lot = {
       ...newLot,
@@ -372,7 +386,7 @@ export default function OnboardingWizard() {
       setLotSoil(lot.soil);
       setLotIrrigation(lot.irrigation);
       setLotInitialWaterSource(lot.initialWaterSource || 'UNKNOWN');
-      setLotInitialWaterMm(lot.initialWaterMm ? String(lot.initialWaterMm) : '');
+      setLotInitialWaterMm(lot.initialWaterMm != null ? String(lot.initialWaterMm) : '');
       setLotSowingDate(lot.sowingDate || '');
       setLotEmergenceDate(lot.emergenceDate || '');
       setLotExpectedHarvestDate(lot.expectedHarvestDate || '');
@@ -469,11 +483,13 @@ export default function OnboardingWizard() {
 
   // Complete onboarding flow, save results and redirect
   const handleFinish = async () => {
+    if (isFinishing) return;
+    setSaveError(null);
+    if (!lots.length || lots.some((lot) => !lot.crop.trim() || !lot.irrigation.trim())) {
+      setSaveError('Cada lote necesita cultivo y sistema de riego. El sistema de riego es obligatorio.');
+      return;
+    }
     setIsFinishing(true);
-    
-    // Save to localStorage as immediate offline cache
-    localStorage.setItem('agromas_lots', JSON.stringify(lots));
-    localStorage.setItem('agromas_center', JSON.stringify(center));
 
     // Persist each lot to the backend database via POST/PATCH/DELETE
     try {
@@ -482,12 +498,7 @@ export default function OnboardingWizard() {
       const deletedFieldIds = existingFieldIds.filter((id) => !currentLotIds.includes(id));
       const savedFieldIds: Array<string | number> = [];
 
-      // 1. Delete fields removed by the user
-      for (const idToDelete of deletedFieldIds) {
-        await deleteFieldApi(idToDelete);
-      }
-
-      // 2. Create or update current lots
+      // Save desired lots first. Failed creation must not delete existing lots.
       for (const [idx, lot] of lots.entries()) {
         // Convert [lat, lng] to standard GeoJSON [lng, lat]
         const geojsonCoords = lot.polygon.map(([lat, lng]) => [lng, lat]);
@@ -509,6 +520,7 @@ export default function OnboardingWizard() {
           },
           area_ha: parseFloat(lot.area.toFixed(2)),
           soil_type: lot.soil === AUTO_SOIL_ID ? null : lot.soil,
+          estimate_soil: lot.soil === AUTO_SOIL_ID,
           crop_type: lot.crop,
           irrigation_system: lot.irrigation,
           initial_available_water_pct: lot.initialWaterPct ?? null,
@@ -520,26 +532,36 @@ export default function OnboardingWizard() {
           phenological_stage: lot.phenologicalStage || null
         };
 
-        const isExisting = existingFieldIds.includes(String(lot.id));
+        const isExisting = lot.persisted || existingFieldIds.includes(String(lot.id));
         if (isExisting) {
           const result = await updateFieldApi(lot.id, payload);
           if (result.ok) {
             savedFieldIds.push(result.data?.id || lot.id);
+          } else {
+            throw new Error(`No se pudo guardar ${lot.name}: ${formatSaveError(result.data)}`);
           }
         } else {
           const result = await createFieldApi(payload);
           if (result.ok && result.data?.id) {
             savedFieldIds.push(result.data.id);
+            // Keep the persisted ID if a later lot fails, so retry is a PATCH,
+            // not a second POST that duplicates the successful first lot.
+            setLots((current) => current.map((item) => item.id === lot.id ? { ...item, id: String(result.data.id), persisted: true } : item));
+            if (selectedLotId === lot.id) setSelectedLotId(String(result.data.id));
+          } else {
+            throw new Error(`No se pudo guardar ${lot.name}: ${formatSaveError(result.data)}`);
           }
         }
       }
 
+      for (const idToDelete of deletedFieldIds) {
+        if (!await deleteFieldApi(idToDelete)) throw new Error('No se pudo eliminar uno de los lotes. No se completó la configuración.');
+      }
+
       const refreshedFields = await auth.refreshProfile();
       const fieldsToRefresh = savedFieldIds.length > 0 ? savedFieldIds : refreshedFields.map((field) => field.id);
-      const dateTo = new Date().toISOString().slice(0, 10);
-      const dateFromDate = new Date();
-      dateFromDate.setDate(dateFromDate.getDate() - 30);
-      const dateFrom = dateFromDate.toISOString().slice(0, 10);
+      const dateTo = fieldDateString();
+      const dateFrom = shiftFieldDate(dateTo, -30);
 
       await Promise.all(
         fieldsToRefresh.map((fieldId) =>
@@ -547,18 +569,19 @@ export default function OnboardingWizard() {
             force: true,
             date_from: dateFrom,
             date_to: dateTo,
+          }).then((result) => {
+            if (!result.ok) throw new Error('Los lotes se guardaron, pero no se pudo actualizar su análisis. Podés reintentar sin volver a crearlos.');
           })
         )
       );
       await auth.refreshProfile();
-    } catch (err) {
-      console.warn('Backend field sync error during onboarding:', err);
-    }
-
-    // Redirect to Dashboard
-    setTimeout(() => {
+      localStorage.setItem('agromas_center', JSON.stringify(center));
+      setIsSaved(true);
       router.push('/dashboard');
-    }, 1800);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'No se pudo guardar la configuración. Revisá los datos e intentá nuevamente.');
+      setIsFinishing(false);
+    }
   };
 
   const currentSelectedLot = lots.find((l) => l.id === selectedLotId);
@@ -574,7 +597,7 @@ export default function OnboardingWizard() {
             <div className="absolute inset-0 rounded-full border border-emerald-300 animate-ping" />
           </div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-crop-700 via-emerald-600 to-water-700 bg-clip-text text-transparent">
-            ¡Configuración Completada Exitosamente!
+            {isSaved ? '¡Configuración guardada!' : 'Guardando configuración...'}
           </h2>
           <p className="text-slate-500 mt-3 max-w-md leading-relaxed text-sm">
             El Agente de Riego AgroMAS está procesando tus lotes con el modelo FAO-56. Cargando interfaz de monitoreo satelital...
@@ -584,6 +607,7 @@ export default function OnboardingWizard() {
 
       {/* Control Sidebar Panel */}
       <aside className="relative z-10 flex w-full shrink-0 flex-col justify-between border-b border-slate-200 bg-white/90 p-5 shadow-soft backdrop-blur-md lg:w-[460px] lg:border-b-0 lg:border-r lg:p-6">
+        {saveError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{saveError}</p>}
         <div className="flex flex-col h-full justify-start">
           
           {/* Header */}
@@ -1081,12 +1105,14 @@ export default function OnboardingWizard() {
 
                     {/* Irrigation System selector */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Sistema de Riego Instalado</label>
+                      <label className="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Sistema de Riego Instalado (obligatorio)</label>
                       <select
+                        required
                         value={currentSelectedLot.irrigation || lotIrrigation}
                         onChange={(e) => updateLotField('irrigation', e.target.value)}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 shadow-xs focus:outline-none focus:border-cyan-500 transition"
                       >
+                        <option value="" disabled>Seleccioná el sistema de riego</option>
                         {IRRIGATION_SYSTEMS.map((sys) => (
                           <option key={sys.id} value={sys.id}>
                             {sys.name}

@@ -15,7 +15,7 @@ import {
   BrainCircuit,
   Eye
 } from 'lucide-react';
-import { useDashboard, defaultDemoPolygons } from '../context';
+import { useDashboard, formatMetric } from '../context';
 import { PageHeader } from '@/components/page-header';
 import { HeaderButton } from '@/components/header-button';
 import { KpiCard } from '@/components/kpi-card';
@@ -34,7 +34,7 @@ export default function DashboardHome() {
     rawCustomPolygons,
     fieldSnapshots,
     isRefreshingAgents,
-    hasCustomLots
+    agentRefreshError,
   } = useDashboard();
 
   const criticalLots = useMemo(() => {
@@ -42,9 +42,12 @@ export default function DashboardHome() {
   }, [lotsData]);
 
   const nextAction = useMemo(() => {
+    if (lotsData.length === 0 || lotsData.some((lot) => lot.hydricStatus === 'Sin datos')) {
+      return { value: 'Datos incompletos', delta: 'Cargar o revisar el balance antes de decidir' };
+    }
     if (criticalLots.length > 0) {
       return {
-        value: 'Regar hoy',
+        value: 'Revisar riego',
         delta: `${criticalLots[0].name} requiere prioridad alta`,
       };
     }
@@ -57,14 +60,13 @@ export default function DashboardHome() {
     }
     return {
       value: 'Esperar',
-      delta: 'Sin intervención urgente',
+      delta: 'Sin umbral modelado superado en los datos disponibles',
     };
   }, [criticalLots, lotsData]);
 
   const averageAvailableWater = useMemo(() => {
-    if (lotsData.length === 0) return 0;
-    const total = lotsData.reduce((sum, lot) => sum + lot.waterAvailableAU_pct, 0);
-    return Math.round(total / lotsData.length);
+    const values = lotsData.filter((lot) => lot.hydricStateIsCurrent).map((lot) => lot.waterAvailableAU_pct).filter((value): value is number => value !== null);
+    return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
   }, [lotsData]);
 
   const agentStatus = useMemo(() => {
@@ -76,7 +78,7 @@ export default function DashboardHome() {
     if (snapshotCount < lotsData.length) {
       return { value: 'Revisar', delta: `${snapshotCount}/${lotsData.length} lotes analizados` };
     }
-    return { value: 'OK', delta: 'Agentes con datos actualizados' };
+    return { value: 'Disponible', delta: 'Snapshots guardados; revisar fecha y calidad' };
   }, [fieldSnapshots, isRefreshingAgents, lotsData.length]);
 
   const dynamicKpis = [
@@ -90,14 +92,14 @@ export default function DashboardHome() {
     {
       title: 'Lotes críticos',
       value: String(criticalLots.length),
-      delta: criticalLots.length > 0 ? criticalLots.map((lot) => lot.name).slice(0, 2).join(', ') : 'Sin estrés crítico',
+      delta: criticalLots.length > 0 ? criticalLots.map((lot) => lot.name).slice(0, 2).join(', ') : 'Sin umbrales superados en balances disponibles',
       icon: AlertTriangle,
       tone: 'text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300'
     },
     {
       title: 'Agua disponible',
-      value: `${averageAvailableWater}%`,
-      delta: 'Promedio utilizable por el cultivo',
+      value: averageAvailableWater === null ? '-' : `${averageAvailableWater}%`,
+      delta: 'Promedio de lotes con balance modelado disponible',
       icon: Droplets,
       tone: 'text-water-700 bg-water-100 dark:bg-water-950 dark:text-water-300'
     },
@@ -115,7 +117,7 @@ export default function DashboardHome() {
     return lotsData.map((l) => ({
       id: l.id,
       name: l.name,
-      polygon: rawCustomPolygons[l.id] || defaultDemoPolygons[l.id] || [],
+      polygon: rawCustomPolygons[l.id] || [],
       area: l.areaHa,
       crop: l.crop,
       hydricStatus: l.hydricStatus,
@@ -127,7 +129,7 @@ export default function DashboardHome() {
       ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
       ndviSceneId: l.ndviSceneId,
     }));
-  }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
+  }, [lotsData, rawCustomPolygons]);
 
   const estimatedLots = useMemo(() => {
     return lotsData.filter((lot) => lot.usesEstimatedAgronomicData);
@@ -173,29 +175,8 @@ export default function DashboardHome() {
         }
       />
 
-      {/* Demo Mode Banner - visible when user has no real fields configured */}
-      {!hasCustomLots && (
-        <div className="rounded-[22px] border border-sky-200 bg-sky-50 px-5 py-4 text-sky-950 shadow-soft">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-start gap-3">
-              <Eye className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
-              <div>
-                <h3 className="text-sm font-extrabold">Modo Demostración</h3>
-                <p className="mt-0.5 text-xs leading-relaxed text-sky-800">
-                  Estás viendo datos de ejemplo. Para cargar tu campo real, completá el asistente de configuración inicial.
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/onboarding"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Configurar mi campo
-            </Link>
-          </div>
-        </div>
-      )}
+      {agentRefreshError && <p role="alert" className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">{agentRefreshError}</p>}
+      {lotsData.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">No hay lotes registrados cargados. Revisá tu conexión o completá el registro de un lote.</p>}
 
       {estimatedLots.length > 0 && (
         <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-soft">
@@ -229,7 +210,7 @@ export default function DashboardHome() {
             </h3>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Monitoreo Satelital Activo</span>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">Datos satelitales según disponibilidad</span>
           </div>
         </div>
 
@@ -284,9 +265,9 @@ export default function DashboardHome() {
                 {priorityAlerts.length === 0 ? (
                   <div className="py-8 px-4 text-center rounded-2xl bg-emerald-50/50 border border-dashed border-emerald-200">
                     <CheckCircle2 className="h-9 w-9 mx-auto text-emerald-500 mb-2" />
-                    <h4 className="text-sm font-bold text-emerald-950">¡Estabilidad Hídrica Lograda!</h4>
+                    <h4 className="text-sm font-bold text-emerald-950">Sin alertas disponibles</h4>
                     <p className="text-xs text-emerald-700 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                      Ningún lote se encuentra bajo estrés crítico. Los agentes no recomiendan intervención inmediata.
+                      No hay alertas prioritarias publicadas en los balances disponibles. La ausencia de datos no confirma ausencia de estrés.
                     </p>
                   </div>
                 ) : (
@@ -407,7 +388,7 @@ export default function DashboardHome() {
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="rounded-xl bg-slate-50 p-2">
                           <p className="text-[10px] text-slate-400 font-bold uppercase">Faltante</p>
-                          <p className="text-sm font-black text-slate-950">{lotItem.deficitDr_mm.toFixed(1)} <span className="text-[10px] font-bold text-slate-400">mm</span></p>
+                          <p className="text-sm font-black text-slate-950">{(lotItem.deficitDr_mm == null ? '—' : lotItem.deficitDr_mm.toFixed(1))} <span className="text-[10px] font-bold text-slate-400">mm</span></p>
                         </div>
                         <div className="rounded-xl bg-slate-50 p-2">
                           <p className="text-[10px] text-slate-400 font-bold uppercase">Disponible</p>
@@ -449,7 +430,7 @@ export default function DashboardHome() {
                   </thead>
                   <tbody className="divide-y divide-slate-100/90 text-xs">
                     {lotsData.map((lotItem) => {
-                      const statusColor = lotItem.hydricStatus === 'Normal'
+                      const statusColor = lotItem.hydricStatus === 'Sin datos' ? 'bg-slate-100 text-slate-600' : lotItem.hydricStatus === 'Normal'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/90'
                         : lotItem.hydricStatus === 'Atencion'
                         ? 'bg-amber-50 text-amber-800 border border-amber-200/90'
@@ -470,20 +451,20 @@ export default function DashboardHome() {
                           </td>
                           <td className="py-2.5 px-3 text-center font-bold text-slate-900 whitespace-nowrap">
                             <div className="flex items-baseline justify-center">
-                              <span className="text-xs font-black text-slate-950">{lotItem.deficitDr_mm.toFixed(1)}</span>
+                              <span className="text-xs font-black text-slate-950">{formatMetric(lotItem.deficitDr_mm)}</span>
                               <span className="text-[11px] font-bold text-slate-400 ml-0.5">mm</span>
                             </div>
                           </td>
                           <td className="py-2.5 px-3 text-center whitespace-nowrap">
                             <div className="flex items-baseline justify-center">
-                              <span className="text-xs font-extrabold text-slate-950">{lotItem.waterAvailableAU_pct}</span>
+                              <span className="text-xs font-extrabold text-slate-950">{formatMetric(lotItem.waterAvailableAU_pct, 0)}</span>
                               <span className="text-[11px] font-bold text-slate-400 ml-0.5">%</span>
                             </div>
                           </td>
                           <td className="py-2.5 px-3 text-center font-medium text-slate-500 whitespace-nowrap">
                             {lotItem.lastIrrigationDate !== '-' 
                               ? `${lotItem.lastIrrigationAmount_mm} mm (${lotItem.lastIrrigationDate})` 
-                              : 'Ninguno'}
+                              : 'Sin dato'}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex justify-end">

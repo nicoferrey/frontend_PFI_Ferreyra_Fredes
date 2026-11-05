@@ -34,7 +34,8 @@ import {
   FileSpreadsheet,
   FileText
 } from 'lucide-react';
-import { useDashboard } from '../context';
+import { useDashboard, formatMetric } from '../context';
+import { fieldDateString, shiftFieldDate, fieldDateTimeIso, fieldEventDate, fieldEventTime } from '@/lib/field-dates';
 import { useAuth } from '@/lib/auth-context';
 import { CustomSelect, SelectOption } from '@/components/custom-select';
 import { CustomDatePicker } from '@/components/custom-date-picker';
@@ -82,6 +83,7 @@ export default function DashboardHistoryPage() {
     setTeamMembers,
     fieldSnapshots,
     isRefreshingAgents,
+    historyLoadError,
   } = useDashboard();
   const { currentFarmId } = useAuth();
 
@@ -127,9 +129,9 @@ export default function DashboardHistoryPage() {
     notes: string;
   }>({
     type: 'riego',
-    date: new Date().toISOString().split('T')[0],
+    date: fieldDateString(),
     time: '12:00',
-    amount_mm: '15',
+    amount_mm: '',
     method: 'Pivote Central',
     notes: '',
   });
@@ -160,7 +162,7 @@ export default function DashboardHistoryPage() {
     variant?: 'danger' | 'warning' | 'info' | 'error' | 'success';
     isConfirm?: boolean;
     confirmText?: string;
-    onConfirm?: () => void | Promise<void>;
+    onConfirm?: () => void | boolean | Promise<void | boolean>;
   }>({
     isOpen: false,
     title: '',
@@ -205,6 +207,7 @@ export default function DashboardHistoryPage() {
 
   // Load consolidated reports & events for History Tab
   useEffect(() => {
+    setIrrigationEvents([]); setRainfallEvents([]); setNdviHistory([]); setReportsSummary(null); setTeamMembers([]);
     if (!selectedField) return;
 
     const fieldId = selectedField.id;
@@ -216,11 +219,7 @@ export default function DashboardHistoryPage() {
 
       try {
         // Extend dateFrom 60 days back for NDVI history so satellite scenes prior to selected range are always available
-        const dFrom = new Date(dateFrom);
-        if (!isNaN(dFrom.getTime())) {
-          dFrom.setDate(dFrom.getDate() - 60);
-        }
-        const extendedDateFrom = !isNaN(dFrom.getTime()) ? dFrom.toISOString().split('T')[0] : dateFrom;
+        const extendedDateFrom = shiftFieldDate(dateFrom, -60);
 
         const [irrigs, rains, ndviItems, summary, team] = await Promise.all([
           getIrrigationEventsApi(fieldId, dateFrom, dateTo),
@@ -265,7 +264,7 @@ export default function DashboardHistoryPage() {
       return uuid;
     };
 
-    const eventDateKey = (value: string) => value.slice(0, 10);
+    const eventDateKey = (value: string) => fieldEventDate(value);
     const formatDateLabel = (value: string) => {
       const [year, month, day] = value.split('-');
       return year && month && day ? `${day}/${month}` : value;
@@ -307,7 +306,7 @@ export default function DashboardHistoryPage() {
       if (next) return { ...next, exact: false };
 
       if (typeof fallback === 'number' && fallback > 0) return { date: dateKey, value: fallback, exact: true };
-      if (typeof selectedLotNdvi === 'number' && selectedLotNdvi > 0) return { date: dateKey, value: selectedLotNdvi, exact: false };
+      if (typeof selectedLotNdvi === 'number' && selectedLot?.ndviObservationDate) return { date: selectedLot.ndviObservationDate, value: selectedLotNdvi, exact: false };
 
       return null;
     };
@@ -356,19 +355,16 @@ export default function DashboardHistoryPage() {
     // Set of manual event date keys to avoid duplicating climatic rain on dates with manual rain
     const manualDateKeys = new Set(
       manualEvents.map((m) => {
-        const d = m.applied_at.split('T')[0];
+        const d = fieldEventDate(m.applied_at);
         return `${d}-${m.type}`;
       })
     );
 
     // 3. Climatic rain & irrigation events from active lot timeline (Open-Meteo & FAO-56 model)
     const climaticEvents: any[] = [];
-    if (selectedLot?.timeline && selectedLot.timeline.length > 0) {
-      selectedLot.timeline.forEach((day: any, idx: number) => {
-        const dateStr = day.date.includes('/')
-          ? day.date.split('/').reverse().join('-')
-          : day.date;
-        const normalizedDate = dateStr.length === 5 ? `2026-${dateStr}` : dateStr;
+    if (realHistory.length > 0) {
+      realHistory.forEach((day, idx) => {
+        const normalizedDate = day.date;
         const isoDate = `${normalizedDate}T08:00:00Z`;
 
         // Climatic Rain (if no manual rain registered on this date)
@@ -380,7 +376,7 @@ export default function DashboardHistoryPage() {
             amount_mm: day.rain_mm,
             method: day.rain_source === 'manual' ? 'Pluviómetro Manual' : 'Estación Open-Meteo',
             notes: formatNdviObservation(normalizedDate, day.ndvi),
-            registered_by: day.rain_source === 'manual' ? 'Operario Campo' : 'Open-Meteo Satelital',
+            registered_by: day.rain_source === 'manual' ? 'Registro manual diario' : (day.rain_source || 'Fuente meteorológica'),
             isManual: false,
           });
         }
@@ -392,7 +388,7 @@ export default function DashboardHistoryPage() {
             type: 'riego' as const,
             applied_at: isoDate,
             amount_mm: day.irrigation_mm,
-            method: 'Pivote Central (Modelo MAS)',
+            method: 'Riego acumulado en balance diario',
             notes: formatNdviObservation(normalizedDate, day.ndvi),
             registered_by: 'Sistema AgroMAS',
             isManual: false,
@@ -424,30 +420,8 @@ export default function DashboardHistoryPage() {
       );
     }
 
-    // Fallback demo events
-    return [
-      {
-        id: 'mock-i-1',
-        type: 'riego' as const,
-        applied_at: '2026-08-04T08:00:00Z',
-        amount_mm: 20.0,
-        method: 'Pivote Central',
-        notes: selectedLotNdvi ? `NDVI del día: ${selectedLotNdvi.toFixed(2)}` : 'NDVI: sin observación en el período',
-        registered_by: 'Esteban Ferreyra',
-        isManual: false,
-      },
-      {
-        id: 'mock-r-1',
-        type: 'lluvia' as const,
-        applied_at: '2026-07-28T18:00:00Z',
-        amount_mm: 18.0,
-        method: 'Estación Meteorológica',
-        notes: selectedLotNdvi ? `NDVI del día: ${selectedLotNdvi.toFixed(2)}` : 'NDVI: sin observación en el período',
-        registered_by: 'Open-Meteo Satelital',
-        isManual: false,
-      },
-    ];
-  }, [irrigationEvents, rainfallEvents, ndviHistory, realHistory, teamMembers, selectedLot]);
+    return [];
+  }, [irrigationEvents, rainfallEvents, ndviHistory, realHistory, teamMembers, selectedLot, deletedEventIds, editedEventOverrides]);
 
   // Pagination state for consolidated events table (5 items per page)
   const [currentPage, setCurrentPage] = useState(1);
@@ -465,137 +439,92 @@ export default function DashboardHistoryPage() {
   }, [consolidatedEvents, currentPage]);
 
   // Handler for unified event registration (Riego or Lluvia)
-  const handleSaveEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveEvent = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!selectedField) return;
     setIsSubmittingEvent(true);
-    const localDate = new Date(`${eventForm.date}T${eventForm.time}`);
-    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
-
-    let res;
-    if (eventForm.type === 'riego') {
-      res = await createIrrigationEventApi(selectedField.id, {
-        applied_at: isoDate,
-        amount_mm: parseFloat(eventForm.amount_mm) || 0,
-        method: eventForm.method,
-        notes: eventForm.notes,
-      });
-    } else {
-      res = await createRainfallEventApi(selectedField.id, {
-        recorded_at: isoDate,
-        amount_mm: parseFloat(eventForm.amount_mm) || 0,
-        notes: eventForm.notes,
-      });
-    }
-
-    if (res.ok) {
+    try {
+      const isoDate = fieldDateTimeIso(eventForm.date, eventForm.time);
+      const amount = Number(eventForm.amount_mm);
+      if (!eventForm.amount_mm.trim() || !Number.isFinite(amount) || amount <= 0) throw new Error('Ingresá milímetros mayores a cero.');
+      const result = eventForm.type === 'riego'
+        ? await createIrrigationEventApi(selectedField.id, {
+          applied_at: isoDate, amount_mm: amount, method: eventForm.method, notes: eventForm.notes,
+        })
+        : await createRainfallEventApi(selectedField.id, {
+          recorded_at: isoDate, amount_mm: amount, notes: eventForm.notes,
+        });
+      if (!result.ok) throw new Error(typeof result.data?.detail === 'string' ? result.data.detail : 'No se pudo registrar el evento.');
       setEventFormSuccess(true);
       setTimeout(() => {
-        setEventFormSuccess(false);
-        setIsEventModalOpen(false);
-        setHistoryReloadTrigger((prev: number) => prev + 1);
-        setEventForm({
-          type: 'riego',
-          date: new Date().toISOString().split('T')[0],
-          time: '12:00',
-          amount_mm: '15',
-          method: 'Pivote Central',
-          notes: '',
-        });
+        setEventFormSuccess(false); setIsEventModalOpen(false);
+        setHistoryReloadTrigger((previous) => previous + 1);
+        setEventForm({ type: 'riego', date: fieldDateString(), time: '12:00', amount_mm: '', method: selectedField.irrigation_system, notes: '' });
       }, 1000);
-    } else {
-      setDialogState({
-        isOpen: true,
-        title: `Error al registrar ${eventForm.type}`,
-        description: res.data?.detail || 'Inténtelo de nuevo.',
-        variant: 'error',
-        isConfirm: false,
-      });
-    }
-    setIsSubmittingEvent(false);
+    } catch (error) { alert(error instanceof Error ? error.message : 'No se pudo registrar el evento.'); }
+    finally { setIsSubmittingEvent(false); }
   };
 
   // Quick preset helper for date range filter
   const handleApplyQuickDatePreset = (days: number) => {
-    const today = new Date();
-    const past = new Date();
-    past.setDate(today.getDate() - days);
-    setDateTo(today.toISOString().split('T')[0]);
-    setDateFrom(past.toISOString().split('T')[0]);
+    const today = fieldDateString();
+    setDateTo(today);
+    setDateFrom(shiftFieldDate(today, -days));
   };
 
   // Handler to delete event (irrigation or rainfall)
   const handleDeleteEvent = (type: 'riego' | 'lluvia', eventId: string | number) => {
     if (!selectedField) return;
+    const idStr = String(eventId);
+    if (idStr.startsWith('climate') || idStr.startsWith('auto')) return;
     setDialogState({
-      isOpen: true,
-      title: `Eliminar evento de ${type}`,
-      description: `¿Está seguro de que desea eliminar este evento de ${type}? Esta acción actualizará los balances hídricos del lote.`,
-      variant: 'danger',
-      isConfirm: true,
-      confirmText: 'Eliminar',
+      isOpen: true, title: `Eliminar evento de ${type}`,
+      description: 'Esta acción actualizará el historial del lote.',
+      variant: 'danger', isConfirm: true, confirmText: 'Eliminar',
       onConfirm: async () => {
-        const idStr = String(eventId);
-        setDeletedEventIds((prev) => new Set(prev).add(idStr));
-
-        if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
-          if (type === 'riego') {
-            await deleteIrrigationEventApi(selectedField.id, eventId);
-          } else {
-            await deleteRainfallEventApi(selectedField.id, eventId);
-          }
+        const deleted = type === 'riego'
+          ? await deleteIrrigationEventApi(selectedField.id, eventId)
+          : await deleteRainfallEventApi(selectedField.id, eventId);
+        if (!deleted) {
+          setDialogState({ isOpen: true, title: 'No se pudo eliminar', description: 'El registro no se modificó.', variant: 'error', isConfirm: false });
+          return false;
         }
-        setHistoryReloadTrigger((prev: number) => prev + 1);
+        setDeletedEventIds((previous) => new Set(previous).add(idStr));
+        setHistoryReloadTrigger((previous) => previous + 1);
       },
     });
   };
 
   // Handler to update event (irrigation or rainfall)
-  const handleUpdateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateEvent = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!selectedField || !editingEvent) return;
+    const id = String(editingEvent.id);
+    if (id.startsWith('climate') || id.startsWith('auto')) return;
     setIsSubmittingEdit(true);
-
-    const localDate = new Date(`${editingEvent.date}T${editingEvent.time}`);
-    const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
-    const idStr = String(editingEvent.id);
-    const parsedAmount = parseFloat(editingEvent.amount_mm) || 0;
-
-    setEditedEventOverrides((prev) => ({
-      ...prev,
-      [idStr]: {
-        amount_mm: parsedAmount,
-        notes: editingEvent.notes,
-        applied_at: isoDate,
-        method: editingEvent.method,
-      },
-    }));
-
-    if (!idStr.startsWith('mock') && !idStr.startsWith('climate')) {
-      if (editingEvent.type === 'riego') {
-        await updateIrrigationEventApi(selectedField.id, editingEvent.id, {
-          applied_at: isoDate,
-          amount_mm: parsedAmount,
-          method: editingEvent.method,
-          notes: editingEvent.notes,
+    try {
+      const isoDate = fieldDateTimeIso(editingEvent.date, editingEvent.time);
+      const amount = Number(editingEvent.amount_mm);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Milímetros inválidos.');
+      const result = editingEvent.type === 'riego'
+        ? await updateIrrigationEventApi(selectedField.id, editingEvent.id, {
+          applied_at: isoDate, amount_mm: amount, method: editingEvent.method, notes: editingEvent.notes,
+        })
+        : await updateRainfallEventApi(selectedField.id, editingEvent.id, {
+          recorded_at: isoDate, amount_mm: amount, notes: editingEvent.notes,
         });
-      } else {
-        await updateRainfallEventApi(selectedField.id, editingEvent.id, {
-          recorded_at: isoDate,
-          amount_mm: parsedAmount,
-          notes: editingEvent.notes,
-        });
-      }
-    }
-
-    setEditFormSuccess(true);
-    setTimeout(() => {
-      setEditFormSuccess(false);
-      setIsEditModalOpen(false);
-      setEditingEvent(null);
-      setHistoryReloadTrigger((prev: number) => prev + 1);
-    }, 400);
-    setIsSubmittingEdit(false);
+      if (!result.ok) throw new Error(typeof result.data?.detail === 'string' ? result.data.detail : 'No se pudo actualizar el evento.');
+      setEditedEventOverrides((previous) => ({ ...previous, [id]: {
+        amount_mm: amount, notes: editingEvent.notes, applied_at: isoDate, method: editingEvent.method,
+      } }));
+      setEditFormSuccess(true);
+      setTimeout(() => {
+        setEditFormSuccess(false); setIsEditModalOpen(false); setEditingEvent(null);
+        setHistoryReloadTrigger((previous) => previous + 1);
+      }, 400);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'No se pudo actualizar el evento.');
+    } finally { setIsSubmittingEdit(false); }
   };
 
   // Handler to export report
@@ -629,20 +558,20 @@ export default function DashboardHistoryPage() {
     };
 
     const getNextAction = (status: string) => {
-      if (status === 'Critico') return 'Regar hoy';
+      if (status === 'Sin datos') return 'Sin datos';
+      if (status === 'Critico') return 'Revisar riego';
       if (status === 'Atencion') return 'Revisar riego';
       return 'Esperar';
     };
 
     const getSuggestedWater = (lot: typeof lotsData[number]) => {
       if (lot.recommendedGrossIrrigation_mm !== undefined) return Math.round(lot.recommendedGrossIrrigation_mm);
-      if (lot.hydricStatus === 'Normal') return 0;
-      return Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
+      return null;
     };
 
     const getDaysUntilStress = (lot: typeof lotsData[number]) => {
-      const dailyCropUse = Math.max(0.1, lot.etcToday_mm);
-      return Math.max(0, Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / dailyCropUse));
+      return lot.isRecommendationPublishable && lot.etcToday_mm !== null && lot.etcToday_mm > 0 && lot.easilyAvailableAFD_mm !== null && lot.deficitDr_mm !== null
+        ? Math.max(0, Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / lot.etcToday_mm)) : null;
     };
 
     const headers = [
@@ -676,13 +605,13 @@ export default function DashboardHistoryPage() {
         lot.hydricStatus,
         getNextAction(lot.hydricStatus),
         lot.waterAvailableAU_pct,
-        lot.waterAvailableAU_mm.toFixed(1),
-        lot.deficitDr_mm.toFixed(1),
+        formatMetric(lot.waterAvailableAU_mm),
+        formatMetric(lot.deficitDr_mm),
         getSuggestedWater(lot),
         getDaysUntilStress(lot),
         lot.lastIrrigationDate !== '-' ? `${lot.lastIrrigationAmount_mm} mm (${lot.lastIrrigationDate})` : 'Sin registro',
         lot.lastRainDate !== '-' ? `${lot.lastRainAmount_mm} mm (${lot.lastRainDate})` : 'Sin registro',
-        lot.ndviDataAvailable ? lot.ndviCurrent.toFixed(2) : 'Sin dato',
+        lot.ndviDataAvailable ? formatMetric(lot.ndviCurrent, 2) : 'Sin dato',
         agentState,
       ];
     });
@@ -704,6 +633,8 @@ export default function DashboardHistoryPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {historyLoadError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{historyLoadError}</p>}
+      {!lotsData.length && <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">No hay lotes registrados cargados. No se muestra historial de demostración.</p>}
       {/* Header card with selection and export actions - PageHeader Component */}
       <PageHeader
         className="relative z-30"
@@ -719,9 +650,9 @@ export default function DashboardHistoryPage() {
               onClick={() => {
                 setEventForm({
                   type: 'riego',
-                  date: new Date().toISOString().split('T')[0],
+                  date: fieldDateString(),
                   time: '12:00',
-                  amount_mm: '15',
+                  amount_mm: '',
                   method: 'Pivote Central',
                   notes: '',
                 });
@@ -1006,8 +937,8 @@ export default function DashboardHistoryPage() {
                         return null;
                       }}
                     />
-                    <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
-                    <ReferenceLine y={selectedLot?.totalAvailableTAW_mm} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
+                    <ReferenceLine y={selectedLot?.easilyAvailableAFD_mm ?? undefined} stroke="#38bdf8" strokeDasharray="5 5" strokeWidth={2} label={{ value: 'Umbral estrés', fill: '#7dd3fc', fontSize: 10, position: 'insideTopRight' }} />
+                    <ReferenceLine y={selectedLot?.totalAvailableTAW_mm ?? undefined} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Capacidad suelo', fill: '#cbd5e1', fontSize: 10, position: 'insideTopLeft' }} />
                     <Area type="monotone" dataKey="au_mm" stroke="#10b981" fill="url(#auHistoryGrad)" strokeWidth={2.5} />
                     <Line type="monotone" dataKey="dr_mm" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3, fill: '#f59e0b' }} />
                   </ComposedChart>
@@ -1100,10 +1031,11 @@ export default function DashboardHistoryPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            const parts = item.applied_at.split('T');
                             setEditingEvent({
-                              type: item.type, id: item.id, date: parts[0],
-                              time: parts[1] ? parts[1].slice(0, 5) : '12:00',
+                              type: item.type,
+                              id: item.id,
+                              date: fieldEventDate(item.applied_at),
+                              time: fieldEventTime(item.applied_at),
                               amount_mm: String(item.amount_mm),
                               method: isRiego ? item.method : undefined, notes: item.notes,
                             });
@@ -1111,6 +1043,8 @@ export default function DashboardHistoryPage() {
                           }}
                           className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition shadow-2xs"
                           aria-label="Editar evento"
+                          disabled={!item.isManual}
+                          title={item.isManual ? 'Editar milímetros u observaciones' : 'La serie meteorológica no es un registro manual'}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -1119,6 +1053,8 @@ export default function DashboardHistoryPage() {
                           onClick={() => handleDeleteEvent(item.type, item.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-200/90 bg-rose-50/60 text-rose-600 hover:bg-rose-100 transition shadow-2xs"
                           aria-label="Eliminar evento"
+                          disabled={!item.isManual}
+                          title={item.isManual ? 'Eliminar evento del registro' : 'La serie meteorológica no es un registro manual'}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>

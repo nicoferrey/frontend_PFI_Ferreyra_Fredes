@@ -7,6 +7,10 @@ function backendUrl() {
 }
 
 export async function POST(request: NextRequest) {
+  const authorization = request.headers.get('Authorization');
+  if (!authorization?.match(/^Bearer\s+\S+$/i)) {
+    return NextResponse.json({ detail: 'Missing bearer token' }, { status: 401 });
+  }
   const apiKey = process.env.AGENT_API_KEY;
 
   if (!apiKey) {
@@ -16,16 +20,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.json();
-  const response = await fetch(`${backendUrl()}/agents/weather/compare`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': apiKey,
-    },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
+  let body;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ detail: 'Invalid JSON' }, { status: 400 }); }
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      !Number.isSafeInteger(body.field_id) || body.field_id <= 0) {
+    return NextResponse.json({ detail: 'A valid field_id is required' }, { status: 422 });
+  }
+  let field;
+  try {
+    const access = await fetch(`${backendUrl()}/api/v1/fields/${body.field_id}`, {
+      headers: { Authorization: authorization }, cache: 'no-store',
+    });
+    if (!access.ok) return NextResponse.json({ detail: 'Field access denied or unavailable' }, { status: access.status });
+    field = await access.json();
+  } catch {
+    return NextResponse.json({ detail: 'Backend unavailable' }, { status: 502 });
+  }
+  const payload = { ...body, latitude: field.center_latitude, longitude: field.center_longitude,
+    geometry_geojson: field.geometry_geojson, crop_name: field.crop_type || 'cultivo generico',
+    irrigation_system: field.irrigation_system };
+  let response;
+  try {
+    response = await fetch(`${backendUrl()}/agents/weather/compare`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    });
+  } catch {
+    return NextResponse.json({ detail: 'Backend unavailable' }, { status: 502 });
+  }
 
   const data = await response.json().catch(() => ({}));
   return NextResponse.json(data, { status: response.status });

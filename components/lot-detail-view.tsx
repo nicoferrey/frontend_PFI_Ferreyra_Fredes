@@ -48,6 +48,7 @@ import { CustomDatePicker } from '@/components/custom-date-picker';
 import { CustomSelect } from '@/components/custom-select';
 import { CustomTimePicker } from '@/components/custom-time-picker';
 import { KpiCard } from '@/components/kpi-card';
+import { fieldDateString, shiftFieldDate } from '@/lib/field-dates';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -63,56 +64,7 @@ function formatShortDate(value: string | null | undefined, fallback = 'sin fecha
   return `${day}/${month}`;
 }
 
-export interface LotHydricData {
-  id: string;
-  name: string;
-  crop: string;
-  areaHa: number;
-  soilType: string;
-  irrigationSystem: string;
-  // Hydric Status
-  hydricStatus: 'Normal' | 'Atencion' | 'Critico';
-  deficitDr_mm: number;
-  recommendedNetIrrigation_mm?: number;
-  recommendedGrossIrrigation_mm?: number;
-  waterAvailableAU_mm: number;
-  waterAvailableAU_pct: number;
-  easilyAvailableAFD_mm: number;
-  totalAvailableTAW_mm: number;
-  etcToday_mm: number;
-  et0Today_mm: number;
-  ndviCurrent: number;
-  ndviDataAvailable?: boolean;
-  ndviObservationDate?: string | null;
-  ndviCloudCoveragePct?: number | null;
-  ndviValidPixelCoveragePct?: number | null;
-  ndviSceneId?: string | null;
-  kcSatellite: number;
-  irrigationPriority: 'Alta' | 'Media' | 'Baja';
-  priorityReason: string;
-  pumpingWindow: string;
-  lastIrrigationDate: string;
-  lastIrrigationAmount_mm: number;
-  lastRainDate: string;
-  lastRainAmount_mm: number;
-  timeline: Array<{
-    date: string;
-    dayLabel: string;
-    dr_mm: number;
-    au_mm: number;
-    afd_mm: number;
-    raw_mm?: number;
-    taw_mm: number;
-    irrigation_mm?: number;
-    rain_mm?: number;
-    deep_percolation_mm?: number;
-    ndvi?: number;
-    kc?: number;
-    kc_source?: string;
-    under_stress?: boolean;
-    rain_source?: string;
-  }>;
-}
+import { type LotHydricData, formatMetric } from '@/app/(dashboard)/context';
 
 interface LotDetailViewProps {
   lot: LotHydricData;
@@ -128,14 +80,15 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
   // Form State for CU-05 (Registrar Riego)
   const [irrigationForm, setIrrigationForm] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: fieldDateString(),
     time: '06:00',
-    amount_mm: '18',
-    method: lot.irrigationSystem || 'Pivote Central',
-    notes: 'Riego nocturno optimizado según ventana MAS.',
+    amount_mm: '',
+    method: lot.irrigationSystem,
+    notes: '',
   });
 
   const [formSuccess, setFormSuccess] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ndviPreview, setNdviPreview] = useState<NdviPreview | null>(null);
   const [isLoadingNdviPreview, setIsLoadingNdviPreview] = useState(false);
@@ -155,11 +108,9 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
       const dateTo = String(
         snapshot?.analyze_payload?.ndvi_date_to ||
         snapshot?.analyze_payload?.date_to ||
-        new Date().toISOString().slice(0, 10)
+        fieldDateString()
       ).slice(0, 10);
-      const dateFromDate = new Date(`${dateTo}T12:00:00`);
-      dateFromDate.setDate(dateFromDate.getDate() - 30);
-      const dateFrom = dateFromDate.toISOString().slice(0, 10);
+      const dateFrom = shiftFieldDate(dateTo, -30);
 
       const result = await getNdviPreviewApi(lot.id, dateFrom, dateTo, 30, lot.ndviSceneId);
       if (result.ok) {
@@ -176,6 +127,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
   // Status visual styles
   const statusConfig = {
+    'Sin datos': {
+      label: 'Sin datos', badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+      icon: Info, dotClass: 'bg-slate-400 ring-slate-200', bgGradient: 'from-slate-400/10 to-transparent',
+    },
     Normal: {
       label: 'Normal',
       badgeClass: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400',
@@ -206,6 +161,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
   };
 
   const priorityConfig = {
+    'Sin datos': 'bg-slate-100 text-slate-600 border-slate-200',
     Alta: 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
     Media: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
     Baja: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
@@ -217,23 +173,14 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
     return lot.timeline.slice(-days);
   }, [lot.timeline, timeScale]);
 
-  const dailyCropUseMm = Math.max(0.1, lot.etcToday_mm);
-  const daysUntilStress = Math.max(
-    0,
-    Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / dailyCropUseMm)
-  );
-  const suggestedWaterMm =
-    lot.recommendedGrossIrrigation_mm !== undefined
-      ? Math.round(lot.recommendedGrossIrrigation_mm)
-      : lot.hydricStatus === 'Normal'
-      ? 0
-      : Math.max(5, Math.round(Math.min(lot.deficitDr_mm, lot.totalAvailableTAW_mm)));
-  const nextActionLabel =
-    lot.hydricStatus === 'Critico'
-      ? 'Regar hoy'
-      : lot.hydricStatus === 'Atencion'
-      ? 'Revisar riego'
-      : 'Esperar';
+  const daysUntilStress = lot.isRecommendationPublishable && lot.etcToday_mm !== null && lot.etcToday_mm > 0 &&
+    lot.easilyAvailableAFD_mm !== null && lot.deficitDr_mm !== null
+    ? Math.max(0, Math.floor((lot.easilyAvailableAFD_mm - lot.deficitDr_mm) / lot.etcToday_mm))
+    : null;
+  const suggestedWaterMm = lot.recommendedGrossIrrigation_mm !== undefined
+    ? Math.round(lot.recommendedGrossIrrigation_mm) : null;
+  const nextActionLabel = lot.hydricStatus === 'Sin datos' ? 'Sin datos' :
+    lot.hydricStatus === 'Critico' || lot.hydricStatus === 'Atencion' ? 'Revisar riego' : 'Monitorear';
 
   // Export CSV Handler
   const handleExportCSV = () => {
@@ -257,10 +204,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
       item.au_mm.toFixed(1),
       item.afd_mm.toFixed(1),
       item.taw_mm.toFixed(1),
-      item.irrigation_mm || 0,
-      item.rain_mm || 0,
-      item.ndvi || lot.ndviCurrent,
-      item.kc || lot.kcSatellite
+      item.irrigation_mm ?? '',
+      item.rain_mm ?? '',
+      item.ndvi ?? '',
+      item.kc ?? ''
     ]);
 
     const csvContent =
@@ -280,11 +227,15 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setFormError(null);
     try {
+      if (!onRegisterIrrigation) throw new Error('Registro de riego no disponible.');
+      const amount = Number(irrigationForm.amount_mm);
+      if (!irrigationForm.amount_mm.trim() || !Number.isFinite(amount) || amount <= 0) throw new Error('Ingresá milímetros mayores a cero.');
       if (onRegisterIrrigation) {
         await onRegisterIrrigation(lot.id, {
           date: `${irrigationForm.date} ${irrigationForm.time}`,
-          amount_mm: parseFloat(irrigationForm.amount_mm) || 0,
+          amount_mm: amount,
           method: irrigationForm.method,
           notes: irrigationForm.notes,
         });
@@ -295,7 +246,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
         setIsRegisterModalOpen(false);
       }, 1200);
     } catch (err) {
-      console.error('Failed to submit irrigation event:', err);
+      setFormError(err instanceof Error ? err.message : 'No se pudo registrar el riego.');
     } finally {
       setIsSubmitting(false);
     }
@@ -306,6 +257,11 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
   return (
     <div className={`space-y-6 ${className}`}>
       
+      {formError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{formError}</p>}
+      {lot.warnings.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-semibold">Advertencias del modelo y de los datos</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">{lot.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+      </div>}
       {/* 1. TOP SUMMARY CARD: Lot Header & Quick FAO-56 Matrix */}
       <div className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-soft backdrop-blur-md dark:border-white/10 dark:bg-slate-900/90">
         
@@ -325,12 +281,14 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Cultivo: <strong className="text-slate-800 dark:text-slate-200">{lot.crop}</strong> &bull; Superficie: <strong>{lot.areaHa} ha</strong> &bull; Sistema: <strong>{lot.irrigationSystem}</strong> &bull; Suelo: <strong>{lot.soilType}</strong>
             </p>
+            <p className="mt-1 text-xs text-slate-500">Balance modelado de {lot.hydricStateDate || 'fecha no disponible'} · {lot.hydricStateIsCurrent ? 'Vigente según los datos disponibles' : 'No representa el estado actual'}. No es una medición de sensores.</p>
           </div>
 
           {/* Action Buttons: Registrar Riego & Exportar */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => setIsRegisterModalOpen(true)}
+              onClick={() => { setFormError(null); setIsRegisterModalOpen(true); }}
+              disabled={!onRegisterIrrigation}
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-crop-600 to-water-600 hover:from-crop-500 hover:to-water-500 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:shadow-lg transition duration-150"
             >
               <Plus className="h-4 w-4" />
@@ -369,7 +327,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <Droplet className="h-3.5 w-3.5 text-water-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {suggestedWaterMm} <span className="text-xs font-medium text-slate-500">mm</span>
+              {suggestedWaterMm ?? '-'} <span className="text-xs font-medium text-slate-500">mm</span>
             </p>
             <span className="text-[10px] text-slate-400">A aplicar si se decide regar</span>
           </div>
@@ -381,9 +339,9 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <Timer className="h-3.5 w-3.5 text-amber-500" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {daysUntilStress} <span className="text-xs font-medium text-slate-500">días</span>
+              {daysUntilStress ?? '-'} <span className="text-xs font-medium text-slate-500">días</span>
             </p>
-            <span className="text-[10px] text-slate-400">Estimado con consumo diario</span>
+            <span className="text-[10px] text-slate-400">Estimación lineal sin nuevos aportes, con consumo medio del período</span>
           </div>
 
           {/* 4. Agua disponible */}
@@ -393,7 +351,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <Waves className="h-3.5 w-3.5 text-water-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.waterAvailableAU_pct}% <span className="text-xs font-medium text-slate-500">({lot.waterAvailableAU_mm.toFixed(1)} mm)</span>
+              {formatMetric(lot.waterAvailableAU_pct, 0)}% <span className="text-xs font-medium text-slate-500">({formatMetric(lot.waterAvailableAU_mm, 1)} mm)</span>
             </p>
             <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
               Agua que todavía puede usar el cultivo
@@ -407,16 +365,16 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               <Satellite className="h-3.5 w-3.5 text-crop-600" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.ndviDataAvailable ? lot.ndviCurrent.toFixed(2) : '-'}
+              {lot.ndviDataAvailable ? formatMetric(lot.ndviCurrent, 2) : '-'}
             </p>
             {(() => {
-              if (!lot.ndviDataAvailable) {
+              if (lot.ndviCurrent === null) {
                 return <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Sin dato satelital reciente</span>;
               }
               const val = lot.ndviCurrent;
               const dateLabel = `Imagen ${formatShortDate(lot.ndviObservationDate)}`;
               if (val >= 0.6) {
-                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor sano · {dateLabel}</span>;
+                return <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Vigor alto · {dateLabel}</span>;
               } else if (val >= 0.35) {
                 return <span className="text-[10px] text-amber-600 dark:text-amber-450 font-semibold">Vigor moderado · {dateLabel}</span>;
               } else {
@@ -428,13 +386,13 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
           {/* 6. Consumo del cultivo */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-950/50">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Consumo cultivo (ETc)</span>
+              <span>Consumo medio del período (ETc)</span>
               <Sun className="h-3.5 w-3.5 text-orange-500" />
             </div>
             <p className="mt-1.5 text-xl font-extrabold text-slate-900 dark:text-white">
-              {lot.etcToday_mm.toFixed(1)} <span className="text-xs font-medium text-slate-500">mm/día</span>
+              {formatMetric(lot.etcToday_mm, 1)} <span className="text-xs font-medium text-slate-500">mm/día</span>
             </p>
-            <span className="text-[10px] text-slate-400">Evapotranspiración ref. (ET0): {lot.et0Today_mm.toFixed(1)} mm</span>
+            <span className="text-[10px] text-slate-400">ET0 media del período: {formatMetric(lot.et0Today_mm, 1)} mm</span>
           </div>
 
           {/* 7. Prioridad de riego */}
@@ -472,7 +430,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               {lot.lastIrrigationDate}
             </p>
             <span className="text-[10px] text-slate-400 font-medium">
-              {lot.lastIrrigationAmount_mm} mm aplicados
+              {formatMetric(lot.lastIrrigationAmount_mm)} mm aplicados
             </span>
           </div>
 
@@ -486,7 +444,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
               {lot.lastRainDate}
             </p>
             <span className="text-[10px] text-slate-400 font-medium">
-              {lot.lastRainAmount_mm} mm registrados
+              {formatMetric(lot.lastRainAmount_mm)} mm registrados
             </span>
           </div>
 
@@ -543,10 +501,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                   <span className="h-3 w-3 rounded-full bg-amber-500" /> Agua faltante (Dr)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {lot.easilyAvailableAFD_mm.toFixed(0)} mm)
+                  <span className="h-0.5 w-4 bg-sky-400 border-dashed" /> Umbral antes de estrés (AFD: {formatMetric(lot.easilyAvailableAFD_mm, 0)} mm)
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {lot.totalAvailableTAW_mm} mm</span>
+              <span className="text-[11px] text-slate-400">Capacidad total del suelo (TAW) = {formatMetric(lot.totalAvailableTAW_mm)} mm</span>
             </div>
 
             <div className="h-[320px] w-full">
@@ -572,7 +530,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                     tick={{ fill: '#94a3b8', fontSize: 11 }} 
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                     tickLine={false} 
-                    domain={[0, Math.ceil(lot.totalAvailableTAW_mm * 1.05)]}
+                    domain={[0, lot.totalAvailableTAW_mm !== null ? Math.ceil(lot.totalAvailableTAW_mm * 1.05) : 'auto']}
                     unit=" mm"
                   />
                   
@@ -606,7 +564,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                               ) : null}
                               {(data.under_stress || data.dr_mm > (data.raw_mm || data.afd_mm)) && (
                                 <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
-                                  ⚠️ Estrés Hídrico Activo
+                                  ⚠️ Umbral de agotamiento modelado superado
                                 </p>
                               )}
                             </div>
@@ -619,7 +577,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
                   
                   {/* Reference line for AFD threshold */}
                   <ReferenceLine 
-                    y={lot.easilyAvailableAFD_mm} 
+                    y={lot.easilyAvailableAFD_mm ?? undefined}
                     stroke="#38bdf8" 
                     strokeDasharray="5 5" 
                     strokeWidth={2} 
@@ -628,7 +586,7 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
                   {/* Reference line for TAW */}
                   <ReferenceLine 
-                    y={lot.totalAvailableTAW_mm} 
+                    y={lot.totalAvailableTAW_mm ?? undefined}
                     stroke="#94a3b8" 
                     strokeDasharray="3 3" 
                     strokeWidth={1} 
@@ -674,7 +632,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
                 {/* Filter Pills */}
                 {(() => {
-                  const allEvents = displayedTimeline.filter((t) => t.irrigation_mm || t.rain_mm);
+                  const allEvents = displayedTimeline.flatMap((day) => [
+                  ...(day.irrigation_mm ? [{ ...day, rain_mm: undefined }] : []),
+                  ...(day.rain_mm ? [{ ...day, irrigation_mm: undefined }] : []),
+                ]);
                   const riegoCount = allEvents.filter((t) => t.irrigation_mm).length;
                   const rainCount = allEvents.filter((t) => t.rain_mm).length;
 
@@ -720,7 +681,10 @@ export function LotDetailView({ lot, snapshot, onRegisterIrrigation, className =
 
               {/* Scrollable Event Markers List with Custom Sleek Scrollbar */}
               {(() => {
-                const allEvents = displayedTimeline.filter((t) => t.irrigation_mm || t.rain_mm);
+                const allEvents = displayedTimeline.flatMap((day) => [
+                  ...(day.irrigation_mm ? [{ ...day, rain_mm: undefined }] : []),
+                  ...(day.rain_mm ? [{ ...day, irrigation_mm: undefined }] : []),
+                ]);
                 const filteredEvents = allEvents.filter((evt) => {
                   if (eventFilter === 'riego') return !!evt.irrigation_mm;
                   if (eventFilter === 'rain') return !!evt.rain_mm;

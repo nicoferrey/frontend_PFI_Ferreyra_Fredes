@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Mail, Lock, Eye, EyeOff, User, Phone, CheckCircle2, 
   ArrowRight, ArrowLeft, AlertCircle, Loader2, 
-  UserCheck, AlertTriangle, KeyRound, RefreshCw
+  UserCheck, AlertTriangle
 } from 'lucide-react';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useAuth } from '@/lib/auth-context';
@@ -27,8 +27,18 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const router = useRouter();
   const auth = useAuth();
 
+  const navigateAfterAuth = (fallback: '/dashboard' | '/onboarding') => {
+    const invitation = sessionStorage.getItem('agromas_pending_invitation');
+    // Only a closed-format invitation token can produce an internal return
+    // path. Never accept arbitrary URLs or expose the token in login queries.
+    if (invitation && /^[A-Za-z0-9_-]{16,256}$/.test(invitation)) {
+      router.push(`/invitation/${encodeURIComponent(invitation)}`);
+    } else {
+      router.push(fallback);
+    }
+  };
+
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'new_password' | 'success'>('email');
 
   const [isGooglePhonePrompt, setIsGooglePhonePrompt] = useState(false);
   const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
@@ -51,15 +61,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
-
-  // Forgot Password Fields
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [resendCountdown, setResendCountdown] = useState(0);
-
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // Touched state for real-time validation
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -117,31 +118,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       : null
     : null;
 
-  // Forgot password validations
-  const forgotEmailError = touched.forgotEmail
-    ? forgotEmail.trim().length === 0
-      ? 'Ingresa tu correo registrado.'
-      : !forgotEmail.includes('@') || !forgotEmail.includes('.')
-      ? 'Formato de correo inválido.'
-      : null
-    : null;
-
-  const newPasswordError = touched.newPassword
-    ? newPassword.length === 0
-      ? 'Ingresa una nueva contraseña.'
-      : newPassword.length < 8
-      ? 'Mínimo 8 caracteres.'
-      : null
-    : null;
-
-  const confirmNewPasswordError = touched.confirmNewPassword
-    ? confirmNewPassword.length === 0
-      ? 'Confirma la contraseña.'
-      : confirmNewPassword !== newPassword
-      ? 'Las contraseñas no coinciden.'
-      : null
-    : null;
-
   const isFormValid = mode === 'login'
     ? email.length > 0 && !emailError && password.length >= 8 && !passwordError
     : firstName.trim().length >= 2 && !firstNameError &&
@@ -155,7 +131,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
   // Switch between Login, Signup, and Forgot modes
   const handleModeSwitch = (newMode: 'login' | 'signup' | 'forgot') => {
     setMode(newMode);
-    setForgotStep('email');
     setIsGooglePhonePrompt(false);
     setGoogleIdToken(null);
     setGoogleProfile(null);
@@ -164,105 +139,6 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
     setTouched({});
     setAcceptedTerms(false);
     setMarketingOptIn(false);
-    setOtp(['', '', '', '', '', '']);
-    setNewPassword('');
-    setConfirmNewPassword('');
-  };
-
-  // OTP Timer countdown
-  useEffect(() => {
-    if (resendCountdown > 0) {
-      const timer = setTimeout(() => setResendCountdown((prev) => prev - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCountdown]);
-
-  // Handle OTP digit changes
-  const handleOtpChange = (index: number, value: string) => {
-    // Handle paste of 6 digits
-    if (value.length > 1) {
-      const digits = value.replace(/\D/g, '').slice(0, 6).split('');
-      if (digits.length > 0) {
-        const newOtp = [...otp];
-        digits.forEach((d, i) => {
-          if (i < 6) newOtp[i] = d;
-        });
-        setOtp(newOtp);
-        const nextFocus = Math.min(digits.length, 5);
-        otpInputsRef.current[nextFocus]?.focus();
-      }
-      return;
-    }
-
-    const digit = value.replace(/\D/g, '');
-    const newOtp = [...otp];
-    newOtp[index] = digit;
-    setOtp(newOtp);
-
-    if (digit && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  // Process Forgot Password Step 1: Send Mail Code
-  const handleSendForgotCode = (e: React.FormEvent) => {
-    e.preventDefault();
-    markTouched('forgotEmail');
-    if (!forgotEmail || forgotEmailError) return;
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    // Simulate sending 6-digit OTP code to email
-    setTimeout(() => {
-      setLoading(false);
-      setForgotStep('otp');
-      setResendCountdown(60);
-      setSuccessMessage(`Hemos enviado un código de 6 dígitos a ${forgotEmail}.`);
-    }, 800);
-  };
-
-  // Process Forgot Password Step 2: Verify OTP
-  const handleVerifyOtp = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = otp.join('');
-    if (code.length < 6) {
-      setErrorMessage('Por favor completa los 6 dígitos del código de verificación.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    setTimeout(() => {
-      setLoading(false);
-      setForgotStep('new_password');
-      setSuccessMessage('¡Código verificado! Ahora ingresa tu nueva contraseña.');
-    }, 800);
-  };
-
-  // Process Forgot Password Step 3: Change Password
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    markTouched('newPassword');
-    markTouched('confirmNewPassword');
-
-    if (newPassword.length < 8 || newPassword !== confirmNewPassword) return;
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    setTimeout(() => {
-      setLoading(false);
-      setForgotStep('success');
-      setSuccessMessage('¡Tu contraseña se ha actualizado correctamente!');
-    }, 800);
   };
 
   // Process Google OAuth credential response
@@ -294,9 +170,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setTimeout(() => {
           const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
           if (res.hasFields || (auth.fields && auth.fields.length > 0) || hasLotsInStorage) {
-            router.push('/dashboard');
+            navigateAfterAuth('/dashboard');
           } else {
-            router.push('/onboarding');
+            navigateAfterAuth('/onboarding');
           }
         }, 800);
       }
@@ -410,10 +286,10 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
       const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
       if (res.hasFields || auth.fields.length > 0 || hasLotsInStorage) {
         setSuccessMessage('¡Cuenta vinculada con éxito! Redirigiendo a tu panel...');
-        setTimeout(() => router.push('/dashboard'), 800);
+        setTimeout(() => navigateAfterAuth('/dashboard'), 800);
       } else {
         setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
-        setTimeout(() => router.push('/onboarding'), 800);
+        setTimeout(() => navigateAfterAuth('/onboarding'), 800);
       }
     } catch (err) {
       setErrorMessage('Error de comunicación con el servidor.');
@@ -465,9 +341,9 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         setTimeout(() => {
           const hasLotsInStorage = typeof window !== 'undefined' && !!localStorage.getItem('agromas_lots');
           if (res.hasFields || auth.fields.length > 0 || hasLotsInStorage) {
-            router.push('/dashboard');
+            navigateAfterAuth('/dashboard');
           } else {
-            router.push('/onboarding');
+            navigateAfterAuth('/onboarding');
           }
         }, 800);
 
@@ -494,7 +370,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
         }
 
         setSuccessMessage('¡Cuenta creada con éxito! Configurando tu establecimiento...');
-        setTimeout(() => router.push('/onboarding'), 800);
+        setTimeout(() => navigateAfterAuth('/onboarding'), 800);
       }
     } catch (err: any) {
       setErrorMessage('Error de conexión con el servidor.');
@@ -566,13 +442,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
             {isGooglePhonePrompt
               ? 'Vincular WhatsApp de Alertas'
               : mode === 'forgot'
-              ? forgotStep === 'email'
-                ? 'Recuperar Contraseña'
-                : forgotStep === 'otp'
-                ? 'Ingresa el Código'
-                : forgotStep === 'new_password'
-                ? 'Nueva Contraseña'
-                : '¡Contraseña Actualizada!'
+              ? 'Recuperar Contraseña'
               : mode === 'login'
               ? 'Bienvenido a AgroMAS'
               : 'Crear Cuenta'}
@@ -581,13 +451,7 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
             {isGooglePhonePrompt
               ? 'Ingresa tu número para recibir notificaciones automáticas por WhatsApp.'
               : mode === 'forgot'
-              ? forgotStep === 'email'
-                ? 'Ingresa tu correo para recibir un código de verificación de 6 dígitos.'
-                : forgotStep === 'otp'
-                ? `Enviamos un código de 6 dígitos a ${forgotEmail}.`
-                : forgotStep === 'new_password'
-                ? 'Crea una contraseña segura de al menos 8 caracteres.'
-                : 'Ya puedes acceder con tu nueva clave.'
+              ? 'La recuperación de contraseña todavía no está disponible.'
               : mode === 'login'
               ? 'Ingresa tus credenciales para acceder al monitoreo satelital y balance hídrico.'
               : 'Completá tus datos para crear tu cuenta y comenzar el onboarding.'}
@@ -719,227 +583,12 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
           </>
         )}
 
-        {/* FORGOT PASSWORD MULTI-STEP FLOW */}
-        {!isGooglePhonePrompt && mode === 'forgot' && (
-          <div className="space-y-4">
-            {/* Step 1: Input Email */}
-            {forgotStep === 'email' && (
-              <form onSubmit={handleSendForgotCode} noValidate className="space-y-4 animate-fade-in">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Correo Electrónico Registrado
-                  </label>
-                  <div className="relative flex items-center">
-                    <Mail className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                    <input
-                      type="email"
-                      placeholder="nombre@establecimiento.com"
-                      value={forgotEmail}
-                      onChange={(e) => {
-                        setForgotEmail(e.target.value);
-                        markTouched('forgotEmail');
-                      }}
-                      onBlur={() => markTouched('forgotEmail')}
-                      required
-                      className={getInputClass(!!forgotEmailError, !!touched.forgotEmail, !forgotEmailError)}
-                    />
-                  </div>
-                  {forgotEmailError && (
-                    <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                      <AlertTriangle className="h-3 w-3 shrink-0" /> {forgotEmailError}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-crop-500 to-water-600 hover:from-emerald-700 hover:to-water-700 text-white rounded-2xl h-11 px-4 text-xs font-bold shadow-md shadow-emerald-600/20 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  ) : (
-                    <>
-                      <span>Enviar Código de Verificación</span>
-                      <ArrowRight className="h-4 w-4 text-white" />
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {/* Step 2: Input 6-Digit OTP */}
-            {forgotStep === 'otp' && (
-              <form onSubmit={handleVerifyOtp} noValidate className="space-y-4 animate-fade-in">
-                <div className="space-y-2 text-center">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Código de 6 dígitos
-                  </label>
-                  
-                  {/* 6 Individual Digit Inputs */}
-                  <div className="flex justify-center gap-2 pt-1">
-                    {otp.map((digit, i) => (
-                      <input
-                        key={i}
-                        ref={(el) => { otpInputsRef.current[i] = el; }}
-                        type="text"
-                        maxLength={6}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(i, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                        className="w-11 h-12 text-center text-lg font-black text-slate-900 rounded-2xl border border-slate-200 bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition"
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <button
-                    type="button"
-                    disabled={resendCountdown > 0}
-                    onClick={() => {
-                      setResendCountdown(60);
-                      setSuccessMessage('Nuevo código enviado a tu casilla.');
-                    }}
-                    className="text-emerald-700 hover:text-emerald-800 font-bold transition flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    <span>{resendCountdown > 0 ? `Reenviar en ${resendCountdown}s` : 'Reenviar código'}</span>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setForgotStep('email')}
-                    className="text-slate-400 hover:text-slate-600 transition font-medium"
-                  >
-                    Cambiar correo
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || otp.join('').length < 6}
-                  className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-crop-500 to-water-600 hover:from-emerald-700 hover:to-water-700 text-white rounded-2xl h-11 px-4 text-xs font-bold shadow-md shadow-emerald-600/20 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  ) : (
-                    <>
-                      <span>Validar Código</span>
-                      <KeyRound className="h-4 w-4 text-white" />
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {/* Step 3: Enter New Password */}
-            {forgotStep === 'new_password' && (
-              <form onSubmit={handleChangePasswordSubmit} noValidate className="space-y-3.5 animate-fade-in">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Nueva Contraseña
-                  </label>
-                  <div className="relative flex items-center">
-                    <Lock className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={newPassword}
-                      onChange={(e) => {
-                        setNewPassword(e.target.value);
-                        markTouched('newPassword');
-                      }}
-                      onBlur={() => markTouched('newPassword')}
-                      required
-                      minLength={8}
-                      className={getInputClass(!!newPasswordError, !!touched.newPassword, !newPasswordError, true)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {newPasswordError && (
-                    <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                      <AlertTriangle className="h-3 w-3 shrink-0" /> {newPasswordError}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Confirmar Nueva Contraseña
-                  </label>
-                  <div className="relative flex items-center">
-                    <Lock className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={confirmNewPassword}
-                      onChange={(e) => {
-                        setConfirmNewPassword(e.target.value);
-                        markTouched('confirmNewPassword');
-                      }}
-                      onBlur={() => markTouched('confirmNewPassword')}
-                      required
-                      className={getInputClass(!!confirmNewPasswordError, !!touched.confirmNewPassword, !confirmNewPasswordError, true)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3.5 text-slate-400 hover:text-slate-600"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {confirmNewPasswordError && (
-                    <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                      <AlertTriangle className="h-3 w-3 shrink-0" /> {confirmNewPasswordError}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || newPassword.length < 8 || newPassword !== confirmNewPassword}
-                  className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-crop-500 to-water-600 hover:from-emerald-700 hover:to-water-700 text-white rounded-2xl h-11 px-4 text-xs font-bold shadow-md shadow-emerald-600/20 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                  ) : (
-                    <>
-                      <span>Restablecer Contraseña</span>
-                      <CheckCircle2 className="h-4 w-4 text-white" />
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {/* Step 4: Success View */}
-            {forgotStep === 'success' && (
-              <div className="space-y-5 text-center animate-fade-in py-2">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 className="h-8 w-8 stroke-[2.5]" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">¡Contraseña Actualizada!</h3>
-                  <p className="text-xs text-slate-500 mt-1">Ya puedes iniciar sesión con tu nueva contraseña.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch('login')}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-crop-500 to-water-600 hover:from-emerald-700 hover:to-water-700 text-white rounded-2xl h-11 px-4 text-xs font-bold shadow-md shadow-emerald-600/20 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-600/30 active:scale-[0.98] transition-all duration-200"
-                >
-                  <span>Iniciar Sesión Ahora</span>
-                  <ArrowRight className="h-4 w-4 text-white" />
-                </button>
-              </div>
-            )}
+        {/* Do not claim an email/password change without a real recovery API. */}
+        {mode === 'forgot' && !isGooglePhonePrompt && (
+          <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-semibold">Funcionalidad no disponible</p>
+            <p className="mt-2">Todavía no enviamos códigos de recuperación ni modificamos contraseñas desde esta pantalla. Si tu cuenta está vinculada a Google, podés ingresar con Google.</p>
+            <button type="button" onClick={() => handleModeSwitch('login')} className="mt-4 font-bold underline">Volver al inicio de sesión</button>
           </div>
         )}
 
@@ -1113,31 +762,17 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
               </div>
             </div>
 
-            {/* Row 2: Email (Full Width Line) */}
+            {/* Row 2: Account email owned by the person registering. */}
             <div className="space-y-0.5">
-              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">
-                Correo Electrónico
-              </label>
+              <label htmlFor="signup-email" className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">Correo electrónico</label>
               <div className="relative flex items-center">
                 <Mail className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  type="email"
-                  placeholder="productor@campo.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    markTouched('email');
-                  }}
-                  onBlur={() => markTouched('email')}
-                  required
-                  className={getInputClass(!!emailError, !!touched.email, !emailError)}
-                />
+                <input id="signup-email" type="email" autoComplete="email" placeholder="tu@correo.com"
+                  value={email} onChange={(e) => { setEmail(e.target.value); markTouched('email'); }}
+                  onBlur={() => markTouched('email')} required
+                  className={getInputClass(!!emailError, !!touched.email, !emailError)} />
               </div>
-              {emailError && (
-                <p className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" /> {emailError}
-                </p>
-              )}
+              {emailError && <p className="text-[10px] text-rose-500 font-semibold">{emailError}</p>}
             </div>
 
             {/* Row 3: WhatsApp Phone (Full Width Line) */}

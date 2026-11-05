@@ -178,6 +178,7 @@ export interface CreateFieldPayload {
   emergence_date?: string | null;
   expected_harvest_date?: string | null;
   phenological_stage?: string | null;
+  estimate_soil?: boolean;
 }
 
 export async function registerApi(payload: RegisterPayload) {
@@ -249,10 +250,12 @@ export async function updateUserProfileApi(payload: {
       const data = await res.json();
       return { ok: true, message: 'Perfil actualizado con éxito.', user: data.user || data };
     }
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, message: typeof data.detail === 'string' ? data.detail : typeof data.message === 'string' ? data.message : 'No se pudo actualizar el perfil.' };
   } catch (err) {
     console.error('Error hitting PATCH /api/v1/users/me:', err);
   }
-  return { ok: true, message: 'Perfil actualizado con éxito (Modo Demostrativo).' };
+  return { ok: false, message: 'No se pudo conectar con el servidor. El perfil no se actualizó.' };
 }
 
 export async function changePasswordApi(payload: {
@@ -268,11 +271,11 @@ export async function changePasswordApi(payload: {
       return { ok: true, message: 'Contraseña actualizada correctamente.' };
     }
     const data = await res.json().catch(() => ({}));
-    return { ok: false, message: data.message || 'Error al cambiar contraseña.' };
+    return { ok: false, message: typeof data.detail === 'string' ? data.detail : typeof data.message === 'string' ? data.message : 'Error al cambiar contraseña.' };
   } catch (err) {
     console.error('Error hitting POST /api/v1/users/change-password:', err);
   }
-  return { ok: true, message: 'Contraseña actualizada con éxito (Modo Demostrativo).' };
+  return { ok: false, message: 'No se pudo conectar con el servidor. La contraseña no se actualizó.' };
 }
 
 /* ==========================================================================
@@ -352,13 +355,11 @@ export async function resendInvitationApi(memberId: string): Promise<{ ok: boole
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      const invUrl = data.invitation_url || (typeof window !== 'undefined' ? `${window.location.origin}/invitation/${memberId}` : undefined);
-      return { ok: true, message: 'Enlace de invitación generado con éxito.', invitation_url: invUrl };
+      return { ok: true, message: 'Enlace de invitación generado con éxito.', invitation_url: data.invitation_url };
     }
     return { ok: false, message: data.detail || 'No se pudo reenviar la invitación.' };
   } catch {
-    const fallbackUrl = typeof window !== 'undefined' ? `${window.location.origin}/invitation/${memberId}` : undefined;
-    return { ok: true, message: 'Enlace de invitación generado.', invitation_url: fallbackUrl };
+    return { ok: false, message: 'No se pudo contactar al servidor. La invitación no fue reenviada.' };
   }
 }
 
@@ -433,45 +434,6 @@ export interface AddTeamMemberPayload {
   farm_id?: string | null;
 }
 
-const DEFAULT_TEAM_MEMBERS: FieldTeamMember[] = [
-  {
-    id: 'member-1',
-    first_name: 'Esteban',
-    last_name: 'Ferreyra',
-    name: 'Esteban Ferreyra',
-    email: 'e.ferreyra@establecimiento.com',
-    phone_whatsapp: '+54 9 2477 458921',
-    role: 'admin',
-    status: 'active',
-    joined_at: '2026-03-15T10:00:00Z',
-    avatar_color: 'bg-emerald-600',
-  },
-  {
-    id: 'member-2',
-    first_name: 'Ing. Lucas',
-    last_name: 'Fredes',
-    name: 'Ing. Lucas Fredes',
-    email: 'l.fredes@agroconsultora.com.ar',
-    phone_whatsapp: '+54 9 11 3844 1920',
-    role: 'agronomist',
-    status: 'active',
-    joined_at: '2026-04-02T14:30:00Z',
-    avatar_color: 'bg-sky-600',
-  },
-  {
-    id: 'member-3',
-    first_name: 'Carlos',
-    last_name: 'Benítez',
-    name: 'Carlos Benítez',
-    email: 'carlos.b@campodonpedro.com',
-    phone_whatsapp: '+54 9 2477 621105',
-    role: 'operator',
-    status: 'active',
-    joined_at: '2026-05-18T09:15:00Z',
-    avatar_color: 'bg-amber-600',
-  },
-];
-
 export async function getTeamMembersApi(farmId?: string | null): Promise<FieldTeamMember[]> {
   try {
     const endpoint = farmId && farmId !== 'default' 
@@ -480,23 +442,14 @@ export async function getTeamMembersApi(farmId?: string | null): Promise<FieldTe
     const res = await apiFetch(endpoint);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch (err) {
-    // fallback to local storage or defaults
+    console.warn('No se pudo consultar el equipo del establecimiento.');
   }
 
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('agromas_team_members');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {}
-    }
-    localStorage.setItem('agromas_team_members', JSON.stringify(DEFAULT_TEAM_MEMBERS));
-  }
-
-  return DEFAULT_TEAM_MEMBERS;
+  // Never fabricate team members, including when RBAC rejected the request.
+  return [];
 }
 
 export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{ ok: boolean; member?: FieldTeamMember; invitation_url?: string; error?: string }> {
@@ -512,8 +465,7 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
 
     if (res.ok) {
       const data = await res.json();
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
-      const invUrl = data.invitation_url || `${origin}/invitation/${data.id || data.token || 'demo-invitation-token'}`;
+      const invUrl = data.invitation_url;
       const memberObj: FieldTeamMember = {
         ...data,
         invitation_url: invUrl,
@@ -525,47 +477,13 @@ export async function addTeamMemberApi(payload: AddTeamMemberPayload): Promise<{
         ? errorData.detail.map((d: any) => `${d.loc?.join('.')}: ${d.msg}`).join(', ')
         : errorData.detail || errorData.message;
       if (errorMsg) {
-        console.warn('Backend team member creation warning:', errorMsg);
+        return { ok: false, error: errorMsg };
       }
+      return { ok: false, error: 'No se pudo agregar el miembro. Revisá tus permisos.' };
     }
   } catch (err) {
-    console.warn('Backend team member creation error, using persistent local store:', err);
+    return { ok: false, error: 'No se pudo contactar al servidor. El miembro no fue agregado.' };
   }
-
-  // Fallback for local storage display if offline
-  const emailUsername = payload.email.split('@')[0] || 'Usuario';
-  const derivedFirstName = payload.first_name || (emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1));
-  const derivedLastName = payload.last_name || '(Invitado)';
-  const memberName = `${derivedFirstName} ${derivedLastName}`.trim();
-
-  const colors = ['bg-emerald-600', 'bg-sky-600', 'bg-amber-600', 'bg-indigo-600', 'bg-rose-600', 'bg-teal-600'];
-  const randomColor = colors[Math.floor(Math.random() * colors.length)];
-  
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://agromasapp.vercel.app';
-  const generatedId = `inv-${Date.now()}`;
-  const generatedUrl = `${origin}/invitation/${generatedId}`;
-
-  const newMember: FieldTeamMember = {
-    id: generatedId,
-    first_name: derivedFirstName,
-    last_name: derivedLastName,
-    name: memberName,
-    email: payload.email,
-    phone_whatsapp: payload.phone_whatsapp || 'Pendiente de registro',
-    role: payload.role,
-    status: payload.first_name ? 'active' : 'invited',
-    joined_at: new Date().toISOString(),
-    avatar_color: randomColor,
-    invitation_url: generatedUrl,
-  };
-
-  if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi(payload.farm_id);
-    const updated = [newMember, ...current];
-    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
-  }
-
-  return { ok: true, member: newMember, invitation_url: generatedUrl };
 }
 
 export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRole, farmId?: string | null): Promise<boolean> {
@@ -576,13 +494,6 @@ export async function updateTeamMemberRoleApi(memberId: string, newRole: FieldRo
     });
     if (res.ok) return true;
   } catch {}
-
-  if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi(farmId);
-    const updated = current.map((m) => (m.id === memberId ? { ...m, role: newRole } : m));
-    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
-    return true;
-  }
 
   return false;
 }
@@ -595,19 +506,56 @@ export async function removeTeamMemberApi(memberId: string, farmId?: string | nu
     if (res.ok) return true;
   } catch {}
 
-  if (typeof window !== 'undefined') {
-    const current = await getTeamMembersApi(farmId);
-    const updated = current.filter((m) => m.id !== memberId);
-    localStorage.setItem('agromas_team_members', JSON.stringify(updated));
-    return true;
-  }
-
   return false;
 }
 
 /* ==========================================================================
    AGENT API METHODS
    ========================================================================== */
+
+export interface SupervisorEvaluation {
+  run_id: string;
+  mode: 'ACTIVE' | 'SHADOW';
+  status: string;
+  field_id: number;
+  model?: string | null;
+  conclusion?: string | null;
+  question?: string | null;
+  warnings: string[];
+  evidence_warnings: string[];
+  knowledge_warnings: string[];
+  model_state_summary: {
+    dr_mm?: number; afd_mm?: number; taw_mm?: number;
+    state_date?: string; threshold_status?: string;
+    operational_recommendation?: boolean;
+  };
+  steps: Array<{
+    index: number;
+    decision: { action: string; tool_name?: string | null; reason: string };
+    tool_result?: { tool_name: string; status: string } | null;
+  }>;
+}
+
+export async function evaluateSupervisorApi(fieldId: number, maxSteps = 6): Promise<
+  { ok: true; data: SupervisorEvaluation } | { ok: false; error: string }
+> {
+  const token = getAccessToken();
+  if (!token) return { ok: false, error: 'Iniciá sesión para evaluar el lote.' };
+  try {
+    const response = await fetch('/api/agents/supervisor-evaluate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ field_id: fieldId, max_steps: maxSteps }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { ok: false, error: typeof data.detail === 'string' ? data.detail : 'No se pudo evaluar el lote.' };
+    if (data.mode !== 'ACTIVE' || data.field_id !== fieldId || typeof data.status !== 'string' || !Array.isArray(data.steps)) {
+      return { ok: false, error: 'El servicio devolvió una evaluación inválida.' };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: 'No se pudo contactar al Supervisor. No se ejecutaron acciones de riego.' };
+  }
+}
 
 export interface FieldAgentSnapshot {
   id: number;
@@ -632,12 +580,13 @@ export interface FieldAgentSnapshotRefreshPayload {
 }
 
 export interface AnalyzeIrrigationPayload {
+  field_id: number;
   field_name?: string;
   user_query?: string;
   date_from: string;
   date_to: string;
   crop_name: string;
-  crop_coefficient: number;
+  crop_coefficient?: number;
   source?: string | null;
   effective_precipitation_ratio?: number;
   initial_available_water_mm?: number;
@@ -655,6 +604,7 @@ export interface AnalyzeIrrigationPayload {
 }
 
 export interface WeatherComparePayload {
+  field_id: number;
   date_from: string;
   date_to: string;
   latitude?: number;
@@ -666,7 +616,7 @@ export interface WeatherComparePayload {
   primary_source?: string | null;
   external_sources?: Array<'OPEN_METEO' | 'NASA_POWER'>;
   crop_name: string;
-  crop_coefficient: number;
+  crop_coefficient?: number;
   effective_precipitation_ratio?: number;
   initial_available_water_mm?: number;
   irrigation_applied_mm?: number;
@@ -830,9 +780,11 @@ function buildCommonAgentPayload(field: FieldItem, options: AgentPayloadOptions 
     date_from: dateFrom,
     date_to: dateTo,
     crop_name: normalizeCropName(field),
-    crop_coefficient: getCropCoefficient(field, options.cropCoefficient),
+    crop_coefficient: options.cropCoefficient,
     effective_precipitation_ratio: options.effectivePrecipitationRatio ?? 0.8,
-    initial_available_water_mm: options.initialAvailableWaterMm ?? 0,
+    // Unknown water is omitted; it is not a measurement of an empty profile.
+    // Persisted field analyses resolve initialization in the backend's history.
+    initial_available_water_mm: options.initialAvailableWaterMm,
     irrigation_applied_mm: options.irrigationAppliedMm ?? 0,
     irrigation_system: field.irrigation_system || null,
     irrigation_efficiency: getIrrigationEfficiency(field, options.irrigationEfficiency),
@@ -852,6 +804,7 @@ export function buildAnalyzePayload(
 
   return {
     ...buildCommonAgentPayload(field, { ...options, dateFrom, dateTo }),
+    field_id: Number(field.id),
     field_name: field.name,
     user_query: `Analizar necesidad de riego para ${field.name}`,
     source: null,
@@ -870,6 +823,7 @@ export function buildWeatherComparePayload(
 ): WeatherComparePayload {
   return {
     ...buildCommonAgentPayload(field, options),
+    field_id: Number(field.id),
     ...getFieldCenter(field),
     geometry_geojson: field.geometry_geojson,
     use_inta_eeavi_station: false,
@@ -881,9 +835,10 @@ export function buildWeatherComparePayload(
 }
 
 export async function analyzeIrrigationApi(payload: AnalyzeIrrigationPayload) {
+  const token = getAccessToken();
   const res = await fetch('/api/agents/analyze-irrigation', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(payload),
   });
 
@@ -891,9 +846,10 @@ export async function analyzeIrrigationApi(payload: AnalyzeIrrigationPayload) {
 }
 
 export async function weatherCompareApi(payload: WeatherComparePayload) {
+  const token = getAccessToken();
   const res = await fetch('/api/agents/weather-compare', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(payload),
   });
 
@@ -1110,13 +1066,11 @@ export async function getHydricHistoryApi(
   dateFrom: string,
   dateTo: string
 ): Promise<HydricHistoryDay[]> {
-  try {
-    const res = await apiFetch(`/api/v1/fields/${fieldId}/hydric-history?date_from=${dateFrom}&date_to=${dateTo}`);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
+  const res = await apiFetch(`/api/v1/fields/${fieldId}/hydric-history?date_from=${dateFrom}&date_to=${dateTo}`);
+  if (!res.ok) throw new Error('No se pudo cargar el historial hídrico. La falta de datos no equivale a cero.');
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('El historial hídrico recibido no es válido.');
+  return data;
 }
 
 export async function getReportsSummaryApi(

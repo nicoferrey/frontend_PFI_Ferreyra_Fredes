@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import "leaflet/dist/leaflet.css";
 import { getSentinelMapLayerApi, getSentinelMapLayerByCenterApi } from '@/lib/api';
 
+export function escapeMapHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] || character));
+}
+
 export type DashboardMapLayer = 'alertas' | 'ndvi' | 'humedad' | 'estadoActual';
 
 const ESRI_WORLD_IMAGERY_URL =
@@ -26,10 +30,10 @@ export interface MapLotItem {
   polygon: [number, number][];
   area: number;
   crop: string;
-  hydricStatus?: 'Normal' | 'Atencion' | 'Critico';
-  deficitDr_mm?: number;
-  waterAvailableAU_pct?: number;
-  ndviCurrent?: number;
+  hydricStatus?: 'Normal' | 'Atencion' | 'Critico' | 'Sin datos';
+  deficitDr_mm?: number | null;
+  waterAvailableAU_pct?: number | null;
+  ndviCurrent?: number | null;
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
   ndviValidPixelCoveragePct?: number | null;
@@ -256,29 +260,32 @@ export default function DashboardMap({
       if (activeLayer === 'estadoActual') {
         colorMap = { border: '#e0f2fe', fill: '#0f172a', badge: 'bg-slate-700 text-white', label: 'Imagen actual' };
       } else if (activeLayer === 'alertas') {
-        const status = lot.hydricStatus || 'Normal';
+        const status = lot.hydricStatus || 'Sin datos';
         colorMap = {
+          'Sin datos': { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'Sin datos' },
           Normal: { border: '#10b981', fill: '#34d399', badge: 'bg-emerald-500 text-white', label: 'Normal' },
           Atencion: { border: '#f59e0b', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: 'Atención' },
           Critico: { border: '#ef4444', fill: '#f87171', badge: 'bg-rose-500 text-white', label: 'Crítico' },
         }[status];
       } else if (activeLayer === 'ndvi') {
         const ndvi = lot.ndviCurrent;
-        if (ndvi === undefined) {
+        if (ndvi == null) {
           colorMap = { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'Vigor: sin dato' };
         } else if (ndvi >= 0.6) {
-          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `Vigor: ${ndvi.toFixed(2)} (Sano)` };
+          colorMap = { border: '#047857', fill: '#10b981', badge: 'bg-emerald-600 text-white', label: `Vigor: ${ndvi.toFixed(2)} (Alto)` };
         } else if (ndvi >= 0.35) {
           colorMap = { border: '#854d0e', fill: '#fbbf24', badge: 'bg-amber-500 text-slate-950', label: `Vigor: ${ndvi.toFixed(2)} (Moderado)` };
         } else {
           colorMap = { border: '#be123c', fill: '#f43f5e', badge: 'bg-rose-600 text-white', label: `Vigor: ${ndvi.toFixed(2)} (Bajo)` };
         }
       } else if (activeLayer === 'humedad') {
-        const au = lot.waterAvailableAU_pct ?? 70;
-        if (au >= 80) {
+        const au = lot.waterAvailableAU_pct;
+        if (au == null) {
+          colorMap = { border: '#64748b', fill: '#94a3b8', badge: 'bg-slate-500 text-white', label: 'Agua: sin dato' };
+        } else if (au >= 80) {
           colorMap = { border: '#0369a1', fill: '#0284c7', badge: 'bg-sky-600 text-white', label: `AU: ${au}% (Húmedo)` };
         } else if (au >= 60) {
-          colorMap = { border: '#0e7490', fill: '#06b6d4', badge: 'bg-cyan-600 text-white', label: `AU: ${au}% (Óptimo)` };
+          colorMap = { border: '#0e7490', fill: '#06b6d4', badge: 'bg-cyan-600 text-white', label: `AU: ${au}% (Modelado)` };
         } else if (au >= 45) {
           colorMap = { border: '#b45309', fill: '#fb923c', badge: 'bg-orange-500 text-white', label: `AU: ${au}% (Moderado)` };
         } else {
@@ -302,13 +309,13 @@ export default function DashboardMap({
       polygon.bindTooltip(
         `<div class="p-1.5 text-xs text-white min-w-[150px]">
           <div class="flex items-center justify-between gap-2 border-b border-white/20 pb-1 mb-1">
-            <strong class="text-white text-xs">${lot.name}</strong>
+            <strong class="text-white text-xs">${escapeMapHtml(lot.name)}</strong>
             <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${colorMap.badge}">${colorMap.label}</span>
           </div>
-          <p class="text-slate-200 text-[11px]">${lot.crop} &bull; ${lot.area.toFixed(1)} ha</p>
-          ${lot.deficitDr_mm !== undefined ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Agua faltante: ${lot.deficitDr_mm} mm &bull; disponible: ${lot.waterAvailableAU_pct}%</p>` : ''}
-          ${lot.ndviCurrent !== undefined ? `<p class="text-emerald-300 text-[10px] font-mono">Vigor satelital (NDVI): ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
-          ${lot.ndviObservationDate ? `<p class="text-slate-300 text-[10px]">Imagen NDVI: ${lot.ndviObservationDate}${lot.ndviCloudCoveragePct !== undefined && lot.ndviCloudCoveragePct !== null ? ` &bull; nubes ${lot.ndviCloudCoveragePct.toFixed(1)}%` : ''}</p>` : ''}
+          <p class="text-slate-200 text-[11px]">${escapeMapHtml(lot.crop)} &bull; ${lot.area.toFixed(1)} ha</p>
+          ${lot.deficitDr_mm != null ? `<p class="text-amber-300 text-[10px] font-mono mt-0.5">Agua faltante: ${lot.deficitDr_mm} mm &bull; disponible: ${lot.waterAvailableAU_pct == null ? '-' : lot.waterAvailableAU_pct}%</p>` : ''}
+          ${lot.ndviCurrent != null ? `<p class="text-emerald-300 text-[10px] font-mono">Vigor satelital (NDVI): ${lot.ndviCurrent.toFixed(2)}</p>` : ''}
+          ${lot.ndviObservationDate ? `<p class="text-slate-300 text-[10px]">Imagen NDVI: ${escapeMapHtml(lot.ndviObservationDate)}${lot.ndviCloudCoveragePct !== undefined && lot.ndviCloudCoveragePct !== null ? ` &bull; nubes ${lot.ndviCloudCoveragePct.toFixed(1)}%` : ''}</p>` : ''}
           ${lot.ndviValidPixelCoveragePct !== undefined && lot.ndviValidPixelCoveragePct !== null ? `<p class="text-slate-300 text-[10px]">Píxeles útiles: ${lot.ndviValidPixelCoveragePct.toFixed(1)}%</p>` : ''}
           <p class="text-[9px] text-sky-300 mt-1 italic">Click para seleccionar lote</p>
          </div>`,
@@ -348,15 +355,16 @@ export default function DashboardMap({
       if (activeLayer === 'estadoActual') {
         colorMap = { border: '#e0f2fe', fill: '#0f172a' };
       } else if (activeLayer === 'alertas') {
-        const status = lot.hydricStatus || 'Normal';
+        const status = lot.hydricStatus || 'Sin datos';
         colorMap = {
+          'Sin datos': { border: '#64748b', fill: '#94a3b8' },
           Normal: { border: '#10b981', fill: '#34d399' },
           Atencion: { border: '#f59e0b', fill: '#fbbf24' },
           Critico: { border: '#ef4444', fill: '#f87171' },
         }[status];
       } else if (activeLayer === 'ndvi') {
         const ndvi = lot.ndviCurrent;
-        if (ndvi === undefined) {
+        if (ndvi == null) {
           colorMap = { border: '#64748b', fill: '#94a3b8' };
         } else if (ndvi >= 0.6) {
           colorMap = { border: '#047857', fill: '#10b981' };
@@ -366,8 +374,10 @@ export default function DashboardMap({
           colorMap = { border: '#be123c', fill: '#f43f5e' };
         }
       } else if (activeLayer === 'humedad') {
-        const au = lot.waterAvailableAU_pct ?? 70;
-        if (au >= 80) {
+        const au = lot.waterAvailableAU_pct;
+        if (au == null) {
+          colorMap = { border: '#64748b', fill: '#94a3b8' };
+        } else if (au >= 80) {
           colorMap = { border: '#0369a1', fill: '#0284c7' };
         } else if (au >= 60) {
           colorMap = { border: '#0e7490', fill: '#06b6d4' };
@@ -464,7 +474,7 @@ export default function DashboardMap({
         {activeLayer === 'ndvi' && (
           <>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-emerald-800/40 px-2 py-0.5 text-emerald-300 border border-emerald-800/40">
-              <span className="h-2 w-2 rounded-full bg-emerald-800" /> &gt;=0.60 (Sano)
+              <span className="h-2 w-2 rounded-full bg-emerald-800" /> &gt;=0.60 (Alto)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-emerald-600/20 px-2 py-0.5 text-emerald-400 border border-emerald-600/30">
               <span className="h-2 w-2 rounded-full bg-amber-400" /> 0.35-0.60 (Moderado)
@@ -483,7 +493,7 @@ export default function DashboardMap({
               <span className="h-2 w-2 rounded-full bg-sky-400" /> &gt;80% (Húmedo)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-cyan-600/20 px-2 py-0.5 text-cyan-300 border border-cyan-600/30">
-              <span className="h-2 w-2 rounded-full bg-cyan-400" /> 60-80% (Óptimo)
+              <span className="h-2 w-2 rounded-full bg-cyan-400" /> 60-80% (Modelado)
             </span>
             <span className="flex items-center gap-1 text-[11px] rounded-lg bg-orange-500/20 px-2 py-0.5 text-orange-300 border border-orange-500/30">
               <span className="h-2 w-2 rounded-full bg-orange-400" /> 45-60% (Mod)

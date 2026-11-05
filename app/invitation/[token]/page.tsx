@@ -108,15 +108,13 @@ export default function InvitationPage() {
     loadPreview();
   }, [token]);
 
-  const needsFullRegistration = Boolean(
-    preview?.requires_password || preview?.requires_profile || !preview?.first_name
-  );
+  const needsFullRegistration = Boolean(preview?.requires_password);
 
   // Real-Time Field Validation Checks
   const isFirstNameInvalid = touched.firstName && (!firstName.trim() || firstName.trim().length < 2);
   const isLastNameInvalid = touched.lastName && (!lastName.trim() || lastName.trim().length < 2);
   const isPhoneInvalid = touched.phone && (!phone.trim() || phone.replace(/[^0-9]/g, '').length < 8);
-  const isPasswordInvalid = touched.password && (!password || password.length < 6);
+  const isPasswordInvalid = touched.password && (!password || password.length < 8);
   const isConfirmPasswordInvalid = touched.confirmPassword && (confirmPassword !== password);
 
   // Clean Farm Name formatting (ensure it displays "Establecimiento" instead of raw "Lote")
@@ -134,6 +132,13 @@ export default function InvitationPage() {
   const handleAccept = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    if (!needsFullRegistration && (!auth.user || auth.user.email.toLowerCase() !== preview?.email.toLowerCase())) {
+      // Keep the invitation token in this tab, never in login query strings.
+      sessionStorage.setItem('agromas_pending_invitation', token);
+      if (auth.user) await auth.logout();
+      router.push('/login');
+      return;
+    }
 
     setTouched({
       firstName: true,
@@ -156,8 +161,8 @@ export default function InvitationPage() {
         setSubmitError('Ingresa un número de WhatsApp de alertas válido.');
         return;
       }
-      if (!password || password.length < 6) {
-        setSubmitError('La contraseña debe tener al menos 6 caracteres.');
+      if (!password || password.length < 8) {
+        setSubmitError('La contraseña debe tener al menos 8 caracteres.');
         return;
       }
       if (password !== confirmPassword) {
@@ -182,6 +187,7 @@ export default function InvitationPage() {
     });
 
     if (res.success) {
+      sessionStorage.removeItem('agromas_pending_invitation');
       // Direct redirect to Dashboard with active session
       router.push('/dashboard');
     } else {
@@ -279,6 +285,9 @@ export default function InvitationPage() {
 
               {/* Form */}
               <form onSubmit={handleAccept} noValidate className="space-y-4">
+                {!needsFullRegistration && <p className="rounded-xl bg-sky-50 p-3 text-xs text-sky-900">
+                  Para aceptar, iniciá sesión con {preview.email}. El enlace no permite acceder a una cuenta existente por sí solo.
+                </p>}
                 
                 {/* Email Read-only */}
                 <div className="space-y-1">
@@ -394,7 +403,7 @@ export default function InvitationPage() {
                           <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                           <input
                             type={showPassword ? 'text' : 'password'}
-                            placeholder="Mínimo 6 caracteres"
+                            placeholder="Mínimo 8 caracteres"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onBlur={() => handleBlur('password')}
@@ -415,7 +424,7 @@ export default function InvitationPage() {
                         {isPasswordInvalid && (
                           <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
                             <AlertTriangle className="h-3 w-3 shrink-0" />
-                            <span>Mínimo 6 caracteres</span>
+                            <span>Mínimo 8 caracteres</span>
                           </p>
                         )}
                       </div>

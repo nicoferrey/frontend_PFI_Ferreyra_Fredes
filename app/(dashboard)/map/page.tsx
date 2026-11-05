@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Sparkles } from 'lucide-react';
-import { useDashboard, formatDate, defaultDemoPolygons } from '../context';
+import { fieldDateTimeIso } from '@/lib/field-dates';
+import { useDashboard, formatDate, formatMetric } from '../context';
 import { LotDetailView } from '@/components/lot-detail-view';
 import { DashboardMapLayer } from '@/components/dashboard-map';
 import { PageHeader } from '@/components/page-header';
@@ -24,7 +25,6 @@ export default function DashboardMapPage() {
   const [activeMapLayer, setActiveMapLayer] = useState<DashboardMapLayer>('ndvi');
   const {
     lotsData,
-    setLotsData,
     selectedLotId,
     setSelectedLotId,
     selectedField,
@@ -35,6 +35,7 @@ export default function DashboardMapPage() {
     isRefreshingAgents,
     setIsRefreshingAgents,
     agentRefreshError,
+    historyLoadError,
     setAgentRefreshError,
     setHistoryReloadTrigger,
     realHistory,
@@ -96,7 +97,7 @@ export default function DashboardMapPage() {
     return lotsData.map((l) => ({
       id: l.id,
       name: l.name,
-      polygon: rawCustomPolygons[l.id] || defaultDemoPolygons[l.id] || [],
+      polygon: rawCustomPolygons[l.id] || [],
       area: l.areaHa,
       crop: l.crop,
       hydricStatus: l.hydricStatus,
@@ -108,7 +109,7 @@ export default function DashboardMapPage() {
       ndviValidPixelCoveragePct: l.ndviValidPixelCoveragePct,
       ndviSceneId: l.ndviSceneId,
     }));
-  }, [lotsData, rawCustomPolygons, defaultDemoPolygons]);
+  }, [lotsData, rawCustomPolygons]);
 
   const handleRegisterIrrigation = async (
     lotId: string,
@@ -118,8 +119,7 @@ export default function DashboardMapPage() {
 
     if (hasCustom) {
       const [datePart, timePart] = data.date.split(' ');
-      const localDate = new Date(`${datePart}T${timePart || '00:00'}`);
-      const isoDate = isNaN(localDate.getTime()) ? new Date().toISOString() : localDate.toISOString();
+      const isoDate = fieldDateTimeIso(datePart, timePart || '00:00');
 
       const res = await createIrrigationEventApi(lotId, {
         applied_at: isoDate,
@@ -156,48 +156,10 @@ export default function DashboardMapPage() {
         setIsRefreshingAgents(false);
       } else {
         console.error('Failed to create irrigation event in backend:', res.data);
-        setDialogState({
-          isOpen: true,
-          title: 'Error al registrar riego',
-          description: 'Error al registrar el riego en el servidor: ' + (res.data?.detail || 'Inténtelo de nuevo.'),
-          variant: 'error',
-        });
+        throw new Error('No se pudo registrar el riego: ' + (typeof res.data?.detail === 'string' ? res.data.detail : 'Revisá tus permisos o conexión.'));
       }
     } else {
-      // Mock lot fallback
-      setLotsData((prev) =>
-        prev.map((lot) => {
-          if (lot.id === lotId) {
-            const newDr = Math.max(0, lot.deficitDr_mm - data.amount_mm);
-            const newAu = Math.min(lot.totalAvailableTAW_mm, lot.waterAvailableAU_mm + data.amount_mm);
-            const newStatus: 'Normal' | 'Atencion' | 'Critico' =
-              newDr <= lot.easilyAvailableAFD_mm ? 'Normal' : newDr <= lot.easilyAvailableAFD_mm * 1.15 ? 'Atencion' : 'Critico';
-
-            const newTimelineItem = {
-              date: data.date.split(' ')[0],
-              dayLabel: 'Hoy',
-              dr_mm: newDr,
-              au_mm: newAu,
-              afd_mm: lot.easilyAvailableAFD_mm,
-              taw_mm: lot.totalAvailableTAW_mm,
-              irrigation_mm: data.amount_mm,
-            };
-
-            return {
-              ...lot,
-              deficitDr_mm: newDr,
-              waterAvailableAU_mm: newAu,
-              waterAvailableAU_pct: Math.round((newAu / lot.totalAvailableTAW_mm) * 100),
-              hydricStatus: newStatus,
-              irrigationPriority: newStatus === 'Normal' ? 'Baja' : 'Media',
-              lastIrrigationDate: data.date.split(' ')[0],
-              lastIrrigationAmount_mm: data.amount_mm,
-              timeline: [...lot.timeline, newTimelineItem],
-            };
-          }
-          return lot;
-        })
-      );
+      throw new Error('El lote no está registrado o no está disponible para tu cuenta.');
     }
   };
 
@@ -249,14 +211,14 @@ export default function DashboardMapPage() {
   }[activeMapLayer];
 
   const getVigorLabel = (lot: typeof lotsData[number]) => {
-    if (!lot.ndviDataAvailable) return 'Vigor: sin dato';
-    if (lot.ndviCurrent >= 0.6) return 'Vigor: sano';
+    if (lot.ndviCurrent === null) return 'Vigor: sin dato';
+    if (lot.ndviCurrent >= 0.6) return 'Vigor: alto';
     if (lot.ndviCurrent >= 0.35) return 'Vigor: moderado';
     return 'Vigor: bajo';
   };
 
   const getVigorClass = (lot: typeof lotsData[number]) => {
-    if (!lot.ndviDataAvailable) return 'border-slate-500/40 bg-slate-500/15 text-slate-300';
+    if (lot.ndviCurrent === null) return 'border-slate-500/40 bg-slate-500/15 text-slate-300';
     if (lot.ndviCurrent >= 0.6) return 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300';
     if (lot.ndviCurrent >= 0.35) return 'border-amber-500/40 bg-amber-500/15 text-amber-300';
     return 'border-rose-500/40 bg-rose-500/15 text-rose-300';
@@ -302,6 +264,8 @@ export default function DashboardMapPage() {
           </div>
         }
       />
+        {historyLoadError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{historyLoadError}</p>}
+        {!lotsData.length && <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">No hay lotes registrados cargados. No se muestran datos de demostración.</p>}
         {agentRefreshError && (
           <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
             {agentRefreshError}
@@ -349,7 +313,7 @@ export default function DashboardMapPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {lotsData.map((lot) => {
               const isSelected = lot.id === selectedLotId;
-              const statusClass = lot.hydricStatus === 'Normal'
+              const statusClass = lot.hydricStatus === 'Sin datos' ? 'border-slate-500/40 bg-slate-500/15 text-slate-300' : lot.hydricStatus === 'Normal'
                 ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
                 : lot.hydricStatus === 'Atencion'
                 ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
@@ -378,7 +342,7 @@ export default function DashboardMapPage() {
                     </span>
                   </div>
                   <p className="mt-1.5 text-[10px] text-slate-400">
-                    NDVI: {lot.ndviDataAvailable ? `${lot.ndviCurrent.toFixed(2)} · ${formatNdviDate(lot.ndviObservationDate)}` : 'sin dato'}
+                    NDVI: {lot.ndviDataAvailable ? `${formatMetric(lot.ndviCurrent, 2)} · ${formatNdviDate(lot.ndviObservationDate)}` : 'sin dato'}
                   </p>
                 </button>
               );

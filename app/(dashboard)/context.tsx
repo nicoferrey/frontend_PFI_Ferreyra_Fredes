@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { Activity, AlertTriangle, Droplets, Sparkles } from 'lucide-react';
+import { fieldDateString, shiftFieldDate } from '@/lib/field-dates';
 import {
   FieldAgentSnapshot,
   FieldItem,
@@ -21,31 +21,35 @@ export interface LotHydricData {
   areaHa: number;
   soilType: string;
   irrigationSystem: string;
-  hydricStatus: 'Normal' | 'Atencion' | 'Critico';
-  deficitDr_mm: number;
+  hydricStatus: 'Normal' | 'Atencion' | 'Critico' | 'Sin datos';
+  hydricStateDate: string | null;
+  hydricStateIsCurrent: boolean;
+  isRecommendationPublishable: boolean;
+  warnings: string[];
+  deficitDr_mm: number | null;
   recommendedNetIrrigation_mm?: number;
   recommendedGrossIrrigation_mm?: number;
-  waterAvailableAU_mm: number;
-  waterAvailableAU_pct: number;
-  easilyAvailableAFD_mm: number;
-  totalAvailableTAW_mm: number;
-  etcToday_mm: number;
-  et0Today_mm: number;
-  ndviCurrent: number;
+  waterAvailableAU_mm: number | null;
+  waterAvailableAU_pct: number | null;
+  easilyAvailableAFD_mm: number | null;
+  totalAvailableTAW_mm: number | null;
+  etcToday_mm: number | null;
+  et0Today_mm: number | null;
+  ndviCurrent: number | null;
   ndviDataAvailable?: boolean;
   ndviObservationDate?: string | null;
   ndviCloudCoveragePct?: number | null;
   ndviValidPixelCoveragePct?: number | null;
   ndviSceneId?: string | null;
   usesEstimatedAgronomicData?: boolean;
-  kcSatellite: number;
-  irrigationPriority: 'Alta' | 'Media' | 'Baja';
+  kcSatellite: number | null;
+  irrigationPriority: 'Alta' | 'Media' | 'Baja' | 'Sin datos';
   priorityReason: string;
   pumpingWindow: string;
   lastIrrigationDate: string;
-  lastIrrigationAmount_mm: number;
+  lastIrrigationAmount_mm: number | null;
   lastRainDate: string;
-  lastRainAmount_mm: number;
+  lastRainAmount_mm: number | null;
   timeline: {
     date: string;
     dayLabel: string;
@@ -67,339 +71,102 @@ export interface LotHydricData {
 
 export type MenuTab = 'dashboard' | 'mapa_lotes' | 'historial' | 'asistente_ia' | 'configuracion';
 
-// KPIs are now computed dynamically in dashboard page.tsx from real lot data
-
-export const initialMockLots: LotHydricData[] = [
-  {
-    id: 'lote-1',
-    name: 'Lote Norte',
-    crop: 'Soja 2da',
-    areaHa: 65,
-    soilType: 'Franco Limoso',
-    irrigationSystem: 'Pivote Central',
-    hydricStatus: 'Normal',
-    deficitDr_mm: 14.2,
-    waterAvailableAU_mm: 85.8,
-    waterAvailableAU_pct: 86,
-    easilyAvailableAFD_mm: 45.0,
-    totalAvailableTAW_mm: 100.0,
-    etcToday_mm: 4.8,
-    et0Today_mm: 4.2,
-    ndviCurrent: 0.82,
-    ndviObservationDate: '2026-08-08',
-    ndviCloudCoveragePct: 4,
-    ndviValidPixelCoveragePct: null,
-    ndviSceneId: null,
-    kcSatellite: 1.15,
-    irrigationPriority: 'Baja',
-    priorityReason: 'Confort hídrico adecuado. Sin estrés proyectado en 72 h.',
-    pumpingWindow: '04:00 - 07:00 hs',
-    lastIrrigationDate: '04/08/2026',
-    lastIrrigationAmount_mm: 20,
-    lastRainDate: '28/07/2026',
-    lastRainAmount_mm: 18,
-    timeline: [
-      { date: '02/08', dayLabel: 'Dom', dr_mm: 8.0, au_mm: 92.0, afd_mm: 45, taw_mm: 100, rain_mm: 12 },
-      { date: '03/08', dayLabel: 'Lun', dr_mm: 12.5, au_mm: 87.5, afd_mm: 45, taw_mm: 100 },
-      { date: '04/08', dayLabel: 'Mar', dr_mm: 6.0, au_mm: 94.0, afd_mm: 45, taw_mm: 100, irrigation_mm: 20 },
-      { date: '05/08', dayLabel: 'Mie', dr_mm: 9.8, au_mm: 90.2, afd_mm: 45, taw_mm: 100 },
-      { date: '06/08', dayLabel: 'Jue', dr_mm: 13.5, au_mm: 86.5, afd_mm: 45, taw_mm: 100 },
-      { date: '07/08', dayLabel: 'Vie', dr_mm: 14.0, au_mm: 86.0, afd_mm: 45, taw_mm: 100 },
-      { date: '08/08', dayLabel: 'Sab', dr_mm: 14.2, au_mm: 85.8, afd_mm: 45, taw_mm: 100 },
-    ],
-  },
-  {
-    id: 'lote-2',
-    name: 'Lote Centro',
-    crop: 'Maíz Tardío',
-    areaHa: 92,
-    soilType: 'Franco Arcilloso',
-    irrigationSystem: 'Goteo Subterráneo',
-    hydricStatus: 'Atencion',
-    deficitDr_mm: 36.5,
-    waterAvailableAU_mm: 63.5,
-    waterAvailableAU_pct: 63,
-    easilyAvailableAFD_mm: 42.0,
-    totalAvailableTAW_mm: 100.0,
-    etcToday_mm: 5.4,
-    et0Today_mm: 4.5,
-    ndviCurrent: 0.74,
-    ndviObservationDate: '2026-08-08',
-    ndviCloudCoveragePct: 5,
-    ndviValidPixelCoveragePct: null,
-    ndviSceneId: null,
-    kcSatellite: 1.20,
-    irrigationPriority: 'Media',
-    priorityReason: 'Déficit Dr aproximándose al umbral AFD. Conviene aplicar en 24h.',
-    pumpingWindow: '23:00 - 05:00 hs',
-    lastIrrigationDate: '01/08/2026',
-    lastIrrigationAmount_mm: 15,
-    lastRainDate: '26/07/2026',
-    lastRainAmount_mm: 10,
-    timeline: [
-      { date: '02/08', dayLabel: 'Dom', dr_mm: 20.0, au_mm: 80.0, afd_mm: 42, taw_mm: 100 },
-      { date: '03/08', dayLabel: 'Lun', dr_mm: 24.5, au_mm: 75.5, afd_mm: 42, taw_mm: 100 },
-      { date: '04/08', dayLabel: 'Mar', dr_mm: 28.0, au_mm: 72.0, afd_mm: 42, taw_mm: 100 },
-      { date: '05/08', dayLabel: 'Mie', dr_mm: 31.0, au_mm: 69.0, afd_mm: 42, taw_mm: 100 },
-      { date: '06/08', dayLabel: 'Jue', dr_mm: 34.0, au_mm: 66.0, afd_mm: 42, taw_mm: 100 },
-      { date: '07/08', dayLabel: 'Vie', dr_mm: 35.8, au_mm: 64.2, afd_mm: 42, taw_mm: 100 },
-      { date: '08/08', dayLabel: 'Sab', dr_mm: 36.5, au_mm: 63.5, afd_mm: 42, taw_mm: 100 },
-    ],
-  },
-  {
-    id: 'lote-3',
-    name: 'Lote Sur',
-    crop: 'Trigo',
-    areaHa: 48,
-    soilType: 'Franco Arenoso',
-    irrigationSystem: 'Aspersión Fija',
-    hydricStatus: 'Critico',
-    deficitDr_mm: 52.0,
-    waterAvailableAU_mm: 38.0,
-    waterAvailableAU_pct: 38,
-    easilyAvailableAFD_mm: 40.0,
-    totalAvailableTAW_mm: 90.0,
-    etcToday_mm: 3.9,
-    et0Today_mm: 4.1,
-    ndviCurrent: 0.58,
-    ndviObservationDate: '2026-08-08',
-    ndviCloudCoveragePct: 7,
-    ndviValidPixelCoveragePct: null,
-    ndviSceneId: null,
-    kcSatellite: 0.95,
-    irrigationPriority: 'Alta',
-    priorityReason: 'Déficit superó el umbral RAW (40 mm). Estrés hídrico inminente.',
-    pumpingWindow: 'Inmediata / Noche 01:00 hs',
-    lastIrrigationDate: '26/07/2026',
-    lastIrrigationAmount_mm: 22,
-    lastRainDate: '20/07/2026',
-    lastRainAmount_mm: 5,
-    timeline: [
-      { date: '02/08', dayLabel: 'Dom', dr_mm: 32.0, au_mm: 58.0, afd_mm: 40, taw_mm: 90 },
-      { date: '03/08', dayLabel: 'Lun', dr_mm: 36.0, au_mm: 54.0, afd_mm: 40, taw_mm: 90 },
-      { date: '04/08', dayLabel: 'Mar', dr_mm: 40.5, au_mm: 49.5, afd_mm: 40, taw_mm: 90 },
-      { date: '05/08', dayLabel: 'Mie', dr_mm: 44.0, au_mm: 46.0, afd_mm: 40, taw_mm: 90 },
-      { date: '06/08', dayLabel: 'Jue', dr_mm: 47.5, au_mm: 42.5, afd_mm: 40, taw_mm: 90 },
-      { date: '07/08', dayLabel: 'Vie', dr_mm: 50.0, au_mm: 40.0, afd_mm: 40, taw_mm: 90 },
-      { date: '08/08', dayLabel: 'Sab', dr_mm: 52.0, au_mm: 38.0, afd_mm: 40, taw_mm: 90 },
-    ],
-  },
-  {
-    id: 'lote-4',
-    name: 'Lote Este',
-    crop: 'Girasol',
-    areaHa: 75,
-    soilType: 'Franco Limoso',
-    irrigationSystem: 'Pivote Central',
-    hydricStatus: 'Normal',
-    deficitDr_mm: 21.0,
-    waterAvailableAU_mm: 79.0,
-    waterAvailableAU_pct: 79,
-    easilyAvailableAFD_mm: 44.0,
-    totalAvailableTAW_mm: 100.0,
-    etcToday_mm: 4.2,
-    et0Today_mm: 4.3,
-    ndviCurrent: 0.79,
-    ndviObservationDate: '2026-08-08',
-    ndviCloudCoveragePct: 4,
-    ndviValidPixelCoveragePct: null,
-    ndviSceneId: null,
-    kcSatellite: 1.05,
-    irrigationPriority: 'Baja',
-    priorityReason: 'Reserva hídrica suficiente. Balance positivo con ETc moderada.',
-    pumpingWindow: '05:00 - 08:00 hs',
-    lastIrrigationDate: '03/08/2026',
-    lastIrrigationAmount_mm: 16,
-    lastRainDate: '28/07/2026',
-    lastRainAmount_mm: 14,
-    timeline: [
-      { date: '02/08', dayLabel: 'Dom', dr_mm: 22.0, au_mm: 78.0, afd_mm: 44, taw_mm: 100 },
-      { date: '03/08', dayLabel: 'Lun', dr_mm: 10.0, au_mm: 90.0, afd_mm: 44, taw_mm: 100, irrigation_mm: 16 },
-      { date: '04/08', dayLabel: 'Mar', dr_mm: 13.0, au_mm: 87.0, afd_mm: 44, taw_mm: 100 },
-      { date: '05/08', dayLabel: 'Mie', dr_mm: 15.5, au_mm: 84.5, afd_mm: 44, taw_mm: 100 },
-      { date: '06/08', dayLabel: 'Jue', dr_mm: 18.0, au_mm: 82.0, afd_mm: 44, taw_mm: 100 },
-      { date: '07/08', dayLabel: 'Vie', dr_mm: 19.8, au_mm: 80.2, afd_mm: 44, taw_mm: 100 },
-      { date: '08/08', dayLabel: 'Sab', dr_mm: 21.0, au_mm: 79.0, afd_mm: 44, taw_mm: 100 },
-    ],
-  },
-];
-
-export const defaultDemoPolygons: { [id: string]: [number, number][] } = {
-  'lote-1': [
-    [-33.8820, -60.5820],
-    [-33.8820, -60.5690],
-    [-33.8890, -60.5690],
-    [-33.8890, -60.5820],
-  ],
-  'lote-2': [
-    [-33.8910, -60.5820],
-    [-33.8910, -60.5690],
-    [-33.8980, -60.5690],
-    [-33.8980, -60.5820],
-  ],
-  'lote-3': [
-    [-33.8820, -60.5670],
-    [-33.8820, -60.5540],
-    [-33.8890, -60.5540],
-    [-33.8890, -60.5670],
-  ],
-  'lote-4': [
-    [-33.8910, -60.5670],
-    [-33.8910, -60.5540],
-    [-33.8980, -60.5540],
-    [-33.8980, -60.5670],
-  ],
-};
-
-export function asNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+export function nullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-export function round1(value: number): number {
-  return Math.round(value * 10) / 10;
+export function formatMetric(value: number | null | undefined, digits = 1): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '-';
 }
 
 export function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
   const [year, month, day] = value.slice(0, 10).split('-');
-  if (!year || !month || !day) return fallback;
-  return `${day}/${month}/${year}`;
+  return year && month && day ? day + '/' + month + '/' + year : fallback;
 }
 
-export function priorityFromUrgency(urgency?: string): 'Alta' | 'Media' | 'Baja' {
-  if (urgency === 'HIGH') return 'Alta';
-  if (urgency === 'MEDIUM') return 'Media';
-  return 'Baja';
-}
-
-export function statusFromUrgency(urgency?: string): 'Normal' | 'Atencion' | 'Critico' {
-  if (urgency === 'HIGH') return 'Critico';
-  if (urgency === 'MEDIUM') return 'Atencion';
-  return 'Normal';
-}
-
-export function buildAgentTimeline(
-  dateTo: string | undefined,
-  deficitMm: number,
-  tawMm: number,
-  afdMm: number,
-  totalEtcMm: number,
-  totalRainMm: number,
-  irrigationAppliedMm: number,
-  ndvi?: number,
-  kc?: number
-): LotHydricData['timeline'] {
-  const end = dateTo ? new Date(`${dateTo}T00:00:00`) : new Date();
-  const days = 7;
-  const dailyEtc = totalEtcMm > 0 ? totalEtcMm / days : 3.5;
-  const dailyRain = totalRainMm > 0 ? totalRainMm / days : 0;
-  const startDeficit = Math.max(0, deficitMm - (dailyEtc - dailyRain) * (days - 1) + irrigationAppliedMm);
-
-  return Array.from({ length: days }, (_, index) => {
-    const current = new Date(end);
-    current.setDate(end.getDate() - (days - 1 - index));
-    const dr = Math.max(0, round1(startDeficit + (dailyEtc - dailyRain) * index - (index === 0 ? irrigationAppliedMm : 0)));
-    const au = Math.max(0, round1(tawMm - dr));
-
-    return {
-      date: `${String(current.getDate()).padStart(2, '0')}/${String(current.getMonth() + 1).padStart(2, '0')}`,
-      dayLabel: current.toLocaleDateString('es-AR', { weekday: 'short' }),
-      dr_mm: dr,
-      au_mm: au,
-      afd_mm: afdMm,
-      taw_mm: tawMm,
-      rain_mm: totalRainMm > 0 ? round1(dailyRain) : undefined,
-      irrigation_mm: index === 0 && irrigationAppliedMm > 0 ? irrigationAppliedMm : undefined,
-      ndvi,
-      kc,
-    };
-  });
-}
-
-export function fieldToLot(field: FieldItem, index: number, snapshot?: FieldAgentSnapshot | null): LotHydricData {
+export function fieldToLot(field: FieldItem, _index: number, snapshot?: FieldAgentSnapshot | null): LotHydricData {
   const analyze = snapshot?.analyze_response || {};
   const recommendation = analyze.recommendation || {};
-  const recommendationMetrics = recommendation.metrics || {};
+  const recommendationMetrics = recommendation.status === 'NO_DATA' ? {} : recommendation.metrics || {};
   const waterBalance = recommendation.water_balance || {};
-  const metrics = waterBalance.metrics || {};
-  const weatherMetrics = waterBalance.weather_context?.metrics || {};
-  const ndviMetrics = analyze.ndvi_context?.metrics || {};
+  const metrics = waterBalance.status === 'NO_DATA' ? {} : waterBalance.metrics || {};
+  const weather = waterBalance.weather_context || {};
+  const weatherMetrics = weather.status === 'NO_DATA' ? {} : weather.metrics || {};
+  const ndviContext = analyze.ndvi_context || {};
+  const ndviMetrics = ndviContext.status === 'NO_DATA' ? {} : ndviContext.metrics || {};
   const kcContext = analyze.crop_coefficient_context || {};
-  const weatherCompare = snapshot?.weather_compare_response?.operational_recommendation || {};
-
-  const taw = asNumber(field.total_available_water_taw, 100);
-  const afd = round1(taw * 0.5);
-  const deficit = round1(asNumber(metrics.deficit_mm, 0));
-  const recommendedNetIrrigation =
-    typeof recommendationMetrics.recommended_net_irrigation_mm === 'number'
-      ? round1(recommendationMetrics.recommended_net_irrigation_mm)
-      : undefined;
-  const recommendedGrossIrrigation =
-    typeof recommendationMetrics.recommended_gross_irrigation_mm === 'number'
-      ? round1(recommendationMetrics.recommended_gross_irrigation_mm)
-      : undefined;
-  const available = Math.max(0, round1(taw - deficit));
-  const urgency = analyze.urgency || recommendation.urgency || weatherCompare.urgency;
-  const hydricStatus = snapshot ? statusFromUrgency(urgency) : 'Atencion';
-  const priority = snapshot ? priorityFromUrgency(urgency) : 'Media';
-  const daysAnalyzed = Math.max(1, asNumber(metrics.days_analyzed, 7));
-  const totalEtc = asNumber(metrics.total_etc_mm, 0);
-  const totalEt0 = asNumber(weatherMetrics.total_et0_mm, 0);
-  const totalRain = asNumber(weatherMetrics.total_precipitation_mm, 0);
-  const irrigationApplied = asNumber(metrics.irrigation_applied_mm, 0);
-  const kc = asNumber(kcContext.crop_coefficient, asNumber(metrics.crop_coefficient, 1));
-  const hasNdvi = typeof ndviMetrics.ndvi_mean === 'number';
-  const ndvi = hasNdvi ? asNumber(ndviMetrics.ndvi_mean, 0) : 0;
-  const ndviObservationDate = typeof ndviMetrics.observation_date === 'string' ? ndviMetrics.observation_date : null;
-  const ndviCloudCoveragePct =
-    typeof ndviMetrics.cloud_coverage_pct === 'number' ? ndviMetrics.cloud_coverage_pct : null;
-  const ndviValidPixelCoveragePct =
-    typeof ndviMetrics.valid_pixel_coverage_pct === 'number' ? ndviMetrics.valid_pixel_coverage_pct : null;
-  const ndviSceneId = typeof ndviMetrics.sentinel_scene_id === 'string' ? ndviMetrics.sentinel_scene_id : null;
-  const usesEstimatedAgronomicData =
-    !field.soil_type ||
-    field.soil_type === 'AUTO' ||
+  // The interval deficit is not root-zone Dr. Only use persisted FAO-56
+  // evidence, including its real AFD; never assume p=0.5 or TAW=100 here.
+  const evidence = recommendation.evidence || {};
+  const tawCandidate = nullableNumber(evidence.current_taw_mm) ?? nullableNumber(field.total_available_water_taw);
+  const taw = tawCandidate !== null && tawCandidate > 0 ? tawCandidate : null;
+  const raw = nullableNumber(evidence.current_raw_mm);
+  const afd = raw !== null && raw >= 0 && taw !== null && raw <= taw ? raw : null;
+  const dr = nullableNumber(evidence.current_dr_mm);
+  const deficit = dr !== null && dr >= 0 && taw !== null && dr <= taw ? dr : null;
+  const reportedAu = nullableNumber(evidence.current_au_mm);
+  const available = deficit !== null && taw !== null
+    ? (reportedAu !== null && reportedAu >= 0 && reportedAu <= taw ? reportedAu : Math.max(0, taw - deficit))
+    : null;
+  const hasHydricState = deficit !== null && afd !== null && taw !== null;
+  const stateDate = typeof evidence.hydric_state_date === 'string' ? evidence.hydric_state_date : null;
+  const today = fieldDateString();
+  const current = hasHydricState && stateDate === today && analyze.date_to === today && snapshot?.is_stale !== true;
+  const publishable = current && evidence.balance_source === 'PERSISTED_HYDRIC_HISTORY' &&
+    analyze.validation?.is_recommendation_safe === true && recommendation.status === 'COMPLETED' &&
+    ['IRRIGATE', 'MONITOR', 'NO_IRRIGATION'].includes(analyze.action) &&
+    snapshot?.weather_compare_response?.evidence?.historical_only !== true;
+  const urgency = publishable ? analyze.urgency : undefined;
+  const hydricStatus = current && deficit !== null && afd !== null
+    ? deficit > afd ? 'Critico' : deficit >= afd * 0.8 ? 'Atencion' : 'Normal' : 'Sin datos';
+  const priority = urgency === 'HIGH' ? 'Alta' : urgency === 'MEDIUM' ? 'Media' : urgency === 'LOW' ? 'Baja' : 'Sin datos';
+  const daysAnalyzed = nullableNumber(metrics.days_analyzed);
+  const totalEtc = nullableNumber(metrics.total_etc_mm);
+  const totalEt0 = nullableNumber(metrics.total_et0_mm) ?? nullableNumber(weatherMetrics.total_et0_mm);
+  const kc = nullableNumber(evidence.current_kc) ??
+    (kcContext.status !== 'NO_DATA' ? nullableNumber(kcContext.crop_coefficient) : null) ?? nullableNumber(metrics.crop_coefficient);
+  const ndviCandidate = nullableNumber(ndviMetrics.ndvi_mean);
+  const ndvi = ndviCandidate !== null && ndviCandidate >= -1 && ndviCandidate <= 1 ? ndviCandidate : null;
+  const usesEstimatedAgronomicData = !field.soil_type || field.soil_type === 'AUTO' ||
     !field.total_available_water_taw ||
     (field.initial_available_water_pct == null && field.initial_available_water_mm == null);
-  const dateTo = snapshot?.analyze_payload?.date_to || snapshot?.weather_compare_payload?.date_to;
 
   return {
-    id: String(field.id),
-    name: field.name,
-    crop: field.crop_type || 'Cultivo',
-    areaHa: field.area_ha || 0,
-    soilType: field.soil_type || 'Auto / estimado',
+    id: String(field.id), name: field.name, crop: field.crop_type || 'Sin especificar',
+    areaHa: field.area_ha || 0, soilType: field.soil_type || 'Auto / estimado',
     irrigationSystem: field.irrigation_system || 'Sin especificar',
-    hydricStatus,
+    hydricStatus, hydricStateDate: stateDate, hydricStateIsCurrent: current,
+    isRecommendationPublishable: publishable,
+    warnings: Array.from(new Set([
+      ...(analyze.warnings || []), ...(recommendation.warnings || []),
+      ...(analyze.validation?.warnings || []), ...(analyze.validation?.issues || []),
+      ...(snapshot?.weather_compare_response?.warnings || []),
+      ...(hasHydricState && !current ? ['El balance disponible es histórico, está obsoleto o carece de fecha verificable; no representa el estado actual.'] : []),
+      ...(!publishable ? ['No hay una recomendación operativa publicable para hoy.'] : []),
+    ].filter((warning) => typeof warning === 'string'))),
     deficitDr_mm: deficit,
-    recommendedNetIrrigation_mm: recommendedNetIrrigation,
-    recommendedGrossIrrigation_mm: recommendedGrossIrrigation,
+    recommendedNetIrrigation_mm: publishable ? nullableNumber(recommendationMetrics.recommended_net_irrigation_mm) ?? undefined : undefined,
+    recommendedGrossIrrigation_mm: publishable ? nullableNumber(recommendationMetrics.recommended_gross_irrigation_mm) ?? undefined : undefined,
     waterAvailableAU_mm: available,
-    waterAvailableAU_pct: taw > 0 ? Math.max(0, Math.min(100, Math.round((available / taw) * 100))) : 0,
-    easilyAvailableAFD_mm: afd,
-    totalAvailableTAW_mm: taw,
-    etcToday_mm: round1(totalEtc / daysAnalyzed),
-    et0Today_mm: round1(totalEt0 / daysAnalyzed),
-    ndviCurrent: ndvi,
-    ndviDataAvailable: hasNdvi,
-    ndviObservationDate,
-    ndviCloudCoveragePct,
-    ndviValidPixelCoveragePct,
-    ndviSceneId,
-    usesEstimatedAgronomicData,
-    kcSatellite: kc,
-    irrigationPriority: priority,
-    priorityReason:
-      analyze.final_recommendation ||
-      recommendation.summary ||
-      weatherCompare.evidence?.decision_rule ||
-      (snapshot ? 'Análisis MAS disponible para el lote.' : 'Sin snapshot de agentes. Actualizá agentes para cargar datos reales.'),
-    pumpingWindow: priority === 'Alta' ? 'Inmediata / próxima ventana nocturna' : '04:00 - 07:00 hs',
-    lastIrrigationDate: irrigationApplied > 0 ? formatDate(dateTo) : '-',
-    lastIrrigationAmount_mm: irrigationApplied,
-    lastRainDate: totalRain > 0 ? formatDate(dateTo) : '-',
-    lastRainAmount_mm: round1(totalRain),
-    timeline: buildAgentTimeline(dateTo, deficit, taw, afd, totalEtc, totalRain, irrigationApplied, ndvi || undefined, kc),
+    waterAvailableAU_pct: available !== null && taw !== null ? Math.round(available / taw * 100) : null,
+    easilyAvailableAFD_mm: afd, totalAvailableTAW_mm: taw,
+    etcToday_mm: totalEtc !== null && daysAnalyzed !== null && daysAnalyzed > 0 ? totalEtc / daysAnalyzed : null,
+    et0Today_mm: totalEt0 !== null && daysAnalyzed !== null && daysAnalyzed > 0 ? totalEt0 / daysAnalyzed : null,
+    ndviCurrent: ndvi, ndviDataAvailable: ndvi !== null,
+    ndviObservationDate: typeof ndviMetrics.observation_date === 'string' ? ndviMetrics.observation_date : null,
+    ndviCloudCoveragePct: nullableNumber(ndviMetrics.cloud_coverage_pct),
+    ndviValidPixelCoveragePct: nullableNumber(ndviMetrics.valid_pixel_coverage_pct),
+    ndviSceneId: typeof ndviMetrics.sentinel_scene_id === 'string' ? ndviMetrics.sentinel_scene_id : null,
+    usesEstimatedAgronomicData, kcSatellite: kc, irrigationPriority: priority,
+    priorityReason: publishable ? recommendation.summary || 'Balance modelado disponible.' : 'Recomendación operativa no publicable. Revisá los datos y advertencias.',
+    pumpingWindow: 'Sin ventana operativa validada',
+    // Period totals are not the date/amount of the last actual event.
+    lastIrrigationDate: '-', lastIrrigationAmount_mm: null,
+    lastRainDate: '-', lastRainAmount_mm: null,
+    // Daily history must come from the history API, not fabricated by
+    // distributing accumulated rain/ETc uniformly over seven dates.
+    timeline: [],
   };
 }
 
@@ -421,6 +188,7 @@ interface DashboardContextType {
   isRefreshingAgents: boolean;
   setIsRefreshingAgents: (val: boolean) => void;
   agentRefreshError: string | null;
+  historyLoadError: string | null;
   setAgentRefreshError: (err: string | null) => void;
   dateFrom: string;
   setDateFrom: (val: string) => void;
@@ -442,14 +210,15 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
 
-  const [lotsData, setLotsData] = useState<LotHydricData[]>(initialMockLots);
-  const [selectedLotId, setSelectedLotId] = useState<string>(initialMockLots[0]?.id || '');
+  const [lotsData, setLotsData] = useState<LotHydricData[]>([]);
+  const [selectedLotId, setSelectedLotId] = useState<string>('');
   const [hasCustomLots, setHasCustomLots] = useState(false);
   const [customCenter, setCustomCenter] = useState<[number, number]>([-33.8906, -60.5732]);
-  const [rawCustomPolygons, setRawCustomPolygons] = useState<{ [id: string]: [number, number][] }>(defaultDemoPolygons);
+  const [rawCustomPolygons, setRawCustomPolygons] = useState<{ [id: string]: [number, number][] }>({});
   const [fieldSnapshots, setFieldSnapshots] = useState<Record<string, FieldAgentSnapshot | null>>({});
   const [isRefreshingAgents, setIsRefreshingAgents] = useState(false);
   const [agentRefreshError, setAgentRefreshError] = useState<string | null>(null);
+  const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
 
   // Real daily history states
   const [realHistory, setRealHistory] = useState<HydricHistoryDay[]>([]);
@@ -458,12 +227,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [teamMembers, setTeamMembers] = useState<FieldTeamMember[]>([]);
 
   // Date range selectors (default to last 30 days)
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().slice(0, 10);
-  });
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(() => shiftFieldDate(fieldDateString(), -30));
+  const [dateTo, setDateTo] = useState(() => fieldDateString());
 
   // Resolved Selected Field
   const selectedField = useMemo(() => {
@@ -482,6 +247,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setAgentRefreshError(null);
 
     try {
+      const failures: string[] = [];
       await Promise.all(
         auth.currentFields.map(async (field) => {
           const res = await refreshFieldAgentSnapshotApi(field.id, {
@@ -494,9 +260,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               ...prev,
               [String(field.id)]: res.data,
             }));
-          }
+          } else { failures.push(field.name); }
         })
       );
+      if (failures.length) setAgentRefreshError('No se pudieron actualizar: ' + failures.join(', ') + '. Se conserva el último snapshot con su fecha.');
     } catch (err) {
       console.error('Error refreshing agent snapshots:', err);
       setAgentRefreshError('Ocurrió un error al contactar a los agentes. Inténtelo de nuevo.');
@@ -531,6 +298,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     if (auth.currentFields.length > 0) {
       loadAllSnapshots();
+    } else {
+      setFieldSnapshots({});
     }
   }, [auth.currentFields, auth.isLoading]);
 
@@ -573,12 +342,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       });
       setRawCustomPolygons(polygonsMap);
     } else {
-      setLotsData(initialMockLots);
-      setRawCustomPolygons(defaultDemoPolygons);
-      const currentExists = initialMockLots.some((l) => l.id === selectedLotId);
-      if (!currentExists && initialMockLots[0]) {
-        setSelectedLotId(initialMockLots[0].id);
-      }
+      setLotsData([]);
+      setRawCustomPolygons({});
+      setSelectedLotId('');
     }
   }, [auth.currentFields, auth.isLoading, fieldSnapshots]);
 
@@ -586,10 +352,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!selectedField) {
       setRealHistory([]);
+      setHistoryLoadError(null);
       return;
     }
 
     const fieldId = selectedField.id;
+    setRealHistory([]);
+    setHistoryLoadError(null);
     let isCancelled = false;
     async function loadRealHistory() {
       setIsLoadingHistory(true);
@@ -599,7 +368,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           setRealHistory(history);
         }
       } catch (err) {
-        console.error('Failed to load real history:', err);
+        if (!isCancelled) setHistoryLoadError(err instanceof Error ? err.message : 'No se pudo cargar el historial hídrico.');
       } finally {
         if (!isCancelled) {
           setIsLoadingHistory(false);
@@ -634,6 +403,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         isRefreshingAgents,
         setIsRefreshingAgents,
         agentRefreshError,
+        historyLoadError,
         setAgentRefreshError,
         dateFrom,
         setDateFrom,

@@ -14,7 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { AlertTriangle, Droplets, Leaf, TimerReset, Waves, Clock, Sparkles } from 'lucide-react';
-import { useDashboard } from '@/app/(dashboard)/context';
+import { useDashboard, formatMetric } from '@/app/(dashboard)/context';
 
 const scaleOptions = ['7 días', '14 días', '30 días'];
 
@@ -89,18 +89,10 @@ export function Fao56LotDetail() {
   const dynamicRecommendations = useMemo(() => {
     if (!lot) return [];
     
-    const statusText = lot.hydricStatus === 'Normal'
-      ? 'El lote se encuentra dentro del rango de confort hídrico. Se proyecta mantener lámina actual sin intervención por las próximas 48 h.'
-      : lot.hydricStatus === 'Atencion'
-      ? `El déficit Dr (${lot.deficitDr_mm} mm) se aproxima al umbral crítico AFD. Se sugiere aplicar riego preventivo.`
-      : `Estado crítico: Déficit superó el umbral de estrés. Aplicar ${Math.round(lot.deficitDr_mm)} mm en forma urgente.`;
-
-    const summary = selectedSnapshot?.analyze_response?.final_recommendation || statusText;
-    const window = selectedSnapshot?.analyze_response?.recommendation?.water_balance?.weather_compare_response?.operational_recommendation?.evidence?.decision_rule ||
-      `Programar la ventana entre 01:00 y 07:00 hs (tarifa valle nocturna) para optimizar costos de bombeo.`;
-
-    const ndviText = selectedSnapshot?.analyze_response?.ndvi_context?.summary ||
-      `El lote mantiene respuesta estable en NDVI (vigor actual: ${lot.ndviCurrent.toFixed(2)}). Kc ajustado satelitalmente.`;
+    const summary = selectedSnapshot?.analyze_response?.recommendation?.summary || 'Sin recomendación agronómica validada disponible.';
+    const window = 'Sin ventana operativa validada. No se estiman horarios ni tarifas.';
+    const ndviText = lot.ndviCurrent === null ? 'Sin dato satelital disponible.' :
+      'NDVI observado: ' + formatMetric(lot.ndviCurrent, 2) + '. Este índice no confirma estrés hídrico por sí solo.';
 
     return [
       {
@@ -132,16 +124,10 @@ export function Fao56LotDetail() {
   const impactMetrics = useMemo(() => {
     if (!lot) return [];
     
-    // Simulate savings index from AU %
-    const savingsM3 = Math.round(lot.areaHa * (lot.deficitDr_mm > 0 ? 8.2 : 12.5));
-    const fuelL = Math.round(savingsM3 * 0.28);
-    const kwh = Math.round(savingsM3 * 0.72);
-    
+    // Savings and efficiency need operational measurements; do not simulate.
     return [
-      { label: 'Agua optimizada est.', value: `${savingsM3.toLocaleString('es-AR')} m³`, icon: Droplets, accent: 'from-cyan-500 to-sky-600' },
-      { label: 'Combustible evitado', value: `${fuelL} L`, icon: Waves, accent: 'from-emerald-500 to-crop-600' },
-      { label: 'Ahorro energético', value: `${kwh} kWh`, icon: TimerReset, accent: 'from-amber-400 to-orange-500' },
-      { label: 'Eficiencia de aplicación', value: lot.irrigationSystem === 'Goteo Subterráneo' ? '90%' : '85%', icon: Leaf, accent: 'from-lime-400 to-emerald-500' },
+      { label: 'Ahorro de agua', value: 'Sin dato', icon: Droplets, accent: 'from-cyan-500 to-sky-600' },
+      { label: 'Ahorro energético', value: 'Sin dato', icon: TimerReset, accent: 'from-amber-400 to-orange-500' },
     ];
   }, [lot]);
 
@@ -187,8 +173,8 @@ export function Fao56LotDetail() {
         <div className="grid gap-6 p-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.18),transparent_30%),linear-gradient(180deg,rgba(12,18,28,1),rgba(8,12,18,1))] p-5">
             <div className="mb-4 flex items-center justify-between text-xs text-slate-300">
-              <span>TAW = capacidad de campo ({lot.totalAvailableTAW_mm.toFixed(0)} mm)</span>
-              <span>RAW = umbral hídrico ({lot.easilyAvailableAFD_mm.toFixed(0)} mm)</span>
+              <span>TAW = agua total disponible ({formatMetric(lot.totalAvailableTAW_mm, 0)} mm)</span>
+              <span>RAW = umbral hídrico ({formatMetric(lot.easilyAvailableAFD_mm, 0)} mm)</span>
             </div>
 
             <div className="h-[340px] rounded-[24px] border border-white/10 bg-black/20 p-2">
@@ -202,7 +188,7 @@ export function Fao56LotDetail() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.12)" vertical={false} />
                   <XAxis dataKey="day" tick={{ fill: '#cbd5e1', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} />
-                  <YAxis tick={{ fill: '#cbd5e1', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} domain={[0, Math.ceil(lot.totalAvailableTAW_mm * 1.05)]} />
+                  <YAxis tick={{ fill: '#cbd5e1', fontSize: 11 }} axisLine={{ stroke: 'rgba(255,255,255,0.12)' }} tickLine={false} domain={[0, lot.totalAvailableTAW_mm !== null ? Math.ceil(lot.totalAvailableTAW_mm * 1.05) : 'auto']} />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
@@ -233,7 +219,7 @@ export function Fao56LotDetail() {
                               ) : null}
                               {(data.under_stress || data.depletion > data.raw) && (
                                 <p className="text-rose-400 font-bold mt-1 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/25">
-                                  ⚠️ Estrés Hídrico Activo
+                                  ⚠️ Umbral modelado superado
                                 </p>
                               )}
                             </div>
@@ -243,8 +229,8 @@ export function Fao56LotDetail() {
                       return null;
                     }}
                   />
-                  <ReferenceLine y={lot.easilyAvailableAFD_mm} stroke="#f59e0b" strokeDasharray="6 6" strokeWidth={2} label={{ value: 'RAW', fill: '#fbbf24', position: 'insideTopRight' }} />
-                  <ReferenceLine y={lot.totalAvailableTAW_mm} stroke="#60a5fa" strokeDasharray="8 8" strokeWidth={1} label={{ value: 'TAW', fill: '#93c5fd', position: 'insideTopLeft' }} />
+                  <ReferenceLine y={lot.easilyAvailableAFD_mm ?? undefined} stroke="#f59e0b" strokeDasharray="6 6" strokeWidth={2} label={{ value: 'RAW', fill: '#fbbf24', position: 'insideTopRight' }} />
+                  <ReferenceLine y={lot.totalAvailableTAW_mm ?? undefined} stroke="#60a5fa" strokeDasharray="8 8" strokeWidth={1} label={{ value: 'TAW', fill: '#93c5fd', position: 'insideTopLeft' }} />
                   <Area type="monotone" dataKey="current" stroke="#10b981" fill="url(#currentWaterFill)" strokeWidth={3} name="Agua útil" />
                   <Line type="monotone" dataKey="depletion" stroke="#f97316" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 6 }} name="Déficit (Dr)" />
                 </ComposedChart>
@@ -254,15 +240,15 @@ export function Fao56LotDetail() {
             <div className="mt-4 grid gap-3 grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Agua útil (%)</p>
-                <p className="mt-2 text-2xl font-bold text-white">{lot.waterAvailableAU_pct}%</p>
+                <p className="mt-2 text-2xl font-bold text-white">{formatMetric(lot.waterAvailableAU_pct, 0)}%</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Déficit (Dr)</p>
-                <p className="mt-2 text-2xl font-bold text-amber-400">{lot.deficitDr_mm.toFixed(1)} mm</p>
+                <p className="mt-2 text-2xl font-bold text-amber-400">{formatMetric(lot.deficitDr_mm, 1)} mm</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Umbral RAW</p>
-                <p className="mt-2 text-2xl font-bold text-sky-400">{lot.easilyAvailableAFD_mm.toFixed(0)} mm</p>
+                <p className="mt-2 text-2xl font-bold text-sky-400">{formatMetric(lot.easilyAvailableAFD_mm, 0)} mm</p>
               </div>
             </div>
           </div>
@@ -329,14 +315,14 @@ export function Fao56LotDetail() {
           <div className="mt-3 flex items-end justify-between gap-3">
             <div>
               <p className="text-4xl font-mono font-extrabold text-white">
-                {lot.irrigationSystem === 'Goteo Subterráneo' ? '92%' : '88%'}
+                Sin dato
               </p>
               <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                La prescripción guiada por balance hídrico satelital FAO-56 optimiza hasta un 24% más de recursos que la programación tradicional.
+                La eficiencia y los ahorros requieren registros reales de volumen y energía, junto con una referencia de comparación.
               </p>
             </div>
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 whitespace-nowrap">
-              +24% eficiencia
+              Por validar
             </div>
           </div>
         </div>

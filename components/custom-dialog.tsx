@@ -21,7 +21,7 @@ export interface CustomDialogProps {
   variant?: DialogVariant;
   confirmText?: string;
   cancelText?: string;
-  onConfirm?: () => void | Promise<void>;
+  onConfirm?: () => void | boolean | Promise<void | boolean>;
   isLoading?: boolean;
   isConfirm?: boolean;
 }
@@ -84,7 +84,8 @@ export function CustomDialog({
 
   const handleConfirmClick = async () => {
     if (onConfirm) {
-      await onConfirm();
+      const shouldClose = await onConfirm();
+      if (shouldClose === false) return;
     }
     onClose();
   };

@@ -205,7 +205,8 @@ export function Topbar({
   const handleNotificationClick = async (notifId: string) => {
     const notif = realNotifications.find((n) => n.id === notifId);
     if (notif && !notif.read_at) {
-      await markNotificationReadApi(notifId);
+      const success = await markNotificationReadApi(notifId);
+      if (!success) return;
       setRealNotifications((prev) =>
         prev.map((n) => (n.id === notifId ? { ...n, read_at: new Date().toISOString() } : n))
       );
