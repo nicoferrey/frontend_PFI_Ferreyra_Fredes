@@ -6,6 +6,7 @@ import { ModalPortal } from '@/components/modal-portal';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
+import { FieldHistoryChat } from '@/components/field-history-chat';
 import { useAuth } from '@/lib/auth-context';
 import { evaluateSupervisorApi, getTeamMembersApi, type FieldTeamMember, type SupervisorEvaluation } from '@/lib/api';
 
@@ -217,6 +218,9 @@ export default function DashboardAssistantPage() {
         </button>
         {error?.fieldId === Number(lot?.id) && <p role="alert" className="text-sm text-rose-700">{error?.message}</p>}
       </section>
+
+      {lot && auth.user && !auth.isLoading && <FieldHistoryChat
+        key={`${auth.user.id}:${currentFarmId}:${lot.id}`} fieldId={Number(lot.id)} />}
 
       {response && <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4" aria-live="polite">
         <h3 className="text-lg font-bold">Resumen modelado FAO-56</h3>

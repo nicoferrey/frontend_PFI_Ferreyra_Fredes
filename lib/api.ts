@@ -557,6 +557,31 @@ export async function evaluateSupervisorApi(fieldId: number, maxSteps = 6): Prom
   }
 }
 
+export interface FieldHistoryAnswer {
+  status: 'ANSWERED' | 'NO_DATA' | 'UNSUPPORTED';
+  answer: string;
+  date_from: string;
+  date_to: string;
+  days_found: number;
+  warnings: string[];
+}
+
+export async function askFieldHistoryApi(
+  fieldId: number, query: { question: string; date_from: string; date_to: string },
+): Promise<FieldHistoryAnswer> {
+  const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
+    method: 'POST', body: JSON.stringify(query), cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'No se pudo consultar el historial.');
+  if (!['ANSWERED', 'NO_DATA', 'UNSUPPORTED'].includes(data.status) || typeof data.answer !== 'string' ||
+      data.date_from !== query.date_from || data.date_to !== query.date_to ||
+      !Array.isArray(data.warnings) || !data.warnings.every((warning: unknown) => typeof warning === 'string')) {
+    throw new Error('El servicio devolvió una respuesta inválida.');
+  }
+  return data;
+}
+
 export interface FieldAgentSnapshot {
   id: number;
   field_id: number;

@@ -135,12 +135,15 @@ test('assistant renders canonical values and warnings, never drafts, raw data or
   const page = load('app/(dashboard)/assistant/page.tsx', {
     react: { ...React, useState: (initial) => React.useState(stateIndex++ === 0 ? { 4: result } : initial) },
     '@/components/page-header': load('components/page-header.tsx'),
+    '@/components/field-history-chat': load('components/field-history-chat.tsx', {
+      '@/lib/api': {}, '@/lib/field-dates': load('lib/field-dates.ts'),
+    }),
     '@/app/(dashboard)/context': { useDashboard: () => ({ selectedLotId: '4', setSelectedLotId: () => {}, lotsData: [{ name: 'FAKE_DEMO_LOT' }] }) },
     '@/lib/auth-context': { useAuth: () => ({ user: { id: 'real-user' }, isLoading: false, currentFields: [{ id: 4, name: 'Registered lot' }] }) },
     '@/lib/api': { evaluateSupervisorApi: () => {}, getTeamMembersApi: () => Promise.resolve([]) },
   });
   const html = renderToStaticMarkup(React.createElement(page.default));
-  for (const expected of ['Registered lot', 'Canonical FAO summary', '3.03 mm', '77.00 mm', '140.00 mm',
+  for (const expected of ['Registered lot', 'Preguntá por el historial del lote', 'Canonical FAO summary', '3.03 mm', '77.00 mm', '140.00 mm',
     'IRRIGATION_UNKNOWN', 'INITIAL_ESTIMATED', 'RAG_LIMITED', 'Cargando historial de WhatsApp']) assert.ok(html.includes(expected), expected);
   for (const excluded of ['REJECTED_DRAFT', 'RAW_PAYLOAD', 'FAKE_DEMO_LOT', 'Carlos Gómez', '5555-010']) assert.equal(html.includes(excluded), false, excluded);
 });
