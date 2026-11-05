@@ -564,19 +564,25 @@ export interface FieldHistoryAnswer {
   date_to: string;
   days_found: number;
   warnings: string[];
+  target_date?: string | null;
+  mode?: 'CURRENT' | 'FORECAST' | null;
+  parts?: FieldHistoryAnswer[];
 }
 
 export async function askFieldHistoryApi(
-  fieldId: number, query: { question: string; date_from: string; date_to: string },
+  fieldId: number, query: { question: string; date_from: string; date_to: string;
+    use_language_model?: boolean; previous_question?: string },
 ): Promise<FieldHistoryAnswer> {
   const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
     method: 'POST', body: JSON.stringify(query), cache: 'no-store',
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'No se pudo consultar el historial.');
-  if (!['ANSWERED', 'NO_DATA', 'UNSUPPORTED'].includes(data.status) || typeof data.answer !== 'string' ||
-      data.date_from !== query.date_from || data.date_to !== query.date_to ||
-      !Array.isArray(data.warnings) || !data.warnings.every((warning: unknown) => typeof warning === 'string')) {
+  const valid = (item: FieldHistoryAnswer) => item && ['ANSWERED', 'NO_DATA', 'UNSUPPORTED'].includes(item.status) &&
+    typeof item.answer === 'string' && item.date_from === query.date_from && item.date_to === query.date_to &&
+    Array.isArray(item.warnings) && item.warnings.every(warning => typeof warning === 'string');
+  if (!valid(data) || (data.parts !== undefined &&
+      (!Array.isArray(data.parts) || data.parts.length > 3 || !data.parts.every(valid)))) {
     throw new Error('El servicio devolvió una respuesta inválida.');
   }
   return data;
