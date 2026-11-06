@@ -43,8 +43,10 @@ export default function DashboardAssistantPage() {
   const [members, setMembers] = useState<FieldTeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [webRevision, setWebRevision] = useState(0);
+  const [resumedChat, setResumedChat] = useState<{ scope: string; turns: WebAssistantTurn[]; revision: number } | null>(null);
   const [webHistory, setWebHistory] = useState<{ scope: string; turns: WebAssistantTurn[]; error?: string } | null>(null);
   const webScope = `${auth.user?.id ?? ''}:${currentFarmId ?? lot?.id ?? ''}`;
+  const activeChat = resumedChat?.scope === webScope ? resumedChat : null;
   const historyFieldId = auth.currentFields[0]?.id;
   useEffect(() => {
     if (!historyFieldId || !auth.user || auth.isLoading) return;
@@ -211,7 +213,8 @@ export default function DashboardAssistantPage() {
         description="Consultá tus lotes y registrá riegos o lluvias en el chat."
         icon={<BrainCircuit className="h-6 w-6" />} />
       {lot && auth.user && !auth.isLoading && <FieldHistoryChat
-        key={`${auth.user.id}:${currentFarmId}`} fieldId={Number(lot.id)} fieldName={lot.name}
+        key={`${webScope}:${activeChat?.revision ?? 0}`} fieldId={Number(lot.id)} fieldName={lot.name}
+        savedTurns={activeChat?.turns}
         onHistoryChanged={() => setWebRevision(value => value + 1)}
         onSelectField={id => {
           if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
@@ -283,6 +286,10 @@ export default function DashboardAssistantPage() {
                   Web · {group.at(-1)?.question} · {formatDate(group[0].created_at)}
                 </summary>
                 <div className="mt-3 space-y-3">
+                  <button type="button" onClick={() => {
+                    setResumedChat(previous => ({ scope: webScope, turns: group, revision: (previous?.revision ?? 0) + 1 }));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }} className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm text-white">Continuar chat</button>
                   {[...group].reverse().map(turn => <article key={turn.id} className="rounded-xl bg-slate-50 p-3 text-sm">
                     <p className="text-xs text-slate-500">{turn.field_name} · {formatDate(turn.created_at)}</p>
                     <p className="font-semibold break-words">{turn.question}</p>

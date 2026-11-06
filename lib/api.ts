@@ -577,6 +577,7 @@ export interface FieldHistoryAnswer {
   field_name?: string | null;
   draft?: FieldWaterDraft | null;
   read_context?: FieldChatReadContext | null;
+  replaces_pending_request?: boolean;
 }
 
 export interface FieldWaterDraft {

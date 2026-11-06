@@ -2,24 +2,26 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUp, Bot, Loader2, MessageSquare, RotateCcw } from 'lucide-react';
-import { askFieldHistoryApi, decideFieldWaterDraft, type FieldHistoryAnswer } from '@/lib/api';
+import { askFieldHistoryApi, decideFieldWaterDraft, type FieldHistoryAnswer, type WebAssistantTurn } from '@/lib/api';
 
 const examples = ['¿Cuánto llovió en los últimos 7 días?', '¿Cuántos días superó la AFD?', '¿Qué NDVI hay guardado?',
   '¿Conviene regar hoy?', '¿Cuánto debería regar mañana?', 'Ayer regué 20 mm', 'Ayer medí 12 mm de lluvia'];
 const conversationalExample = '¿Cuándo estuvo más seco y cómo cambió el agotamiento después de las lluvias?';
 
-export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryChanged }: {
+export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryChanged, savedTurns }: {
   fieldId: number; fieldName: string; onSelectField: (id: number) => void; onHistoryChanged: () => void;
+  savedTurns?: WebAssistantTurn[];
 }) {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Array<{ question: string; result: FieldHistoryAnswer; scope: number }>>([]);
+  const [transcriptHistory, setTranscriptHistory] = useState(() => savedTurns?.slice().reverse() ?? []);
   const [pending, setPending] = useState(false);
   const [clarifications, setClarifications] = useState<string[]>([]);
   const [conversationField, setConversationField] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [decisions, setDecisions] = useState<Record<string, 'SAVED' | 'CANCELLED'>>({});
   const transcript = useRef<HTMLDivElement>(null);
-  const conversationId = useRef<string | null>(null);
+  const conversationId = useRef<string | null>(savedTurns?.[0]?.conversation_id ?? null);
 
   useEffect(() => {
     if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
@@ -46,7 +48,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
         ...(conversationField === fieldId ? { conversation_field_id: conversationField } : {}) });
       setTurns(previous => [...previous.slice(-19), { question: asked, result, scope: result.selected_field_id ?? fieldId }]);
       if (result.status === 'NEEDS_INPUT') {
-        const next = [...clarifications, asked];
+        const next = result.replaces_pending_request ? [asked] : [...clarifications, asked];
         if (next.length <= 5) setClarifications(next);
         else {
           setClarifications([]);
@@ -90,8 +92,8 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
         <div><h2 className="font-bold">Preguntá por el historial del lote</h2>
           <p className="text-xs text-slate-500">{conversationField === fieldId ? fieldName : 'Sin lote elegido en esta conversación'} · Registros con confirmación</p></div>
       </div>
-      <button type="button" disabled={pending || turns.length === 0}
-        onClick={() => { setTurns([]); setDecisions({}); setQuestion(''); setError('');
+      <button type="button" disabled={pending || (turns.length === 0 && transcriptHistory.length === 0)}
+        onClick={() => { setTurns([]); setTranscriptHistory([]); setDecisions({}); setQuestion(''); setError('');
           setClarifications([]); setConversationField(null); conversationId.current = null; }}
         className="inline-flex items-center gap-1.5 text-xs text-slate-600 disabled:opacity-40">
         <RotateCcw className="h-3.5 w-3.5" /> Nuevo chat
@@ -99,7 +101,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
     </header>
     <div ref={transcript} role="log" aria-label="Conversación del lote"
       className="min-h-52 max-h-[28rem] space-y-5 overflow-y-auto bg-slate-50/60 p-5">
-      {!turns.length && <div className="max-w-xl space-y-3">
+      {!turns.length && !transcriptHistory.length && <div className="max-w-xl space-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
           <Bot className="mr-2 inline h-4 w-4 text-emerald-700" />
           Preguntame o contame qué querés registrar. Si falta el lote, la fecha o la cantidad, te lo pregunto.
@@ -110,6 +112,13 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
               className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs text-emerald-900">{example}</button>)}
         </div>
       </div>}
+      {transcriptHistory.map(turn => <div key={turn.id} className="space-y-2">
+        <div className="ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-emerald-800 px-4 py-2.5 text-sm text-white">{turn.question}</div>
+        <article className="mr-auto max-w-[90%] whitespace-pre-wrap break-words rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+          {turn.answer}
+          {turn.outcome && <p className="text-xs font-medium">{turn.outcome === 'SAVED' ? 'Guardado' : 'Cancelado'}</p>}
+        </article>
+      </div>)}
       {turns.map(({ question: asked, result }, index) => <div key={index} className="space-y-2">
         <div className="ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-emerald-800 px-4 py-2.5 text-sm text-white">{asked}</div>
         <article className="mr-auto max-w-[90%] space-y-3 rounded-2xl rounded-bl-sm border border-slate-200 bg-white p-4 text-sm">
