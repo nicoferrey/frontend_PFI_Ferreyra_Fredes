@@ -567,6 +567,29 @@ export interface FieldHistoryAnswer {
   target_date?: string | null;
   mode?: 'CURRENT' | 'FORECAST' | null;
   parts?: FieldHistoryAnswer[];
+  selected_field_id?: number | null;
+  field_name?: string | null;
+  draft?: FieldWaterDraft | null;
+}
+
+export interface FieldWaterDraft {
+  id: string;
+  field_id: number;
+  field_name: string;
+  kind: 'irrigation' | 'rain';
+  event_date: string;
+  amount_mm: number;
+  efficiency_pct?: number | null;
+}
+
+export async function decideFieldWaterDraft(draftId: string, confirm: boolean): Promise<'SAVED' | 'CANCELLED'> {
+  const response = await apiFetch(`/api/v1/fields/history-chat/drafts/${encodeURIComponent(draftId)}/decision`, {
+    method: 'POST', body: JSON.stringify({ confirm }), cache: 'no-store',
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'No se pudo resolver el registro.');
+  if (data.status !== 'SAVED' && data.status !== 'CANCELLED') throw new Error('Respuesta de registro inválida.');
+  return data.status;
 }
 
 export async function askFieldHistoryApi(
@@ -581,7 +604,11 @@ export async function askFieldHistoryApi(
   const valid = (item: FieldHistoryAnswer) => item && ['ANSWERED', 'NO_DATA', 'UNSUPPORTED'].includes(item.status) &&
     typeof item.answer === 'string' && item.date_from === query.date_from && item.date_to === query.date_to &&
     Array.isArray(item.warnings) && item.warnings.every(warning => typeof warning === 'string');
-  if (!valid(data) || (data.parts !== undefined &&
+  const draft = data?.draft;
+  if (!valid(data) || (draft && (typeof draft.id !== 'string' ||
+      !['irrigation', 'rain'].includes(draft.kind) || !Number.isFinite(draft.amount_mm) ||
+      typeof draft.field_name !== 'string' || typeof draft.event_date !== 'string')) ||
+      (data.parts !== undefined &&
       (!Array.isArray(data.parts) || data.parts.length > 3 || !data.parts.every(valid)))) {
     throw new Error('El servicio devolvió una respuesta inválida.');
   }

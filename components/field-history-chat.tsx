@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUp, Bot, CalendarDays, Loader2, MessageSquare, RotateCcw } from 'lucide-react';
-import { askFieldHistoryApi, type FieldHistoryAnswer } from '@/lib/api';
+import { askFieldHistoryApi, decideFieldWaterDraft, type FieldHistoryAnswer } from '@/lib/api';
 import { fieldDateString, shiftFieldDate } from '@/lib/field-dates';
 
 const examples = ['Resumí el balance', '¿Cuántos días superó la AFD?', '¿Qué NDVI hay guardado?',
-  '¿Conviene regar hoy?', '¿Cuánto debería regar mañana?'];
+  '¿Conviene regar hoy?', '¿Cuánto debería regar mañana?', 'Ayer regué 20 mm', 'Ayer medí 12 mm de lluvia'];
 const conversationalExample = '¿Cuándo estuvo más seco y cómo cambió el agotamiento después de las lluvias?';
 
-export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
+export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
+  fieldId: number; fieldName: string; onSelectField: (id: number) => void;
+}) {
   const yesterday = shiftFieldDate(fieldDateString(), -1);
   const [from, setFrom] = useState(shiftFieldDate(yesterday, -89));
   const [to, setTo] = useState(yesterday);
@@ -17,6 +19,7 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
   const [turns, setTurns] = useState<Array<{ question: string; result: FieldHistoryAnswer }>>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [decisions, setDecisions] = useState<Record<string, 'SAVED' | 'CANCELLED'>>({});
   const transcript = useRef<HTMLDivElement>(null);
   const validRange = !!from && !!to && from <= to && to <= yesterday && from >= shiftFieldDate(to, -89);
 
@@ -37,8 +40,23 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
         ...(previous ? { previous_question: previous } : {}) });
       setTurns(previous => [...previous.slice(-19), { question: asked, result }]);
       setQuestion('');
+      if (result.selected_field_id) onSelectField(result.selected_field_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo consultar el historial.');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function decide(id: string, confirm: boolean) {
+    if (pending || decisions[id]) return;
+    setPending(true);
+    setError('');
+    try {
+      const result = await decideFieldWaterDraft(id, confirm);
+      setDecisions(old => ({ ...old, [id]: result }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo resolver el registro.');
     } finally {
       setPending(false);
     }
@@ -49,10 +67,10 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
       <div className="flex items-center gap-3">
         <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-800"><MessageSquare className="h-5 w-5" /></div>
         <div><h2 className="font-bold">Preguntá por el historial del lote</h2>
-          <p className="text-xs text-slate-500">Datos del lote seleccionado · Solo consulta</p></div>
+          <p className="text-xs text-slate-500">{fieldName} · Consultas y registros con confirmación</p></div>
       </div>
       <button type="button" disabled={pending || turns.length === 0}
-        onClick={() => { setTurns([]); setQuestion(''); setError(''); }}
+        onClick={() => { setTurns([]); setDecisions({}); setQuestion(''); setError(''); }}
         className="inline-flex items-center gap-1.5 text-xs text-slate-600 disabled:opacity-40">
         <RotateCcw className="h-3.5 w-3.5" /> Nuevo chat
       </button>
@@ -73,7 +91,7 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
       {!turns.length && <div className="max-w-xl space-y-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
           <Bot className="mr-2 inline h-4 w-4 text-emerald-700" />
-          Puedo ayudarte a entender el balance, la lluvia, el NDVI y la recomendación de riego de este lote.
+          Consultá el balance, nombrá otro lote del establecimiento o prepará un registro de lluvia o riego.
         </div>
         <div className="flex flex-wrap gap-2">
           {[...examples, conversationalExample].map(example =>
@@ -84,6 +102,7 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
       {turns.map(({ question: asked, result }, index) => <div key={index} className="space-y-2">
         <div className="ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-emerald-800 px-4 py-2.5 text-sm text-white">{asked}</div>
         <article className="mr-auto max-w-[90%] space-y-3 rounded-2xl rounded-bl-sm border border-slate-200 bg-white p-4 text-sm">
+          {result.field_name && <p className="text-xs font-semibold text-emerald-800">{result.field_name}</p>}
           {(result.parts?.length ? result.parts : [result]).map((part, i) => <div key={i} className="space-y-1">
             <p>{part.answer}</p>
             <p className="text-xs text-slate-500">{part.target_date
@@ -91,6 +110,22 @@ export function FieldHistoryChat({ fieldId }: { fieldId: number }) {
               : `${part.date_from} a ${part.date_to}`}</p>
             {part.warnings.map(warning => <p key={warning} className="text-xs text-slate-600">{warning}</p>)}
           </div>)}
+          {result.draft && (() => {
+            const draft = result.draft;
+            const state = decisions[draft.id];
+            return <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="font-semibold">{draft.kind === 'rain' ? 'Lluvia manual' : 'Riego aplicado'} · {draft.amount_mm} mm</p>
+              <p>{draft.field_name} · {draft.event_date}</p>
+              {draft.efficiency_pct != null && <p className="text-xs">Eficiencia estimada: {draft.efficiency_pct}%.</p>}
+              {state ? <p role="status">{state === 'SAVED' ? 'Guardado en Historial.' : 'Borrador cancelado.'}</p>
+                : <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={pending} onClick={() => decide(draft.id, true)}
+                    className="rounded-lg bg-emerald-800 px-3 py-1.5 text-white disabled:opacity-50">Confirmar</button>
+                  <button type="button" disabled={pending} onClick={() => decide(draft.id, false)}
+                    className="rounded-lg border border-emerald-300 px-3 py-1.5 disabled:opacity-50">Cancelar</button>
+                </div>}
+            </div>;
+          })()}
         </article>
       </div>)}
       {pending && <p className="text-sm text-slate-600"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Consultando…</p>}

@@ -220,7 +220,10 @@ export default function DashboardAssistantPage() {
       </section>
 
       {lot && auth.user && !auth.isLoading && <FieldHistoryChat
-        key={`${auth.user.id}:${currentFarmId}:${lot.id}`} fieldId={Number(lot.id)} />}
+        key={`${auth.user.id}:${currentFarmId}:${lot.id}`} fieldId={Number(lot.id)} fieldName={lot.name}
+        onSelectField={id => {
+          if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
+        }} />}
 
       {response && <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4" aria-live="polite">
         <h3 className="text-lg font-bold">Resumen modelado FAO-56</h3>
