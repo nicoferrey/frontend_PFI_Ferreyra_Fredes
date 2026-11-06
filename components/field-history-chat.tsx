@@ -164,7 +164,8 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
       <details className="text-xs text-slate-600">
         <summary className="cursor-pointer">Privacidad del chat</summary>
         <p className="mt-1">La conversación se guarda en tu historial. El texto necesario para entender tu consulta se
-          procesa con un proveedor externo (Google); no se envían los registros del lote. No incluyas información personal.</p>
+          procesa con Google. Para continuar el chat, Google conserva las interacciones y puede recibir resúmenes
+          de los resultados consultados. Los nombres de tus lotes se reemplazan por referencias. No incluyas información personal.</p>
       </details>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
