@@ -144,8 +144,11 @@ test('assistant renders canonical values and warnings, never drafts, raw data or
   });
   const html = renderToStaticMarkup(React.createElement(page.default));
   for (const expected of ['Registered lot', 'Preguntá por el historial del lote', 'Canonical FAO summary', '3.03 mm', '77.00 mm', '140.00 mm',
-    'IRRIGATION_UNKNOWN', 'INITIAL_ESTIMATED', 'RAG_LIMITED', 'Cargando historial de WhatsApp']) assert.ok(html.includes(expected), expected);
+    'IRRIGATION_UNKNOWN', 'INITIAL_ESTIMATED', 'RAG_LIMITED', 'Cargando historial de WhatsApp',
+    'Historial de conversaciones', 'Mis chats web']) assert.ok(html.includes(expected), expected);
   for (const excluded of ['REJECTED_DRAFT', 'RAW_PAYLOAD', 'FAKE_DEMO_LOT', 'Carlos Gómez', '5555-010']) assert.equal(html.includes(excluded), false, excluded);
+  assert.equal(html.includes('Gemini interpreta las preguntas'), false);
+  assert.equal(html.includes('Gemini elige las herramientas'), false);
 });
 
 test('forgot-password declares unavailable and signup accepts real owner email', () => {

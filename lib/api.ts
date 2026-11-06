@@ -594,7 +594,7 @@ export async function decideFieldWaterDraft(draftId: string, confirm: boolean): 
 
 export async function askFieldHistoryApi(
   fieldId: number, query: { question: string; previous_question?: string;
-    pending_messages?: string[]; conversation_field_id?: number },
+    pending_messages?: string[]; conversation_field_id?: number; conversation_id?: string },
 ): Promise<FieldHistoryAnswer> {
   const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
     method: 'POST', body: JSON.stringify(query), cache: 'no-store',
@@ -613,6 +613,24 @@ export async function askFieldHistoryApi(
       (!Array.isArray(data.parts) || data.parts.length > 3 || !data.parts.every(valid)))) {
     throw new Error('El servicio devolvió una respuesta inválida.');
   }
+  return data;
+}
+
+export interface WebAssistantTurn {
+  id: number;
+  conversation_id: string;
+  question: string;
+  answer: string;
+  field_name: string;
+  created_at: string;
+  outcome: 'SAVED' | 'CANCELLED' | null;
+}
+
+export async function getWebAssistantHistoryApi(fieldId: number, signal?: AbortSignal): Promise<WebAssistantTurn[]> {
+  const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat/conversations`, { cache: 'no-store', signal });
+  if (!response.ok) throw new Error('No se pudo cargar el historial web.');
+  const data = await response.json();
+  if (!Array.isArray(data)) throw new Error('El historial web no está disponible.');
   return data;
 }
 

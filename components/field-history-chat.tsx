@@ -8,8 +8,8 @@ const examples = ['¿Cuánto llovió en los últimos 7 días?', '¿Cuántos día
   '¿Conviene regar hoy?', '¿Cuánto debería regar mañana?', 'Ayer regué 20 mm', 'Ayer medí 12 mm de lluvia'];
 const conversationalExample = '¿Cuándo estuvo más seco y cómo cambió el agotamiento después de las lluvias?';
 
-export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
-  fieldId: number; fieldName: string; onSelectField: (id: number) => void;
+export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryChanged }: {
+  fieldId: number; fieldName: string; onSelectField: (id: number) => void; onHistoryChanged: () => void;
 }) {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Array<{ question: string; result: FieldHistoryAnswer; scope: number }>>([]);
@@ -19,6 +19,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
   const [error, setError] = useState('');
   const [decisions, setDecisions] = useState<Record<string, 'SAVED' | 'CANCELLED'>>({});
   const transcript = useRef<HTMLDivElement>(null);
+  const conversationId = useRef<string | null>(null);
 
   useEffect(() => {
     if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
@@ -33,7 +34,9 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
     try {
       const last = turns.at(-1);
       const previous = last?.scope === fieldId && last.result.status === 'ANSWERED' && !last.result.draft ? last.question : undefined;
+      conversationId.current ??= globalThis.crypto.randomUUID();
       const result = await askFieldHistoryApi(fieldId, { question: asked,
+        conversation_id: conversationId.current,
         ...(previous && !clarifications.length ? { previous_question: previous } : {}),
         ...(clarifications.length ? { pending_messages: clarifications } : {}),
         ...(conversationField === fieldId ? { conversation_field_id: conversationField } : {}) });
@@ -49,6 +52,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
         setClarifications([]);
       }
       setQuestion('');
+      onHistoryChanged();
       if (result.selected_field_id) {
         onSelectField(result.selected_field_id);
         setConversationField(result.selected_field_id);
@@ -67,6 +71,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
     try {
       const result = await decideFieldWaterDraft(id, confirm);
       setDecisions(old => ({ ...old, [id]: result }));
+      onHistoryChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo resolver el registro.');
     } finally {
@@ -83,7 +88,7 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
       </div>
       <button type="button" disabled={pending || turns.length === 0}
         onClick={() => { setTurns([]); setDecisions({}); setQuestion(''); setError('');
-          setClarifications([]); setConversationField(null); }}
+          setClarifications([]); setConversationField(null); conversationId.current = null; }}
         className="inline-flex items-center gap-1.5 text-xs text-slate-600 disabled:opacity-40">
         <RotateCcw className="h-3.5 w-3.5" /> Nuevo chat
       </button>
@@ -143,8 +148,11 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField }: {
         <button type="submit" aria-label="Enviar pregunta" disabled={pending || !question.trim()}
           className="rounded-xl bg-emerald-700 p-2.5 text-white disabled:opacity-40"><ArrowUp className="h-5 w-5" /></button>
       </div>
-      <p className="text-xs text-slate-600"><strong>Gemini interpreta las preguntas.</strong> Al enviar, se comparten
-        la pregunta y las aclaraciones pendientes, no los registros del lote. No incluyas información personal.</p>
+      <details className="text-xs text-slate-600">
+        <summary className="cursor-pointer">Privacidad del chat</summary>
+        <p className="mt-1">La conversación se guarda en tu historial. El texto necesario para entender tu consulta se
+          procesa con un proveedor externo (Google); no se envían los registros del lote. No incluyas información personal.</p>
+      </details>
       {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
     </form>
   </section>;

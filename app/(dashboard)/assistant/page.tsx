@@ -8,18 +8,9 @@ import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
 import { FieldHistoryChat } from '@/components/field-history-chat';
 import { useAuth } from '@/lib/auth-context';
-import { evaluateSupervisorApi, getTeamMembersApi, type FieldTeamMember, type SupervisorEvaluation } from '@/lib/api';
+import { evaluateSupervisorApi, getTeamMembersApi, getWebAssistantHistoryApi, type FieldTeamMember,
+  type SupervisorEvaluation, type WebAssistantTurn } from '@/lib/api';
 
-const toolLabels: Record<string, string> = {
-  get_field_context: 'Consultar contexto del lote',
-  get_latest_hydric_state: 'Consultar balance disponible',
-  calculate_water_balance: 'Calcular balance FAO-56',
-  get_latest_ndvi: 'Consultar observación satelital',
-  get_ndvi: 'Consultar observación satelital',
-  get_weather: 'Consultar clima',
-  search_agronomic_knowledge: 'Recuperar y evaluar bibliografía',
-  get_crop_reference: 'Consultar parámetros de cultivo',
-};
 const thresholdLabels: Record<string, string> = {
   ABOVE_AFD: 'Agotamiento modelado por encima de AFD',
   NEAR_AFD: 'Agotamiento modelado cercano a AFD',
@@ -51,6 +42,23 @@ export default function DashboardAssistantPage() {
   const [error, setError] = useState<{ fieldId: number; message: string } | null>(null);
   const [members, setMembers] = useState<FieldTeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [webRevision, setWebRevision] = useState(0);
+  const [webHistory, setWebHistory] = useState<{ scope: string; turns: WebAssistantTurn[]; error?: string } | null>(null);
+  const webScope = `${auth.user?.id ?? ''}:${currentFarmId ?? lot?.id ?? ''}`;
+  const historyFieldId = auth.currentFields[0]?.id;
+  useEffect(() => {
+    if (!historyFieldId || !auth.user || auth.isLoading) return;
+    const controller = new AbortController();
+    getWebAssistantHistoryApi(Number(historyFieldId), controller.signal).then(
+      turns => { if (!controller.signal.aborted) setWebHistory({ scope: webScope, turns }); },
+      () => { if (!controller.signal.aborted) setWebHistory({ scope: webScope, turns: [], error: 'No se pudo cargar el historial web.' }); },
+    );
+    return () => controller.abort();
+  }, [historyFieldId, auth.user?.id, auth.isLoading, webScope, webRevision]);
+  const visibleWebHistory = auth.user && !auth.isLoading && historyFieldId && webHistory?.scope === webScope ? webHistory : null;
+  const webConversations = Object.values((visibleWebHistory?.turns ?? []).reduce<Record<string, WebAssistantTurn[]>>(
+    (groups, turn) => { (groups[turn.conversation_id] ??= []).push(turn); return groups; }, Object.create(null),
+  ));
   const response = lot ? evaluations[String(lot.id)] : undefined;
   const warnings = useMemo(() => Array.from(new Set([
     ...(response?.warnings || []),
@@ -199,11 +207,12 @@ export default function DashboardAssistantPage() {
   const summary = response?.model_state_summary;
   return (
     <div className="space-y-6">
-      <PageHeader badge="Evaluación supervisada" title="Asistente" titleAccent="de riego"
-        description="Gemini elige las herramientas; FAO-56 calcula el balance; Jev evalúa la pertinencia de la evidencia bibliográfica."
+      <PageHeader badge="AgroMAS" title="Asistente" titleAccent="de riego"
+        description="Consultá tus lotes y registrá riegos o lluvias en el chat."
         icon={<BrainCircuit className="h-6 w-6" />} />
       {lot && auth.user && !auth.isLoading && <FieldHistoryChat
         key={`${auth.user.id}:${currentFarmId}`} fieldId={Number(lot.id)} fieldName={lot.name}
+        onHistoryChanged={() => setWebRevision(value => value + 1)}
         onSelectField={id => {
           if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
         }} />}
@@ -221,8 +230,7 @@ export default function DashboardAssistantPage() {
       </details>
 
       {response && <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4" aria-live="polite">
-        <h3 className="text-lg font-bold">Resumen modelado FAO-56</h3>
-        <p className="text-sm text-slate-600">Estado de ejecución: {response.status} · Modo normal ({response.mode}){response.model ? ' · ' + response.model : ''}</p>
+        <h3 className="text-lg font-bold">Estado hídrico estimado</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[['Dr — agotamiento', summary?.dr_mm], ['AFD — umbral disponible', summary?.afd_mm], ['TAW — capacidad disponible', summary?.taw_mm]].map(([label, value]) => (
             <div key={String(label)} className="rounded-xl bg-slate-50 p-4">
@@ -242,16 +250,6 @@ export default function DashboardAssistantPage() {
           <p className="font-semibold text-amber-900">Advertencias de datos y evidencia</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         </div>}
-        <details className="rounded-xl border border-slate-200 p-4">
-          <summary className="cursor-pointer font-semibold">Pasos ejecutados y motivos públicos</summary>
-          <p className="mt-2 text-xs text-slate-500">Motivos declarados para planificar consultas; no son pensamientos internos ni hechos agronómicos verificados.</p>
-          <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm">
-            {response.steps.map((step) => <li key={step.index}>
-              <p className="font-semibold">{toolLabels[step.decision.tool_name || ''] || step.decision.tool_name || step.decision.action}{step.tool_result ? ' — ' + step.tool_result.status : ''}</p>
-              <p className="text-slate-600">{step.decision.reason}</p>
-            </li>)}
-          </ol>
-        </details>
       </section>}
 
           {/* SECOND ROW (100% Width): WHATSAPP CONVERSATIONS BY TEAM MEMBER */}
@@ -265,15 +263,36 @@ export default function DashboardAssistantPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-950">
-                    Conversaciones & Reportes por WhatsApp
+                    Historial de conversaciones
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Registro consolidado de consultas, alertas y notificaciones intercambiadas por el personal del campo.
+                    Tus conversaciones web y la actividad del establecimiento por WhatsApp.
                   </p>
                 </div>
               </div>
             </div>
 
+            <section className="mb-6 space-y-2" aria-label="Mis chats web">
+              <h4 className="text-sm font-bold">Mis chats web</h4>
+              {visibleWebHistory?.error && <p role="alert" className="text-sm text-rose-700">{visibleWebHistory.error}</p>}
+              {visibleWebHistory && !visibleWebHistory.error && !webConversations.length &&
+                <p className="text-sm text-slate-500">No hay conversaciones web en los últimos 90 días.</p>}
+              {!visibleWebHistory && Boolean(historyFieldId) && <p className="text-sm text-slate-500">Cargando tus chats web…</p>}
+              {webConversations.map(group => <details key={group[0].conversation_id} className="rounded-xl border border-slate-200 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Web · {group.at(-1)?.question} · {formatDate(group[0].created_at)}
+                </summary>
+                <div className="mt-3 space-y-3">
+                  {[...group].reverse().map(turn => <article key={turn.id} className="rounded-xl bg-slate-50 p-3 text-sm">
+                    <p className="text-xs text-slate-500">{turn.field_name} · {formatDate(turn.created_at)}</p>
+                    <p className="font-semibold break-words">{turn.question}</p>
+                    <p className="whitespace-pre-wrap break-words">{turn.answer}</p>
+                    {turn.outcome && <p className="text-xs font-medium">{turn.outcome === 'SAVED' ? 'Guardado' : 'Cancelado'}</p>}
+                  </article>)}
+                </div>
+              </details>)}
+            </section>
+            <h4 className="mb-2 text-sm font-bold">WhatsApp</h4>
             {/* Member Cards Grid (Full Width 3 Columns) */}
             {isLoadingHistory ? (
               <div className="py-12 text-center text-sm font-medium text-slate-400">
