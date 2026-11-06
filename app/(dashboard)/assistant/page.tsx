@@ -45,7 +45,7 @@ export default function DashboardAssistantPage() {
   const [webRevision, setWebRevision] = useState(0);
   const [resumedChat, setResumedChat] = useState<{ scope: string; turns: WebAssistantTurn[]; revision: number } | null>(null);
   const [webHistory, setWebHistory] = useState<{ scope: string; turns: WebAssistantTurn[]; error?: string } | null>(null);
-  const webScope = `${auth.user?.id ?? ''}:${currentFarmId ?? lot?.id ?? ''}`;
+  const webScope = `${auth.user?.id ?? ''}:${currentFarmId ?? 'unassigned'}`;
   const activeChat = resumedChat?.scope === webScope ? resumedChat : null;
   const historyFieldId = auth.currentFields[0]?.id;
   useEffect(() => {
