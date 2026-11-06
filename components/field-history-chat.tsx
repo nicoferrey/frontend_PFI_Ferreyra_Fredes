@@ -34,10 +34,14 @@ export function FieldHistoryChat({ fieldId, fieldName, onSelectField, onHistoryC
     try {
       const last = turns.at(-1);
       const previous = last?.scope === fieldId && last.result.status === 'ANSWERED' && !last.result.draft ? last.question : undefined;
+      const memory = conversationField === fieldId
+        ? turns.slice().reverse().find(turn => turn.scope === fieldId && turn.result.read_context)?.result.read_context
+        : undefined;
       conversationId.current ??= globalThis.crypto.randomUUID();
       const result = await askFieldHistoryApi(fieldId, { question: asked,
         conversation_id: conversationId.current,
-        ...(previous && !clarifications.length ? { previous_question: previous } : {}),
+        ...(memory ? { read_context: memory } : {}),
+        ...(previous && !memory && !clarifications.length ? { previous_question: previous } : {}),
         ...(clarifications.length ? { pending_messages: clarifications } : {}),
         ...(conversationField === fieldId ? { conversation_field_id: conversationField } : {}) });
       setTurns(previous => [...previous.slice(-19), { question: asked, result, scope: result.selected_field_id ?? fieldId }]);

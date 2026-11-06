@@ -557,6 +557,12 @@ export async function evaluateSupervisorApi(fieldId: number, maxSteps = 6): Prom
   }
 }
 
+export interface FieldChatReadContext {
+  topics: string[];
+  date_from?: string | null;
+  date_to?: string | null;
+}
+
 export interface FieldHistoryAnswer {
   status: 'ANSWERED' | 'NO_DATA' | 'UNSUPPORTED' | 'NEEDS_INPUT';
   answer: string;
@@ -570,6 +576,7 @@ export interface FieldHistoryAnswer {
   selected_field_id?: number | null;
   field_name?: string | null;
   draft?: FieldWaterDraft | null;
+  read_context?: FieldChatReadContext | null;
 }
 
 export interface FieldWaterDraft {
@@ -594,7 +601,8 @@ export async function decideFieldWaterDraft(draftId: string, confirm: boolean): 
 
 export async function askFieldHistoryApi(
   fieldId: number, query: { question: string; previous_question?: string;
-    pending_messages?: string[]; conversation_field_id?: number; conversation_id?: string },
+    pending_messages?: string[]; conversation_field_id?: number; conversation_id?: string;
+    read_context?: FieldChatReadContext },
 ): Promise<FieldHistoryAnswer> {
   const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
     method: 'POST', body: JSON.stringify(query), cache: 'no-store',
