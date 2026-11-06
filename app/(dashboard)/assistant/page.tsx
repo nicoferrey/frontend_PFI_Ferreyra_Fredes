@@ -43,6 +43,7 @@ export default function DashboardAssistantPage() {
   const [members, setMembers] = useState<FieldTeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [webRevision, setWebRevision] = useState(0);
+  const [expandedWebHistoryScope, setExpandedWebHistoryScope] = useState<string | null>(null);
   const [resumedChat, setResumedChat] = useState<{ scope: string; turns: WebAssistantTurn[]; revision: number } | null>(null);
   const [webHistory, setWebHistory] = useState<{ scope: string; turns: WebAssistantTurn[]; error?: string } | null>(null);
   const webScope = `${auth.user?.id ?? ''}:${currentFarmId ?? 'unassigned'}`;
@@ -61,6 +62,8 @@ export default function DashboardAssistantPage() {
   const webConversations = Object.values((visibleWebHistory?.turns ?? []).reduce<Record<string, WebAssistantTurn[]>>(
     (groups, turn) => { (groups[turn.conversation_id] ??= []).push(turn); return groups; }, Object.create(null),
   ));
+  const showAllWebChats = expandedWebHistoryScope === webScope;
+  const visibleWebChats = showAllWebChats ? webConversations : webConversations.slice(0, 5);
   const response = lot ? evaluations[String(lot.id)] : undefined;
   const warnings = useMemo(() => Array.from(new Set([
     ...(response?.warnings || []),
@@ -281,7 +284,7 @@ export default function DashboardAssistantPage() {
               {visibleWebHistory && !visibleWebHistory.error && !webConversations.length &&
                 <p className="text-sm text-slate-500">No hay conversaciones web en los últimos 90 días.</p>}
               {!visibleWebHistory && Boolean(historyFieldId) && <p className="text-sm text-slate-500">Cargando tus chats web…</p>}
-              {webConversations.map(group => <details key={group[0].conversation_id} className="rounded-xl border border-slate-200 px-4 py-3">
+              {visibleWebChats.map(group => <details key={group[0].conversation_id} className="rounded-xl border border-slate-200 px-4 py-3">
                 <summary className="cursor-pointer text-sm font-medium">
                   Web · {group.at(-1)?.question} · {formatDate(group[0].created_at)}
                 </summary>
@@ -298,6 +301,11 @@ export default function DashboardAssistantPage() {
                   </article>)}
                 </div>
               </details>)}
+              {webConversations.length > 5 && <button type="button" aria-expanded={showAllWebChats}
+                onClick={() => setExpandedWebHistoryScope(showAllWebChats ? null : webScope)}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50">
+                {showAllWebChats ? 'Ver menos' : 'Ver más'}
+              </button>}
             </section>
             <h4 className="mb-2 text-sm font-bold">WhatsApp</h4>
             {/* Member Cards Grid (Full Width 3 Columns) */}
