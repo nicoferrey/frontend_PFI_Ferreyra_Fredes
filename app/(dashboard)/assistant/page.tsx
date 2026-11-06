@@ -202,14 +202,15 @@ export default function DashboardAssistantPage() {
       <PageHeader badge="Evaluación supervisada" title="Asistente" titleAccent="de riego"
         description="Gemini elige las herramientas; FAO-56 calcula el balance; Jev evalúa la pertinencia de la evidencia bibliográfica."
         icon={<BrainCircuit className="h-6 w-6" />} />
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <label htmlFor="supervisor-field" className="block text-sm font-semibold">Lote a evaluar</label>
-        <select id="supervisor-field" value={lot ? String(lot.id) : ''}
-          onChange={(event) => setSelectedLotId(event.target.value)} disabled={!auth.currentFields.length || auth.isLoading}
-          className="w-full rounded-xl border border-slate-300 p-3">
-          {!auth.currentFields.length && <option value="">No hay lotes registrados accesibles</option>}
-          {auth.currentFields.map((field) => <option key={field.id} value={String(field.id)}>{field.name}</option>)}
-        </select>
+      {lot && auth.user && !auth.isLoading && <FieldHistoryChat
+        key={`${auth.user.id}:${currentFarmId}`} fieldId={Number(lot.id)} fieldName={lot.name}
+        onSelectField={id => {
+          if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
+        }} />}
+      {!lot && !auth.isLoading && <p className="text-sm text-slate-600">No hay lotes registrados accesibles.</p>}
+
+      <details className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <summary className="cursor-pointer text-sm font-semibold">Evaluación técnica{lot ? ` · ${lot.name}` : ''}</summary>
         <p className="text-sm text-slate-600">La evaluación consulta datos y genera un resumen modelado. No envía alertas, no ejecuta riego ni reemplaza los snapshots del flujo determinístico.</p>
         <button type="button" onClick={runSupervisor} disabled={!lot || auth.isLoading || runningField !== null}
           className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white disabled:opacity-50">
@@ -217,13 +218,7 @@ export default function DashboardAssistantPage() {
           {runningField === Number(lot?.id) ? 'Evaluando lote…' : 'Evaluar con Supervisor'}
         </button>
         {error?.fieldId === Number(lot?.id) && <p role="alert" className="text-sm text-rose-700">{error?.message}</p>}
-      </section>
-
-      {lot && auth.user && !auth.isLoading && <FieldHistoryChat
-        key={`${auth.user.id}:${currentFarmId}:${lot.id}`} fieldId={Number(lot.id)} fieldName={lot.name}
-        onSelectField={id => {
-          if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
-        }} />}
+      </details>
 
       {response && <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4" aria-live="polite">
         <h3 className="text-lg font-bold">Resumen modelado FAO-56</h3>

@@ -558,7 +558,7 @@ export async function evaluateSupervisorApi(fieldId: number, maxSteps = 6): Prom
 }
 
 export interface FieldHistoryAnswer {
-  status: 'ANSWERED' | 'NO_DATA' | 'UNSUPPORTED';
+  status: 'ANSWERED' | 'NO_DATA' | 'UNSUPPORTED' | 'NEEDS_INPUT';
   answer: string;
   date_from: string;
   date_to: string;
@@ -593,16 +593,17 @@ export async function decideFieldWaterDraft(draftId: string, confirm: boolean): 
 }
 
 export async function askFieldHistoryApi(
-  fieldId: number, query: { question: string; date_from: string; date_to: string;
-    previous_question?: string },
+  fieldId: number, query: { question: string; previous_question?: string;
+    pending_messages?: string[]; conversation_field_id?: number },
 ): Promise<FieldHistoryAnswer> {
   const response = await apiFetch(`/api/v1/fields/${fieldId}/history-chat`, {
     method: 'POST', body: JSON.stringify(query), cache: 'no-store',
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'No se pudo consultar el historial.');
-  const valid = (item: FieldHistoryAnswer) => item && ['ANSWERED', 'NO_DATA', 'UNSUPPORTED'].includes(item.status) &&
-    typeof item.answer === 'string' && item.date_from === query.date_from && item.date_to === query.date_to &&
+  const valid = (item: FieldHistoryAnswer) => item && ['ANSWERED', 'NO_DATA', 'UNSUPPORTED', 'NEEDS_INPUT'].includes(item.status) &&
+    typeof item.answer === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date_from) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(item.date_to) && item.date_from <= item.date_to &&
     Array.isArray(item.warnings) && item.warnings.every(warning => typeof warning === 'string');
   const draft = data?.draft;
   if (!valid(data) || (draft && (typeof draft.id !== 'string' ||
