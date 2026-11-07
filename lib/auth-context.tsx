@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { 
   UserProfile, FieldItem, FarmSummary, getMeApi, setAccessToken, 
   getAccessToken, logoutApi, loginApi, registerApi, 
@@ -77,9 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const processFarms = async (currentFields: FieldItem[]) => {
     const grouped = groupFarms(currentFields);
-    const newFarms: FarmSummary[] = [];
-
-    for (const [farmId, farmFields] of grouped.entries()) {
+    const newFarms: FarmSummary[] = await Promise.all(
+      Array.from(grouped.entries()).map(async ([farmId, farmFields]) => {
       let name = `Establecimiento ${farmId.slice(0, 4)}`;
       let agricultural_zone = null;
       let role: 'admin' | 'agronomist' | 'operator' = 'operator';
@@ -99,14 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn(`Could not fetch farm details for ${farmId}`, err);
       }
 
-      newFarms.push({
+      return {
         id: farmId,
         name,
         agricultural_zone,
         user_role_in_farm: role,
         field_ids: farmFields.map(f => f.id)
-      });
-    }
+      };
+    }));
 
     setFarms(newFarms);
 
@@ -399,7 +398,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const currentFarm = farms.find(f => f.id === currentFarmId) || null;
-  const currentFields = currentFarmId ? fields.filter(f => f.farm_id === currentFarmId) : fields;
+  const currentFields = useMemo(
+    () => currentFarmId ? fields.filter(f => f.farm_id === currentFarmId) : fields,
+    [currentFarmId, fields]
+  );
   const currentRole = currentFarm ? currentFarm.user_role_in_farm : null;
   const isOwner = currentRole === 'admin';
 

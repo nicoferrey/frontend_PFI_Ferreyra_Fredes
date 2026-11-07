@@ -279,23 +279,21 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     if (auth.isLoading || !auth.currentFields) return;
 
     let isCancelled = false;
+    setFieldSnapshots({});
     async function loadAllSnapshots() {
-      const snapshotsMap: Record<string, FieldAgentSnapshot | null> = {};
       await Promise.all(
         auth.currentFields.map(async (field) => {
+          let snapshot: FieldAgentSnapshot | null = null;
           try {
-            const data = await getFieldAgentSnapshotApi(field.id);
-            snapshotsMap[String(field.id)] = data;
+            snapshot = await getFieldAgentSnapshotApi(field.id);
           } catch (err) {
             console.error(`Failed to load snapshot for field ${field.id}:`, err);
-            snapshotsMap[String(field.id)] = null;
+          }
+          if (!isCancelled) {
+            setFieldSnapshots(previous => ({ ...previous, [String(field.id)]: snapshot }));
           }
         })
       );
-
-      if (!isCancelled) {
-        setFieldSnapshots(snapshotsMap);
-      }
     }
 
     if (auth.currentFields.length > 0) {

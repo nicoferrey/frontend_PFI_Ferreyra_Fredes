@@ -976,6 +976,7 @@ export interface IrrigationEvent {
   method?: string;
   notes?: string;
   registered_by?: string; // UUID
+  registered_by_name?: string | null;
   created_at?: string;
 }
 
@@ -986,6 +987,7 @@ export interface RainfallEvent {
   amount_mm: number;
   notes?: string;
   registered_by?: string; // UUID
+  registered_by_name?: string | null;
   created_at?: string;
 }
 

@@ -248,12 +248,12 @@ export default function DashboardHistoryPage() {
   // Consolidated list of events for History Tab (Manual + Climatic Rainfall & Irrigation)
   const consolidatedEvents = useMemo(() => {
     const getMemberName = (uuid?: string) => {
-      if (!uuid) return 'Sistema';
+      if (!uuid) return 'Nombre no disponible';
       const member = teamMembers.find((m) => String(m.id) === String(uuid));
       if (member) {
-        return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim();
+        return member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Nombre no disponible';
       }
-      return uuid;
+      return 'Nombre no disponible';
     };
 
     const eventDateKey = (value: string) => fieldEventDate(value);
@@ -326,7 +326,7 @@ export default function DashboardHistoryPage() {
       amount_mm: e.amount_mm,
       method: e.method || 'Manual Campo',
       notes: formatNdviObservation(eventDateKey(e.applied_at), null, e.notes),
-      registered_by: getMemberName(e.registered_by),
+      registered_by: e.registered_by_name || getMemberName(e.registered_by),
       isManual: true,
     }));
 
@@ -338,7 +338,7 @@ export default function DashboardHistoryPage() {
       amount_mm: e.amount_mm,
       method: 'Pluviómetro Manual',
       notes: formatNdviObservation(eventDateKey(e.recorded_at), null, e.notes),
-      registered_by: getMemberName(e.registered_by),
+      registered_by: e.registered_by_name || getMemberName(e.registered_by),
       isManual: true,
     }));
 
