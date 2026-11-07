@@ -1,28 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { BrainCircuit, Loader2, MessageSquare, X, Clock, User, ArrowRight, Phone, MessageCircle, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { MessageSquare, X, Clock, User, ArrowRight, Phone, MessageCircle, ChevronRight } from 'lucide-react';
 import { ModalPortal } from '@/components/modal-portal';
 import { formatPhoneWhatsapp } from '@/lib/phone-formatter';
 import { useDashboard } from '@/app/(dashboard)/context';
 import { PageHeader } from '@/components/page-header';
 import { FieldHistoryChat } from '@/components/field-history-chat';
 import { useAuth } from '@/lib/auth-context';
-import { evaluateSupervisorApi, getTeamMembersApi, getWebAssistantHistoryApi, type FieldTeamMember,
-  type SupervisorEvaluation, type WebAssistantTurn } from '@/lib/api';
-
-const thresholdLabels: Record<string, string> = {
-  ABOVE_AFD: 'Agotamiento modelado por encima de AFD',
-  NEAR_AFD: 'Agotamiento modelado cercano a AFD',
-  BELOW_AFD: 'Agotamiento modelado por debajo de AFD',
-};
-const roleLabels: Record<string, string> = {
-  admin: 'Administrador', agronomist: 'Asesor agrónomo', operator: 'Operador de riego',
-};
-
-function millimeters(value: number | undefined): string {
-  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) + ' mm' : 'Sin dato';
-}
+import { getWebAssistantHistoryApi, type WebAssistantTurn } from '@/lib/api';
 
 function formatDate(value: string | undefined, fallback = '-'): string {
   if (!value) return fallback;
@@ -37,11 +23,6 @@ export default function DashboardAssistantPage() {
   const currentFarmId = auth.currentFarmId;
   // Use persisted authorized fields, never the dashboard's demonstration lots.
   const lot = auth.currentFields.find((field) => String(field.id) === selectedLotId) || auth.currentFields[0];
-  const [evaluations, setEvaluations] = useState<Record<string, SupervisorEvaluation>>({});
-  const [runningField, setRunningField] = useState<number | null>(null);
-  const [error, setError] = useState<{ fieldId: number; message: string } | null>(null);
-  const [members, setMembers] = useState<FieldTeamMember[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
   const [webRevision, setWebRevision] = useState(0);
   const [expandedWebHistoryScope, setExpandedWebHistoryScope] = useState<string | null>(null);
   const [resumedChat, setResumedChat] = useState<{ scope: string; turns: WebAssistantTurn[]; revision: number } | null>(null);
@@ -64,42 +45,6 @@ export default function DashboardAssistantPage() {
   ));
   const showAllWebChats = expandedWebHistoryScope === webScope;
   const visibleWebChats = showAllWebChats ? webConversations : webConversations.slice(0, 5);
-  const response = lot ? evaluations[String(lot.id)] : undefined;
-  const warnings = useMemo(() => Array.from(new Set([
-    ...(response?.warnings || []),
-    ...(response?.evidence_warnings || []),
-    ...(response?.knowledge_warnings || []),
-  ])), [response]);
-
-  useEffect(() => {
-    setEvaluations({});
-    setError(null);
-  }, [auth.user?.id, auth.currentFarmId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setMembers([]);
-    if (!lot || auth.isLoading) {
-      setLoadingMembers(false);
-      return;
-    }
-    setLoadingMembers(true);
-    getTeamMembersApi(auth.currentFarmId).then((data) => {
-      if (!cancelled) { setMembers(data); setLoadingMembers(false); }
-    });
-    return () => { cancelled = true; };
-  }, [lot?.id, auth.currentFarmId, auth.isLoading]);
-
-  async function runSupervisor() {
-    if (!lot || runningField !== null) return;
-    const fieldId = Number(lot.id);
-    setRunningField(fieldId);
-    setError(null);
-    const result = await evaluateSupervisorApi(fieldId);
-    if (result.ok) setEvaluations((previous) => ({ ...previous, [String(fieldId)]: result.data }));
-    else setError({ fieldId, message: result.error });
-    setRunningField(null);
-  }
 
   const [selectedMemberHistory, setSelectedMemberHistory] = useState<any | null>(null);
   const [whatsappMembers, setWhatsappMembers] = useState<any[]>([]);
@@ -209,12 +154,10 @@ export default function DashboardAssistantPage() {
   }, [currentFarmId, teamMembers]);
 
 
-  const summary = response?.model_state_summary;
   return (
     <div className="space-y-6">
-      <PageHeader badge="AgroMAS" title="Asistente" titleAccent="de riego"
-        description="Consultá tus lotes y registrá riegos o lluvias en el chat."
-        icon={<BrainCircuit className="h-6 w-6" />} />
+      <PageHeader badge="Asistente IA" title="Asistente" titleAccent="de riego"
+        description="Consultá tus lotes y registrá riegos o lluvias en el chat." />
       {lot && auth.user && !auth.isLoading && <FieldHistoryChat
         key={`${webScope}:${activeChat?.revision ?? 0}`} fieldId={Number(lot.id)} fieldName={lot.name}
         savedTurns={activeChat?.turns}
@@ -223,40 +166,6 @@ export default function DashboardAssistantPage() {
           if (auth.currentFields.some(field => Number(field.id) === id)) setSelectedLotId(String(id));
         }} />}
       {!lot && !auth.isLoading && <p className="text-sm text-slate-600">No hay lotes registrados accesibles.</p>}
-
-      <details className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <summary className="cursor-pointer text-sm font-semibold">Evaluación técnica{lot ? ` · ${lot.name}` : ''}</summary>
-        <p className="text-sm text-slate-600">La evaluación consulta datos y genera un resumen modelado. No envía alertas, no ejecuta riego ni reemplaza los snapshots del flujo determinístico.</p>
-        <button type="button" onClick={runSupervisor} disabled={!lot || auth.isLoading || runningField !== null}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white disabled:opacity-50">
-          {runningField !== null && <Loader2 className="h-4 w-4 animate-spin" />}
-          {runningField === Number(lot?.id) ? 'Evaluando lote…' : 'Evaluar con Supervisor'}
-        </button>
-        {error?.fieldId === Number(lot?.id) && <p role="alert" className="text-sm text-rose-700">{error?.message}</p>}
-      </details>
-
-      {response && <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4" aria-live="polite">
-        <h3 className="text-lg font-bold">Estado hídrico estimado</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[['Dr — agotamiento', summary?.dr_mm], ['AFD — umbral disponible', summary?.afd_mm], ['TAW — capacidad disponible', summary?.taw_mm]].map(([label, value]) => (
-            <div key={String(label)} className="rounded-xl bg-slate-50 p-4">
-              <p className="text-xs text-slate-600">{label}</p>
-              <p className="mt-1 text-xl font-bold">{millimeters(typeof value === 'number' ? value : undefined)}</p>
-            </div>
-          ))}
-        </div>
-        <p className="text-sm">{summary?.threshold_status ? thresholdLabels[summary.threshold_status] || summary.threshold_status : 'Estado hídrico modelado no disponible.'}{summary?.state_date ? ' · Fecha del estado: ' + summary.state_date : ''}</p>
-        <p className="text-xs text-slate-500">Estos valores provienen del modelo y sus datos de entrada: no son mediciones de sensores ni una orden automática de riego.</p>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="font-semibold">Conclusión publicada</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm">{response.conclusion || 'No se obtuvo una conclusión publicable con la evidencia disponible.'}</p>
-        </div>
-        {response.question && <p className="text-sm">Dato que solicita el Supervisor: {response.question}</p>}
-        {warnings.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="font-semibold text-amber-900">Advertencias de datos y evidencia</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
-        </div>}
-      </section>}
 
           {/* SECOND ROW (100% Width): WHATSAPP CONVERSATIONS BY TEAM MEMBER */}
           <div className="w-full overflow-hidden rounded-[28px] border border-slate-200/90 bg-white p-6 shadow-soft">
