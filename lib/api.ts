@@ -1239,7 +1239,8 @@ export async function getNdviHistoryApi(
   dateFrom: string,
   dateTo: string,
   source?: string,
-  refresh?: boolean
+  refresh?: boolean,
+  storedOnly?: boolean
 ): Promise<NdviHistoryItem[]> {
   try {
     let url = `/api/v1/fields/${fieldId}/ndvi-history?date_from=${dateFrom}&date_to=${dateTo}`;
@@ -1248,6 +1249,9 @@ export async function getNdviHistoryApi(
     }
     if (refresh) {
       url += `&refresh=true`;
+    }
+    if (storedOnly) {
+      url += '&stored_only=true';
     }
     const res = await apiFetch(url);
     if (!res.ok) return [];

@@ -197,7 +197,6 @@ interface DashboardContextType {
   historyReloadTrigger: number;
   setHistoryReloadTrigger: React.Dispatch<React.SetStateAction<number>>;
   realHistory: HydricHistoryDay[];
-  setRealHistory: React.Dispatch<React.SetStateAction<HydricHistoryDay[]>>;
   isLoadingHistory: boolean;
   setIsLoadingHistory: (val: boolean) => void;
   refreshAgentSnapshots: () => Promise<void>;
@@ -221,7 +220,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
 
   // Real daily history states
-  const [realHistory, setRealHistory] = useState<HydricHistoryDay[]>([]);
+  const [loadedHistory, setLoadedHistory] = useState<{ key: string; days: HydricHistoryDay[] } | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyReloadTrigger, setHistoryReloadTrigger] = useState(0);
   const [teamMembers, setTeamMembers] = useState<FieldTeamMember[]>([]);
@@ -234,6 +233,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const selectedField = useMemo(() => {
     return auth.currentFields?.find((field) => String(field.id) === selectedLotId) || null;
   }, [auth.currentFields, selectedLotId]);
+  const historyKey = `${auth.user?.id ?? ''}:${selectedField?.id ?? ''}:${dateFrom}:${dateTo}:${historyReloadTrigger}`;
+  const realHistory = useMemo(() => loadedHistory?.key === historyKey ? loadedHistory.days : [],
+    [loadedHistory, historyKey]);
 
   // Resolved Selected Snapshot
   const selectedSnapshot = useMemo(() => {
@@ -351,13 +353,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   // 3. Load real daily history when lot selected or trigger fired
   useEffect(() => {
     if (!selectedField) {
-      setRealHistory([]);
+      setLoadedHistory(null);
+      setIsLoadingHistory(false);
       setHistoryLoadError(null);
       return;
     }
 
     const fieldId = selectedField.id;
-    setRealHistory([]);
     setHistoryLoadError(null);
     let isCancelled = false;
     async function loadRealHistory() {
@@ -365,7 +367,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       try {
         const history = await getHydricHistoryApi(fieldId, dateFrom, dateTo);
         if (!isCancelled) {
-          setRealHistory(history);
+          setLoadedHistory({ key: historyKey, days: history });
         }
       } catch (err) {
         if (!isCancelled) setHistoryLoadError(err instanceof Error ? err.message : 'No se pudo cargar el historial hídrico.');
@@ -381,7 +383,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [selectedField, dateFrom, dateTo, historyReloadTrigger]);
+  }, [selectedField?.id, dateFrom, dateTo, historyKey]);
 
   return (
     <DashboardContext.Provider
@@ -412,7 +414,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         historyReloadTrigger,
         setHistoryReloadTrigger,
         realHistory,
-        setRealHistory,
         isLoadingHistory,
         setIsLoadingHistory,
         refreshAgentSnapshots,

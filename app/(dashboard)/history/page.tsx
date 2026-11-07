@@ -50,7 +50,6 @@ import {
   getIrrigationEventsApi,
   getNdviHistoryApi,
   getRainfallEventsApi,
-  getReportsSummaryApi,
   getTeamMembersApi,
   createRainfallEventApi,
   createIrrigationEventApi,
@@ -62,7 +61,6 @@ import {
   IrrigationEvent,
   NdviHistoryItem,
   RainfallEvent,
-  ReportsSummary
 } from '@/lib/api';
 
 export default function DashboardHistoryPage() {
@@ -97,8 +95,15 @@ export default function DashboardHistoryPage() {
   }, [lotsData]);
 
   // Reports and Local Loading States
-  const [reportsSummary, setReportsSummary] = useState<ReportsSummary | null>(null);
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const isLoadingReports = isLoadingHistory;
+  const reportTotals = useMemo(() => realHistory.length ? {
+    irrigation: realHistory.reduce((sum, day) => sum + day.irrigation_mm, 0),
+    rain: realHistory.reduce((sum, day) => sum + day.rain_mm, 0),
+    etc: realHistory.reduce((sum, day) => sum + day.etc_mm, 0),
+    stressDays: realHistory.filter(day => day.under_stress).length,
+  } : null, [realHistory]);
+  const irrigationVolume = reportTotals && selectedField?.area_ha != null
+    ? reportTotals.irrigation * 10 * selectedField.area_ha : null;
   const [irrigationEvents, setIrrigationEvents] = useState<IrrigationEvent[]>([]);
   const [rainfallEvents, setRainfallEvents] = useState<RainfallEvent[]>([]);
   const [ndviHistory, setNdviHistory] = useState<NdviHistoryItem[]>([]);
@@ -205,53 +210,40 @@ export default function DashboardHistoryPage() {
     return baseLot;
   }, [lotsData, selectedLotId, realHistory, selectedField]);
 
-  // Load consolidated reports & events for History Tab
+  const fieldId = selectedField?.id;
   useEffect(() => {
-    setIrrigationEvents([]); setRainfallEvents([]); setNdviHistory([]); setReportsSummary(null); setTeamMembers([]);
-    if (!selectedField) return;
-
-    const fieldId = selectedField.id;
+    setIrrigationEvents([]);
+    setRainfallEvents([]);
+    setNdviHistory([]);
+    setIsLoadingEvents(fieldId != null);
+    if (fieldId == null) return;
     let isCancelled = false;
-
-    async function loadData() {
-      setIsLoadingEvents(true);
-      setIsLoadingReports(true);
-
-      try {
-        // Extend dateFrom 60 days back for NDVI history so satellite scenes prior to selected range are always available
-        const extendedDateFrom = shiftFieldDate(dateFrom, -60);
-
-        const [irrigs, rains, ndviItems, summary, team] = await Promise.all([
-          getIrrigationEventsApi(fieldId, dateFrom, dateTo),
-          getRainfallEventsApi(fieldId, dateFrom, dateTo),
-          getNdviHistoryApi(fieldId, extendedDateFrom, dateTo, undefined, false),
-          getReportsSummaryApi(fieldId, dateFrom, dateTo),
-          getTeamMembersApi(currentFarmId)
-        ]);
-
-        if (!isCancelled) {
-          setIrrigationEvents(irrigs);
-          setRainfallEvents(rains);
-          setNdviHistory(ndviItems);
-          setReportsSummary(summary);
-          setTeamMembers(team);
-        }
-      } catch (err) {
-        console.error('Error loading history/reports data:', err);
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingEvents(false);
-          setIsLoadingReports(false);
-        }
+    Promise.all([
+      getIrrigationEventsApi(fieldId, dateFrom, dateTo),
+      getRainfallEventsApi(fieldId, dateFrom, dateTo),
+    ]).then(([irrigation, rainfall]) => {
+      if (!isCancelled) {
+        setIrrigationEvents(irrigation);
+        setRainfallEvents(rainfall);
+        setIsLoadingEvents(false);
       }
+    });
+    getNdviHistoryApi(fieldId, shiftFieldDate(dateFrom, -60), dateTo, undefined, false, true).then(items => {
+      if (!isCancelled) setNdviHistory(items);
+    });
+    return () => { isCancelled = true; };
+  }, [fieldId, dateFrom, dateTo, historyReloadTrigger]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setTeamMembers([]);
+    if (currentFarmId) {
+      getTeamMembersApi(currentFarmId).then(team => {
+        if (!isCancelled) setTeamMembers(team);
+      }).catch(error => console.error('Error loading history team:', error));
     }
-
-    loadData();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [selectedField, dateFrom, dateTo, historyReloadTrigger]);
+    return () => { isCancelled = true; };
+  }, [currentFarmId, setTeamMembers]);
 
   // Consolidated list of events for History Tab (Manual + Climatic Rainfall & Irrigation)
   const consolidatedEvents = useMemo(() => {
@@ -807,9 +799,10 @@ export default function DashboardHistoryPage() {
         {/* 1. Riegos Totales */}
         <KpiCard
           title="Riegos Aplicados"
-          value={reportsSummary?.metrics?.total_irrigation_applied_mm.toFixed(1) ?? '—'}
+          value={reportTotals?.irrigation.toFixed(1) ?? '—'}
           unit="mm"
-          subtitle={reportsSummary ? `Vol. est: ${reportsSummary.metrics.total_water_volume_m3.toLocaleString('es-AR')} m³` : 'Cargando datos...'}
+          subtitle={irrigationVolume != null ? `Vol. est: ${irrigationVolume.toLocaleString('es-AR', { maximumFractionDigits: 2 })} m³`
+            : isLoadingReports ? 'Cargando datos...' : 'Volumen estimado no disponible'}
           icon={<Droplets className="h-5 w-5" />}
           iconBgColor="bg-water-50 text-water-600 border border-water-200/60"
           isLoading={isLoadingReports}
@@ -818,7 +811,7 @@ export default function DashboardHistoryPage() {
         {/* 2. Lluvias Totales */}
         <KpiCard
           title="Lluvias Registradas"
-          value={reportsSummary?.metrics?.total_precipitation_mm.toFixed(1) ?? '—'}
+          value={reportTotals?.rain.toFixed(1) ?? '—'}
           unit="mm"
           subtitle="Automáticas + manuales"
           icon={<CloudRain className="h-5 w-5" />}
@@ -829,7 +822,7 @@ export default function DashboardHistoryPage() {
         {/* 3. Evapotranspiración Acumulada */}
         <KpiCard
           title="Consumo del cultivo (ETc)"
-          value={reportsSummary?.metrics?.total_evapotranspiration_etc_mm.toFixed(1) ?? '—'}
+          value={reportTotals?.etc.toFixed(1) ?? '—'}
           unit="mm"
           subtitle="Evapotranspiración acumulada"
           icon={<SunMedium className="h-5 w-5" />}
@@ -840,7 +833,7 @@ export default function DashboardHistoryPage() {
         {/* 4. Estrés Hídrico */}
         <KpiCard
           title="Estrés Crítico"
-          value={reportsSummary?.metrics?.days_under_stress_raw ?? '—'}
+          value={reportTotals?.stressDays ?? '—'}
           unit="días"
           subtitle="Días por encima del umbral de estrés"
           icon={<ShieldAlert className="h-5 w-5" />}
