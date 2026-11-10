@@ -512,6 +512,7 @@ export default function OnboardingWizard() {
           }
         }
 
+        const usesMeasuredWater = lot.initialWaterSource === 'MEASURED';
         const payload = {
           name: lot.name || `Lote ${idx + 1}`,
           geometry_geojson: {
@@ -523,8 +524,8 @@ export default function OnboardingWizard() {
           estimate_soil: lot.soil === AUTO_SOIL_ID,
           crop_type: lot.crop,
           irrigation_system: lot.irrigation,
-          initial_available_water_pct: lot.initialWaterPct ?? null,
-          initial_available_water_mm: lot.initialWaterSource === 'MEASURED' ? lot.initialWaterMm ?? null : null,
+          initial_available_water_pct: usesMeasuredWater ? null : lot.initialWaterPct ?? null,
+          initial_available_water_mm: usesMeasuredWater ? lot.initialWaterMm ?? null : null,
           initial_water_source: lot.initialWaterSource || 'UNKNOWN',
           sowing_date: lot.sowingDate || null,
           emergence_date: lot.emergenceDate || null,
