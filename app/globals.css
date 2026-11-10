@@ -212,3 +212,13 @@ a {
 .leaflet-tooltip.landing-map-tooltip::before {
   border-top-color: #0f172a;
 }
+
+html.relato-scroll,
+html.relato-scroll body {
+  scrollbar-width: none;
+}
+
+html.relato-scroll::-webkit-scrollbar,
+html.relato-scroll body::-webkit-scrollbar {
+  display: none;
+}

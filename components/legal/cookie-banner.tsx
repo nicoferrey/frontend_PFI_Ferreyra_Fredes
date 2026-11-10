@@ -22,7 +22,7 @@ export function CookieBanner() {
   const [marketing, setMarketing] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const onLegalPage = pathname?.startsWith('/legal') ?? false;
+  const onLegalPage = (pathname?.startsWith('/legal') || pathname?.startsWith('/interno')) ?? false;
 
   useEffect(() => {
     setMounted(true);

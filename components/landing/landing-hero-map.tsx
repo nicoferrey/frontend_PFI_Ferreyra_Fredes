@@ -106,7 +106,12 @@ const GENERIC_LOTS: Lot[] = [
   { name: 'Lote Este', crop: 'Girasol', status: 'Normal', auPct: 79, polygon: stripPolygon(0.76, 0.98) },
 ];
 
-export function LandingHeroMap() {
+type LandingHeroMapProps = {
+  showPoint?: boolean;
+  className?: string;
+};
+
+export function LandingHeroMap({ showPoint = false, className }: LandingHeroMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -124,7 +129,11 @@ export function LandingHeroMap() {
         zoomControl: false,
         attributionControl: true,
         scrollWheelZoom: false,
-        dragging: true,
+        dragging: !showPoint,
+        doubleClickZoom: !showPoint,
+        boxZoom: !showPoint,
+        keyboard: !showPoint,
+        touchZoom: !showPoint,
         minZoom: 14,
         maxZoom: 17,
       });
@@ -144,19 +153,41 @@ export function LandingHeroMap() {
           opacity: 0.95,
         }).addTo(map);
 
-        const area = polygonAreaHa(lot.polygon);
-        layer.bindTooltip(
-          `<div class="space-y-0.5">
-            <strong>${lot.name}</strong>
-            <span style="margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;background:${style.color};color:#0f172a">${style.badge}</span>
-            <br/><span>${lot.crop} · ${area.toFixed(1)} ha</span>
-            <br/><span>Agua útil ${lot.auPct}%</span>
-          </div>`,
-          { sticky: true, className: 'landing-map-tooltip' }
-        );
+        if (!showPoint) {
+          const area = polygonAreaHa(lot.polygon);
+          layer.bindTooltip(
+            `<div class="space-y-0.5">
+              <strong>${lot.name}</strong>
+              <span style="margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;background:${style.color};color:#0f172a">${style.badge}</span>
+              <br/><span>${lot.crop} · ${area.toFixed(1)} ha</span>
+              <br/><span>Agua útil ${lot.auPct}%</span>
+            </div>`,
+            { sticky: true, className: 'landing-map-tooltip' }
+          );
+        }
 
         return layer;
       });
+
+      if (showPoint) {
+        const lot = GENERIC_LOTS[1];
+        const lat = lot.polygon.reduce((sum, point) => sum + point[0], 0) / lot.polygon.length;
+        const lng = lot.polygon.reduce((sum, point) => sum + point[1], 0) / lot.polygon.length;
+        L.circleMarker([lat, lng], {
+          radius: 11,
+          color: '#ffffff',
+          weight: 3,
+          fillColor: '#0f172a',
+          fillOpacity: 1,
+        }).addTo(map);
+        L.circleMarker([lat, lng], {
+          radius: 4,
+          color: '#ffffff',
+          weight: 0,
+          fillColor: '#ffffff',
+          fillOpacity: 1,
+        }).addTo(map);
+      }
 
       const group = L.featureGroup(polygons);
       map.fitBounds(group.getBounds(), { padding: [16, 16], maxZoom: 16 });
@@ -174,12 +205,12 @@ export function LandingHeroMap() {
         map.remove();
       }
     };
-  }, []);
+  }, [showPoint]);
 
   return (
     <div
       ref={containerRef}
-      className="landing-hero-map h-[240px] w-full overflow-hidden rounded-2xl sm:h-[280px]"
+      className={className ?? 'landing-hero-map h-[240px] w-full overflow-hidden rounded-2xl sm:h-[280px]'}
     />
   );
 }
